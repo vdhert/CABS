@@ -1,0 +1,45 @@
+# example config file, letter case is irrelevant, so are whitespaces, nothing after # is read
+# 'START', 'STOP', 'LIGAND' and '=' have a special meaning
+
+# INPUT
+NATIVE_STRUCTURE            = 1RJK:A:C      # download and load native structure
+RECEPTOR                    = 1rjk_A.pdb    # filename or pdb_code
+RECEPTOR_FLEXIBILITY        = bfac_inv      # bfac - use beta factors (0 - fully flexible)
+                                            # f :float - set global flexibility to f
+                                            # filename - read file with ranges of the same restraints strength
+                                            # i.e. 123:A - 130:A WEIGHT: 0.5 (WEIGHT:0 - fully flexible)
+
+# ligand input can be up to 3 comma-separated entries
+# first defines amino acid sequence and can be either: SEQUENCE(in one-letter code) + optionally II-str after colon
+# second defines conformation and can be either: random(default) or keep(preserves conformation from input file)
+# third defines initial location and can be either: random(default), keep(preserves location from the input file)
+# or list of receptor residues joined with a '+' sign defining assumed binding site
+
+LIGAND                      = LAHCIM:CHHCEC
+LIGAND                      = 1rjk:C, random, keep
+LIGAND                      = ../test/ligand.pdb.gz, keep, 136:A+324:A
+
+# CABS SIMULATION
+MC_CYCLES                   = 50    # number of MC macrocycles, will produce 1000 = 20 x 50 models in the trajectory
+MC_STEPS                    = 50    # number of MC cycles between trajectory frames
+REPLICAS                    = 10    # number of replicas for REMC method
+T_INIT                      = 2.0   # initial temperature of the lowest replica
+T_FINAL                     = 1.0   # final temperature of the lowest replica
+REPLICAS_DTEMP              = 0.5   # temperature increment between replicas
+
+# RESTRAINTS
+CA_RESTRAINTS_STRENGTH       = 0.99   # global weight for Ca restraints
+SG_RESTRAINTS_STRENGTH       = 0.99   # global weight for Side Groups restraints
+
+#CA_RESTRAINTS_FILE          = restr_ca.txt  # alternatively can be read from file
+SG_RESTRAINTS_FILE           = restr_sg.txt
+
+START_CA_RESTRAINTS                         # start of the Ca restraints
+123:A 5:LIG1 7.12 3.14                       # i-th residue j-th residue distance in Angstroms weight for i-j restraint
+123:A 128:A 8.99 0.1                        # for restraints involving ligand use LIG as chain identifier
+STOP                                        # for more than one ligand use: LIG1, LIG2, ...
+                                            # keeping order from LIGAND input
+
+START_SG_RESTRAINTS                         # start of the side chains restraints
+123:A 3:LIG2 4.5 1.0
+STOP
