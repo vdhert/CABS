@@ -6,13 +6,21 @@ from os import getcwd, mkdir
 from os.path import exists, isdir
 import re
 from protein import *
+from restraints import *
+
+__all__ = ['Job']
 
 
 class Config(dict):
+    """
+    Smart dictionary that can append items with 'ligand' key instead of overwriting them.
+    TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
+    """
     def __init__(self, config):
         dict.__init__(self, config)
 
     def read_file(self, filename):
+        """Config file parser"""
         patt = re.compile('(\w+)\s+=\s+([\w:.-]+)')
         patt_start = re.compile('start_(\w+)', re.IGNORECASE)
         patt_stop = re.compile('stop', re.IGNORECASE)
@@ -61,6 +69,7 @@ class Config(dict):
                         self[key] = val
 
     def add_config(self, config):
+        """Parser for job parameters"""
         if 'ligand' in config:
             if 'ligand' not in self:
                 self['ligand'] = []
@@ -75,7 +84,8 @@ class Config(dict):
         self.update(config)
         return self
 
-    def fix_ligand(self):
+    def fix_ligands(self):
+        """Function that makes sure each ligand entry in config['ligand'] list is a 3-element tuple"""
         if 'ligand' in self:
             for i, ligand in enumerate(self['ligand']):
                 for j in range(len(ligand), 3):
@@ -88,13 +98,14 @@ class Job:
     Class representing single cabsDock job.
     """
 
+    def __repr__(self):
+        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+
     def __init__(self, **kwargs):
         """
         Job can be initialized by:
-        1. None - therefore taking default parameters stored in self.config,
-           or if config.txt exist in current working directory it overwrites default values.
-        2. By providing location of the config file as config=[filepath], or providing path
-           to the directory containing config.txt file as work_dir=[dirpath].
+        1. receptor=[receptor_input] The only required parameter, other taken from 'defaults'.
+        2. By providing location of the config file as in 'config=[path_to_file]'.
         3. All parameters can be overwritten by specifying parameter=[value].
         """
 
@@ -110,12 +121,13 @@ class Job:
             'ligand_insertion_clash': 0.5,
             'ligand_insertion_attempts': 1000,
             'ca_restraints_strength': 1.0,
-            'sg_restraints_strength': 1.0
+            'sg_restraints_strength': 1.0,
+            'receptor_restraints': (4, 5.0, 15.0)  # sequence gap, min length, max length
         }
 
         self.config = Config(defaults)
 
-        # check if config should be read from file
+        # check if config should be read from a file
         if 'config' in kwargs:
             if exists(kwargs['config']):
                 self.config.read_file(kwargs['config'])
@@ -123,7 +135,7 @@ class Job:
                 raise IOError('Config file: ' + kwargs['config'] + ' does not exist!')
 
         # update config with kwargs
-        self.config.add_config(kwargs).fix_ligand()
+        self.config.add_config(kwargs).fix_ligands()
 
         # checks if work_dir exists, creates it otherwise
         work_dir = self.config['work_dir']
@@ -133,12 +145,18 @@ class Job:
         else:
             mkdir(work_dir)
 
+        # prepare initial complex
         self.initial_complex = ProteinComplex(self.config)
 
-    def __repr__(self):
-        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+        # generate restraints
+        self.restraints = \
+            Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints'])) \
+            + Restraints(self.config.get('ca_restraints')) \
+            + Restraints(self.config.get('sg_restraints'), sg=True) \
+            + Restraints(self.config.get('ca_restraints_file')) \
+            + Restraints(self.config.get('ca_restraints_file'), sg=True)
 
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', config='../test/config.txt', ligand=[('2fnt:P', 'keep'), ('2fnt:P', 'random')])
-    print j.initial_complex.make_pdb()
+    for r in Job(config='../test/config.txt', work_dir='../test').restraints:
+        print r

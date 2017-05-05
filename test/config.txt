@@ -31,7 +31,7 @@ REPLICAS_DTEMP              = 0.5   # temperature increment between replicas
 CA_RESTRAINTS_STRENGTH       = 0.99   # global weight for Ca restraints
 SG_RESTRAINTS_STRENGTH       = 0.99   # global weight for Side Groups restraints
 
-CA_RESTRAINTS_FILE           = restr_ca.txt  # alternatively can be read from file
+# CA_RESTRAINTS_FILE           = restr_ca.txt  # alternatively can be read from file
 SG_RESTRAINTS_FILE           = restr_sg.txt
 
 START_CA_RESTRAINTS                         # start of the Ca restraints

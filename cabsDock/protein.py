@@ -100,14 +100,30 @@ class Receptor(Atoms):
                         d[str(i) + ':' + c1] = val
             return d, def_val
 
+    def generate_restraints(self, gap, min_d, max_d):
+        restr = []
+        l = len(self.atoms)
+
+        for i in range(l):
+            a1 = self.atoms[i]
+            for j in range(i + gap + 1, l):
+                a2 = self.atoms[j]
+                d = (a1.coord - a2.coord).length()
+                if min_d < d < max_d:
+                    if a1.bfac < a2.bfac:
+                        w = a1.bfac
+                    else:
+                        w = a2.bfac
+                    if w:
+                        restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
+        return restr
+
 
 class Ligand(Atoms):
     """
     Class for the peptides.
     """
     def __init__(self, config, num):
-        for i in range(len(config['ligand'][num]), 3):
-                config['ligand'][num].append('random')
         self.name, self.conformation, self.location = config['ligand'][num]
         selection = 'name CA and not HETERO'
         if exists(self.name):
@@ -127,8 +143,6 @@ class Ligand(Atoms):
                 atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
                 atoms.update_sec(pdb.dssp())
             except InvalidPdbCode:
-                self.location == 'random'
-                self.conformation == 'random'
                 atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
