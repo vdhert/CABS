@@ -1,7 +1,5 @@
 """Module for handling distance restraints"""
 
-from copy import deepcopy
-
 __all__ = ['Restraint', 'Restraints']
 
 
