@@ -8,49 +8,37 @@ import re
 from protein import *
 
 
-class Job:
-    """
-    Class representing single cabsDock job.
-    """
+class Config(dict):
+    def __init__(self, config):
+        dict.__init__(self, config)
 
-    class Config(dict):
-        """Class handling job configuration"""
-        def __init__(self):
-            dict.__init__(self)
-
-        def update(self, other):
-            dict.update(self, other)
-
-    @staticmethod
-    def read_config(config_file):
-        """Reads and parses config file. Returns a dictionary with options."""
-        config = {}
+    def read_file(self, filename):
         patt = re.compile('(\w+)\s+=\s+([\w:.-]+)')
         patt_start = re.compile('start_(\w+)', re.IGNORECASE)
         patt_stop = re.compile('stop', re.IGNORECASE)
         patt_lig = re.compile('ligand\s+=\s+(.*)', re.IGNORECASE)
-
-        with open(config_file) as f:
+        with open(filename) as f:
             lines = iter([re.sub('\s+', ' ', line.partition('#')[0]) for line in f.readlines()])
 
         for line in lines:
             match = re.match(patt_start, line)
             if match:
                 key = match.group(1).lower()
-                config[key] = []
+                self[key] = []
                 try:
                     line = next(lines)
                     while not re.match(patt_stop, line):
-                        config[key].append(line.strip())
+                        self[key].append(line.strip())
                         line = next(lines)
                 except StopIteration:
                     pass
             else:
                 match = re.match(patt_lig, line)
                 if match:
-                    if 'ligand' not in config:
-                        config['ligand'] = []
-                    config['ligand'].append([w.strip() for w in match.group(1).split(',')])
+                    lig = tuple(w.strip() for w in match.group(1).split(','))
+                    if 'ligand' not in self:
+                        self['ligand'] = []
+                    self['ligand'].append(lig)
                 else:
                     match = re.match(patt, line)
                     if match:
@@ -70,11 +58,35 @@ class Job:
                                     val = False
                                 else:
                                     val = match.group(2)
-                        config[key] = val
-        return config
+                        self[key] = val
 
-    def __repr__(self):
-        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+    def add_config(self, config):
+        if 'ligand' in config:
+            if 'ligand' not in self:
+                self['ligand'] = []
+            val = config['ligand']
+            if type(val) is list:
+                self['ligand'].extend(val)
+            elif type(val) is tuple:
+                self['ligand'].append(val)
+            elif type(val) is str:
+                self['ligand'].append((val,))
+            del config['ligand']
+        self.update(config)
+        return self
+
+    def fix_ligand(self):
+        if 'ligand' in self:
+            for i, ligand in enumerate(self['ligand']):
+                for j in range(len(ligand), 3):
+                    self['ligand'][i] += ('random',)
+        return self
+
+
+class Job:
+    """
+    Class representing single cabsDock job.
+    """
 
     def __init__(self, **kwargs):
         """
@@ -86,9 +98,7 @@ class Job:
         3. All parameters can be overwritten by specifying parameter=[value].
         """
 
-        self.config = Config()
-
-        default_config = {
+        defaults = {
             'work_dir': getcwd(),
             'replicas': 10,
             'mc_cycles': 50,
@@ -97,19 +107,23 @@ class Job:
             't_final': 1.0,
             'replicas_dtemp': 0.5,
             'initial_separation': 20.0,
-            'ligand_insertion_clash': 2.5,
+            'ligand_insertion_clash': 0.5,
             'ligand_insertion_attempts': 1000,
             'ca_restraints_strength': 1.0,
             'sg_restraints_strength': 1.0
         }
 
-        # reading config file
+        self.config = Config(defaults)
+
+        # check if config should be read from file
         if 'config' in kwargs:
             if exists(kwargs['config']):
-                config_from_file = self.read_config(kwargs['config'])
+                self.config.read_file(kwargs['config'])
             else:
                 raise IOError('Config file: ' + kwargs['config'] + ' does not exist!')
-        self.config.update(kwargs)
+
+        # update config with kwargs
+        self.config.add_config(kwargs).fix_ligand()
 
         # checks if work_dir exists, creates it otherwise
         work_dir = self.config['work_dir']
@@ -121,7 +135,10 @@ class Job:
 
         self.initial_complex = ProteinComplex(self.config)
 
+    def __repr__(self):
+        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', config='../test/config.txt')
-    print j
+    j = Job(receptor='1rjk:A', config='../test/config.txt', ligand=[('2fnt:P', 'keep'), ('2fnt:P', 'random')])
+    print j.initial_complex.make_pdb()
