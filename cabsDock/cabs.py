@@ -2,6 +2,9 @@
 
 from vector3d import *
 import numpy as np
+from restraints import *
+from os.path import join
+from os import mkdir
 
 __all__ = ['CabsLattice', 'CabsRun']
 
@@ -12,9 +15,13 @@ class CabsRun:
     """
     LATTICE = CabsLattice()
 
-    def __init__(self, protein_complex, config):
-        pass
-
+    def __init__(self, protein_complex, restraints, config):
+        fchains, seq = load_structures(protein_complex)
+        restr = load_restraints(restraints, protein_complex.old_ids)
+        inp = make_inp(config, restr)
+        cabsDir = join(config['work_dir'], 'CABS')
+        mkdir(cabsDir, mode=755)
+        
 
 class CabsLattice:
     """
