@@ -168,7 +168,8 @@ class ProteinComplex(Atoms):
         self.separation = config['initial_separation']
 
         receptor = Receptor(config)
-        receptor_chains = ''.join(receptor.list_chains().keys())
+        self.chain_list = receptor.list_chains()
+        receptor_chains = ''.join(self.chain_list.keys())
         self.old_ids = receptor.old_ids
 
         ligands = []
@@ -181,6 +182,7 @@ class ProteinComplex(Atoms):
                 taken_chains += l[0].chid
                 ligands.append(l)
                 self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
+                self.chain_list.update(l.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
         for i in range(config['replicas']):

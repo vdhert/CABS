@@ -7,6 +7,7 @@ from os.path import exists, isdir
 import re
 from protein import *
 from restraints import *
+from cabs import *
 
 __all__ = ['Job']
 
@@ -122,7 +123,9 @@ class Job:
             'ligand_insertion_attempts': 1000,
             'ca_restraints_strength': 1.0,
             'sg_restraints_strength': 1.0,
-            'receptor_restraints': (4, 5.0, 15.0)  # sequence gap, min length, max length
+            'receptor_restraints': (4, 5.0, 15.0),  # sequence gap, min length, max length
+            'dssp_command': 'dssp',
+            'fortran_compiler': ('gfortran', '-O2')    # build (command, flags)
         }
 
         self.config = Config(defaults)
@@ -150,13 +153,15 @@ class Job:
 
         # generate restraints
         self.restraints = \
-            Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints'])) \
-            + Restraints(self.config.get('ca_restraints')) \
-            + Restraints(self.config.get('sg_restraints'), sg=True) \
-            + Restraints(self.config.get('ca_restraints_file')) \
-            + Restraints(self.config.get('ca_restraints_file'), sg=True)
+            Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
+        add_restraints = Restraints(self.config.get('ca_restraints'))
+        add_restraints += Restraints(self.config.get('sg_restraints'), sg=True)
+        add_restraints += Restraints(self.config.get('ca_restraints_file'))
+        add_restraints += Restraints(self.config.get('ca_restraints_file'), sg=True)
+        self.restraints += add_restraints.update_id(self.initial_complex.new_ids)
 
+        # run cabs
+        cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
 
 if __name__ == '__main__':
-    for r in Job(config='../test/config.txt', work_dir='../test').restraints:
-        print r
+    j = Job(config='../test/config.txt', work_dir='../test')

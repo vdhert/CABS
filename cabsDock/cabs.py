@@ -2,26 +2,17 @@
 
 from vector3d import *
 import numpy as np
-from restraints import *
-from os.path import join
-from os import mkdir
+from os.path import join, exists, isdir, basename
+from os import mkdir, symlink
+from operator import attrgetter
+from utils import CABS_HOME
+import re
+from subprocess import Popen, PIPE
+from glob import glob
+from random import randint
 
 __all__ = ['CabsLattice', 'CabsRun']
 
-
-class CabsRun:
-    """
-    Class representing single cabs run.
-    """
-    LATTICE = CabsLattice()
-
-    def __init__(self, protein_complex, restraints, config):
-        fchains, seq = load_structures(protein_complex)
-        restr = load_restraints(restraints, protein_complex.old_ids)
-        inp = make_inp(config, restr)
-        cabsDir = join(config['work_dir'], 'CABS')
-        mkdir(cabsDir, mode=755)
-        
 
 class CabsLattice:
     """
@@ -99,6 +90,157 @@ class CabsLattice:
 
         return coord
 
+
+class CabsRun:
+    """
+    Class representing single cabs run.
+    """
+    LATTICE = CabsLattice()
+    FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)
+
+    def __init__(self, protein_complex, restraints, config):
+
+        fchains, seq, ids = self.load_structure(protein_complex)
+        restr, maxres = self.load_restraints(
+            restraints.update_id(ids), config['ca_restraints_strength'], config['sg_restraints_strength']
+        )
+
+        ndim = max(protein_complex.chain_list.values()) + 2
+        nmols = len(protein_complex.chain_list)
+        nreps = config['replicas']
+
+        inp = self.make_inp(config, nmols, self.FORCE_FIELD)
+
+        cabs_dir = join(config['work_dir'], 'CABS')
+        if exists(cabs_dir):
+            if not isdir(cabs_dir):
+                raise Exception(cabs_dir + ' exists and is not a directory!!!')
+        else:
+            mkdir(cabs_dir, 0755)
+
+        with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
+            f.write(fchains)
+        with open(join(cabs_dir, 'SEQ'), 'w') as f:
+            f.write(seq)
+        with open(join(cabs_dir, 'INP'), 'w') as f:
+            f.write(inp + restr)
+
+        self.run_cmd = self.build_exe(
+            params=(ndim, nreps, nmols, maxres),
+            src=join(CABS_HOME, 'src/cabs.f'),
+            exe='cabs',
+            build_command=config['fortran_compiler'][0],
+            build_flags=config['fortran_compiler'][1],
+            destination=cabs_dir
+        )
+
+        for f in glob(join(CABS_HOME, 'data/params/*')):
+            l = join(cabs_dir, basename(f))
+            if not exists(l):
+                symlink(f, l)
+
+    def load_structure(self, protein_complex):
+        fchains = None
+        seq = ''
+        cabs_ids = {}
+        for model in protein_complex.models():
+            chains = model.chains()
+            if not fchains:
+                fchains = [''] * len(chains)
+                ch = 1
+                res = 1
+                chid = model[0].chid
+                for atom in model:
+                    if atom.chid != chid:
+                        res = 1
+                        ch += 1
+                        chid = atom.chid
+                    cabs_ids[atom.resid_id()] = (ch, res)
+                    res += 1
+                    seq += '%5i%1s %1s%3s %1s%3i%6.2f\n' % (
+                        atom.resnum,
+                        atom.icode,
+                        atom.alt,
+                        atom.resname,
+                        atom.chid,
+                        int(atom.occ),
+                        atom.bfac
+                    )
+
+            for i, chain in enumerate(chains):
+                vectors = self.LATTICE.cast(chain)
+                fchains[i] += str(len(vectors)) + '\n' + '\n'.join(
+                    ['%i %i %i' % (int(v.x), int(v.y), int(v.z)) for v in vectors]
+                ) + '\n'
+
+        return ''.join(fchains), seq, cabs_ids
+
+    @staticmethod
+    def load_restraints(restraints, ca_weight=1.0, sg_weight=0.0):
+        restr = ''
+        max_r = 0
+        if ca_weight:
+            rest = [r for r in restraints.data if not r.sg]
+            if len(rest):
+                restr += '%i %.2f\n' % (len(rest), ca_weight)
+                rest.sort(key=attrgetter('id2'))
+                rest.sort(key=attrgetter('id1'))
+                all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
+                rest_count = {i: all_ids.count(i) for i in all_ids}
+                max_r = max(rest_count.values())
+                rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+                restr += ''.join(rest)
+
+        if sg_weight:
+            rest = [r for r in restraints.data if r.sg]
+            if len(rest):
+                restr += '%i %.2f\n' % (len(rest), sg_weight)
+                rest.sort(key=attrgetter('id2'))
+                rest.sort(key=attrgetter('id1'))
+                all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
+                rest_count = {i: all_ids.count(i) for i in all_ids}
+                max_r = max(max(rest_count.values()), max_r)
+                rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+                restr += ''.join(rest)
+
+        return restr, max_r
+
+    @staticmethod
+    def build_exe(params, src='cabs.f', exe='cabs', build_command='gfortran', build_flags='-O2', destination='.'):
+
+        with open(src) as f:
+            lines = f.read()
+
+        names = ['NDIM', 'NREPS', 'NMOLS', 'MAXRES']
+        for name, value in zip(names, params):
+            lines = re.sub(name + '=\d+', name + '=%i' % value, lines)
+
+        run_cmd = join(destination, exe)
+        cmd = [build_command, '-o', run_cmd, build_flags, '-x', 'f77', '-']
+        out, err = Popen(cmd, stdin=PIPE, stderr=PIPE).communicate(lines)
+        if err:
+            raise Exception(err)
+        return run_cmd
+
+    @staticmethod
+    def make_inp(config, nmols, force_field):
+        return '%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.2f %.2f %.2f %.2f %.2f\n' % (
+            randint(999, 10000),
+            config['mc_cycles'],
+            config['mc_steps'],
+            config['replicas'],
+            nmols,
+            config['t_init'],
+            config['t_final'],
+            force_field[0],
+            force_field[1],
+            config['replicas_dtemp'],
+            force_field[2],
+            force_field[3],
+            force_field[4],
+            force_field[5],
+            force_field[6]
+        )
 
 if __name__ == '__main__':
     pass
