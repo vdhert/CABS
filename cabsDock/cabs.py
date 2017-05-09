@@ -7,11 +7,10 @@ from os import mkdir, symlink
 from operator import attrgetter
 from utils import CABS_HOME
 import re
-from subprocess import Popen, PIPE, check_output, call
+from subprocess import Popen, PIPE, check_output
 from glob import glob
 from random import randint
 from threading import Thread
-from time import sleep
 
 __all__ = ['CabsLattice', 'CabsRun']
 
@@ -93,7 +92,7 @@ class CabsLattice:
         return coord
 
 
-class CabsRun:
+class CabsRun(Thread):
     """
     Class representing single cabs run.
     """
@@ -101,17 +100,18 @@ class CabsRun:
     FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)
 
     def __init__(self, protein_complex, restraints, config):
+        Thread.__init__(self)
 
-        fchains, seq, ids = self.load_structure(protein_complex)
-        restr, maxres = self.load_restraints(
+        fchains, seq, ids = CabsRun.load_structure(protein_complex)
+        restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_restraints_strength'], config['sg_restraints_strength']
         )
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
-        inp = self.make_inp(config, nmols, self.FORCE_FIELD)
+        inp = CabsRun.make_inp(config, nmols, CabsRun.FORCE_FIELD)
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-            * nreps * config['mc_steps'] * 20
+            * nreps * config['mc_cycles'] * 20
 
         cabs_dir = join(config['work_dir'], 'CABS')
         if exists(cabs_dir):
@@ -127,7 +127,7 @@ class CabsRun:
         with open(join(cabs_dir, 'INP'), 'w') as f:
             f.write(inp + restr)
 
-        run_cmd = self.build_exe(
+        run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=join(CABS_HOME, 'src/cabs.f'),
             exe='cabs',
@@ -141,15 +141,14 @@ class CabsRun:
             if not exists(l):
                 symlink(f, l)
 
-        cabs_thread = Thread(target=call(run_cmd, cwd=cabs_dir))
-        cabs_thread.setDaemon(True)
-        cabs_thread.start()
-        trajectory = join(cabs_dir, 'TRAF')
-        while cabs_thread.isAlive():
-            print 'dupa'
-            sleep(1)
+        self.cfg = {
+            'cwd': cabs_dir,
+            'exe': run_cmd,
+            'tra': total_lines
+        }
 
-    def load_structure(self, protein_complex):
+    @staticmethod
+    def load_structure(protein_complex):
         fchains = None
         seq = ''
         cabs_ids = {}
@@ -178,7 +177,7 @@ class CabsRun:
                     )
 
             for i, chain in enumerate(chains):
-                vectors = self.LATTICE.cast(chain)
+                vectors = CabsRun.LATTICE.cast(chain)
                 fchains[i] += str(len(vectors)) + '\n' + '\n'.join(
                     ['%i %i %i' % (int(v.x), int(v.y), int(v.z)) for v in vectors]
                 ) + '\n'
@@ -250,11 +249,17 @@ class CabsRun:
             force_field[6]
         )
 
-    @staticmethod
-    def status(tra, total):
-        cmd = ['wc', '-l', tra]
-        lines = int(check_output(cmd).split()[0])
-        return '%.2f%' % (100 * lines / total)
+    def run(self):
+        p = Popen(self.cfg['exe'], cwd=self.cfg['cwd']).wait()
+
+    def status(self):
+        traj = join(self.cfg['cwd'], 'TRAF')
+        if not exists(traj):
+            progress = 0.
+        else:
+            progress = 100. * int(check_output(['wc', '-l', traj]).split()[0]) / self.cfg['tra']
+
+        return progress
 
 if __name__ == '__main__':
     pass

@@ -8,6 +8,8 @@ import re
 from protein import *
 from restraints import *
 from cabs import *
+from time import sleep
+from sys import stderr
 
 __all__ = ['Job']
 
@@ -162,7 +164,11 @@ class Job:
 
         # run cabs
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
+        cabs_run.start()
+        while cabs_run.is_alive():
+            stderr.write("\r%6.2f%%" % cabs_run.status())
+            stderr.flush()
+            sleep(1)
 
 if __name__ == '__main__':
-    # j = Job(config='../test/config.txt', work_dir='../test')
-    j = Job(receptor='2gb1', mc_cycles=2, mc_steps=2, replicas=2)
+    j = Job(receptor='2gb1', mc_steps=2)

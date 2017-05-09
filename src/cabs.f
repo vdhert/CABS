@@ -20,6 +20,9 @@ c       ***************************************************************
         PARAMETER(NMOLS=10)
         PARAMETER(MAXRES=500)
 
+        PARAMETER(MAXEBASE=20)
+        PARAMETER(ESCAPEDISTANCE=50)
+
 c       The recommended
 c       number of replicas (T1=T2=1.0) is about 20 for small
 c       proteins up to 30 for N>200
@@ -999,31 +1002,35 @@ c	exchanging replicas
         betan=1.0/ATREP(itemp1)
         delta=(betan-betam)*(EREPLICAS(itemp)-EREPLICAS(itemp1))
 
-        if(exp(-delta).gt.arand(ise)) then
-        rnum=repnum(itemp)
-        repnum(itemp)=repnum(itemp1)
-        repnum(itemp1)=rnum
-        DO imol=1,mols
-        do i=1,length(imol)
-        xt=xreps(i,itemp,imol)
-        yt=yreps(i,itemp,imol)
-        zt=zreps(i,itemp,imol)
-        xreps(i,itemp,imol)=xreps(i,itemp1,imol)
-        yreps(i,itemp,imol)=yreps(i,itemp1,imol)
-        zreps(i,itemp,imol)=zreps(i,itemp1,imol)
-        xreps(i,itemp1,imol)=xt
-        yreps(i,itemp1,imol)=yt
-        zreps(i,itemp1,imol)=zt
-        enddo
-        attt=EREPLICA(imol,itemp)
-        EREPLICA(imol,itemp)=EREPLICA(imol,itemp1)
-        EREPLICA(imol,itemp1)=attt
-        ENDDO
-        SWAPS(itemp)=SWAPS(itemp)+1
-        SWAPS(itemp1)=SWAPS(itemp1)+1
-        attt=EREPLICAS(itemp)
-        EREPLICAS(itemp)=EREPLICAS(itemp1)
-        EREPLICAS(itemp1)=attt
+        if(abs(delta).gt.maxebase.or.exp(-delta).gt.arand(ise)) then
+         rnum=repnum(itemp)
+         repnum(itemp)=repnum(itemp1)
+         repnum(itemp1)=rnum
+
+         DO imol=1,mols
+          do i=1,length(imol)
+           xt=xreps(i,itemp,imol)
+           yt=yreps(i,itemp,imol)
+           zt=zreps(i,itemp,imol)
+           xreps(i,itemp,imol)=xreps(i,itemp1,imol)
+           yreps(i,itemp,imol)=yreps(i,itemp1,imol)
+           zreps(i,itemp,imol)=zreps(i,itemp1,imol)
+           xreps(i,itemp1,imol)=xt
+           yreps(i,itemp1,imol)=yt
+           zreps(i,itemp1,imol)=zt
+          enddo
+
+          attt=EREPLICA(imol,itemp)
+          EREPLICA(imol,itemp)=EREPLICA(imol,itemp1)
+          EREPLICA(imol,itemp1)=attt
+
+         ENDDO
+
+         SWAPS(itemp)=SWAPS(itemp)+1
+         SWAPS(itemp1)=SWAPS(itemp1)+1
+         attt=EREPLICAS(itemp)
+         EREPLICAS(itemp)=EREPLICAS(itemp1)
+         EREPLICAS(itemp1)=attt
         endif
         
         ENDDO
@@ -1053,74 +1060,80 @@ c	CENTER THE SYSTEM at [0,0,0] point of the lattice
         sy=0
         sz=0
         lenfsum=0
+
         do imol=1,mols
-        ssx=0
-        ssy=0
-        ssz=0
-        do i=1,length(imol)
-        ssx=ssx+xreps(i,itemp,imol)
-        ssy=ssy+yreps(i,itemp,imol)
-        ssz=ssz+zreps(i,itemp,imol)
+         ssx=0
+         ssy=0
+         ssz=0
+         do i=1,length(imol)
+          ssx=ssx+xreps(i,itemp,imol)
+          ssy=ssy+yreps(i,itemp,imol)
+          ssz=ssz+zreps(i,itemp,imol)
+         enddo
+         sx=sx+ssx
+         sy=sy+ssy
+         sz=sz+ssz
+         lenfsum=lenfsum+length(imol)
+         icmx(imol)=nint(ssx/float(length(imol)))
+         icmy(imol)=nint(ssy/float(length(imol)))
+         icmz(imol)=nint(ssz/float(length(imol)))
         enddo
-        sx=sx+ssx
-        sy=sy+ssy
-        sz=sz+ssz
-        lenfsum=lenfsum+length(imol)
-        icmx(imol)=nint(ssx/float(length(imol)))
-        icmy(imol)=nint(ssy/float(length(imol)))
-        icmz(imol)=nint(ssz/float(length(imol)))
-        enddo
+
         sx=nint(sx/float(lenfsum))
         sy=nint(sy/float(lenfsum))
         sz=nint(sz/float(lenfsum))
+        
         do imol=1,mols
-        do i=1,length(imol)
-        xreps(i,itemp,imol)=xreps(i,itemp,imol)-sx
-        yreps(i,itemp,imol)=yreps(i,itemp,imol)-sy
-        zreps(i,itemp,imol)=zreps(i,itemp,imol)-sz
-        enddo
-        icmx(imol)=icmx(imol)-sx
-        icmy(imol)=icmy(imol)-sy
-        icmz(imol)=icmz(imol)-sz
+         do i=1,length(imol)
+          xreps(i,itemp,imol)=xreps(i,itemp,imol)-sx
+          yreps(i,itemp,imol)=yreps(i,itemp,imol)-sy
+          zreps(i,itemp,imol)=zreps(i,itemp,imol)-sz
+         enddo
+         icmx(imol)=icmx(imol)-sx
+         icmy(imol)=icmy(imol)-sy
+         icmz(imol)=icmz(imol)-sz
         enddo
 
         DO 9999 IMOL=1,MOLS
 
-        sx=0
-        sy=0
-        sz=0
-        lenfsum=0
+        if(mols.gt.1) then
+         sx=0
+         sy=0
+         sz=0
+         lenfsum=0
 
-        do i=1,mols
-         if(i.ne.imol) then
-          sx=sx+icmx(i)*length(i)
-          sy=sy+icmy(i)*length(i)
-          sz=sz+icmz(i)*length(i)
-          lenfsum=lenfsum+length(i)
-         endif        
-        enddo
-
-        sx=nint(sx/float(lenfsum))
-        sy=nint(sy/float(lenfsum))
-        sz=nint(sz/float(lenfsum))
-
-        ssx=sx-icmx(imol)
-        ssy=sy-icmy(imol)
-        ssz=sz-icmz(imol)
-
-        assr=sqrt(float(sx*ssx+ssy*ssy+ssz*ssz))
-
-        if(assr.gt.82) then
-         assr=(assr-82)/assr
-         ssx=nint(assr*ssx)
-         ssy=nint(assr*ssy)
-         ssz=nint(assr*ssz)
-
-         do i=1,length(imol)
-          xreps(i,itemp,imol)=xreps(i,itemp,imol)+ssx
-          yreps(i,itemp,imol)=yreps(i,itemp,imol)+ssy
-          zreps(i,itemp,imol)=zreps(i,itemp,imol)+ssz
+         do i=1,mols
+          if(i.ne.imol) then
+           sx=sx+icmx(i)*length(i)
+           sy=sy+icmy(i)*length(i)
+           sz=sz+icmz(i)*length(i)
+           lenfsum=lenfsum+length(i)
+          endif        
          enddo
+
+         sx=nint(sx/float(lenfsum))
+         sy=nint(sy/float(lenfsum))
+         sz=nint(sz/float(lenfsum))
+
+         ssx=sx-icmx(imol)
+         ssy=sy-icmy(imol)
+         ssz=sz-icmz(imol)
+
+         assr=sqrt(float(ssx*ssx+ssy*ssy+ssz*ssz))
+
+	 edist=escapedistance/0.61
+         if(assr.gt.edist) then
+          assr=(assr-edist)/assr
+          ssx=nint(assr*ssx)
+          ssy=nint(assr*ssy)
+          ssz=nint(assr*ssz)
+
+          do i=1,length(imol)
+           xreps(i,itemp,imol)=xreps(i,itemp,imol)+ssx
+           yreps(i,itemp,imol)=yreps(i,itemp,imol)+ssy
+           zreps(i,itemp,imol)=zreps(i,itemp,imol)+ssz
+          enddo
+         endif
         endif
 
         lenf=length(imol)
@@ -1217,7 +1230,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
         DE=ENEW-EOLD
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 7774
         endif
         ENDIF
@@ -1245,6 +1258,10 @@ c	Move rejected - restore the initial state of the chain
 7774    CONTINUE
 
 c	THREE-BOND MOVE -permutation
+
+        if(idum.eq.5) then
+         dupa=1
+        endif
 
         I=INT(arand(ise)*AL5)+2
         a=arand(ise)
@@ -1328,7 +1345,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         DE=ENEW-EOLD
 
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 8885
         endif
         ENDIF
@@ -1439,7 +1456,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         DE=ENEW-EOLD
 
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 4001
         endif
         ENDIF
@@ -1548,7 +1565,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         DE=ENEW-EOLD
 
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 7775
         endif
         ENDIF
@@ -1630,7 +1647,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         DE=ENEW-EOLD
 
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 81
         endif
         ENDIF
@@ -1712,7 +1729,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         DE=ENEW-EOLD
 
         IF(DE.GT.0.0) THEN
-        if(arand(ise).gt.EXP(-DE/ATEMP)) then
+        if(de.gt.maxebase.or.arand(ise).gt.EXP(-DE/ATEMP)) then
         go to 9998
         endif
         ENDIF
