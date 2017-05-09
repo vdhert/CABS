@@ -164,4 +164,5 @@ class Job:
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
 
 if __name__ == '__main__':
-    j = Job(config='../test/config.txt', work_dir='../test')
+    # j = Job(config='../test/config.txt', work_dir='../test')
+    j = Job(receptor='2gb1', mc_cycles=2, mc_steps=2, replicas=2)

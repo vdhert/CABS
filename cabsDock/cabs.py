@@ -7,9 +7,11 @@ from os import mkdir, symlink
 from operator import attrgetter
 from utils import CABS_HOME
 import re
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, check_output, call
 from glob import glob
 from random import randint
+from threading import Thread
+from time import sleep
 
 __all__ = ['CabsLattice', 'CabsRun']
 
@@ -104,12 +106,12 @@ class CabsRun:
         restr, maxres = self.load_restraints(
             restraints.update_id(ids), config['ca_restraints_strength'], config['sg_restraints_strength']
         )
-
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
-
         inp = self.make_inp(config, nmols, self.FORCE_FIELD)
+        total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
+            * nreps * config['mc_steps'] * 20
 
         cabs_dir = join(config['work_dir'], 'CABS')
         if exists(cabs_dir):
@@ -125,7 +127,7 @@ class CabsRun:
         with open(join(cabs_dir, 'INP'), 'w') as f:
             f.write(inp + restr)
 
-        self.run_cmd = self.build_exe(
+        run_cmd = self.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=join(CABS_HOME, 'src/cabs.f'),
             exe='cabs',
@@ -138,6 +140,14 @@ class CabsRun:
             l = join(cabs_dir, basename(f))
             if not exists(l):
                 symlink(f, l)
+
+        cabs_thread = Thread(target=call(run_cmd, cwd=cabs_dir))
+        cabs_thread.setDaemon(True)
+        cabs_thread.start()
+        trajectory = join(cabs_dir, 'TRAF')
+        while cabs_thread.isAlive():
+            print 'dupa'
+            sleep(1)
 
     def load_structure(self, protein_complex):
         fchains = None
@@ -177,31 +187,29 @@ class CabsRun:
 
     @staticmethod
     def load_restraints(restraints, ca_weight=1.0, sg_weight=0.0):
-        restr = ''
         max_r = 0
-        if ca_weight:
-            rest = [r for r in restraints.data if not r.sg]
-            if len(rest):
-                restr += '%i %.2f\n' % (len(rest), ca_weight)
-                rest.sort(key=attrgetter('id2'))
-                rest.sort(key=attrgetter('id1'))
-                all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
-                rest_count = {i: all_ids.count(i) for i in all_ids}
-                max_r = max(rest_count.values())
-                rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
-                restr += ''.join(rest)
 
+        rest = [r for r in restraints.data if not r.sg]
+        restr = '%i %.2f\n' % (len(rest), ca_weight)
+        if ca_weight:
+            rest.sort(key=attrgetter('id2'))
+            rest.sort(key=attrgetter('id1'))
+            all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
+            rest_count = {i: all_ids.count(i) for i in all_ids}
+            max_r = max(rest_count.values())
+            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+            restr += ''.join(rest)
+    #  DO POPRAWY
+        rest = [r for r in restraints.data if r.sg]
+        restr += '%i %.2f\n' % (len(rest), sg_weight)
         if sg_weight:
-            rest = [r for r in restraints.data if r.sg]
-            if len(rest):
-                restr += '%i %.2f\n' % (len(rest), sg_weight)
-                rest.sort(key=attrgetter('id2'))
-                rest.sort(key=attrgetter('id1'))
-                all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
-                rest_count = {i: all_ids.count(i) for i in all_ids}
-                max_r = max(max(rest_count.values()), max_r)
-                rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
-                restr += ''.join(rest)
+            rest.sort(key=attrgetter('id2'))
+            rest.sort(key=attrgetter('id1'))
+            all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
+            rest_count = {i: all_ids.count(i) for i in all_ids}
+            max_r = max(rest_count.values() + [max_r,])
+            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+            restr += ''.join(rest)
 
         return restr, max_r
 
@@ -224,7 +232,7 @@ class CabsRun:
 
     @staticmethod
     def make_inp(config, nmols, force_field):
-        return '%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.2f %.2f %.2f %.2f %.2f\n' % (
+        return '%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
             randint(999, 10000),
             config['mc_cycles'],
             config['mc_steps'],
@@ -241,6 +249,12 @@ class CabsRun:
             force_field[5],
             force_field[6]
         )
+
+    @staticmethod
+    def status(tra, total):
+        cmd = ['wc', '-l', tra]
+        lines = int(check_output(cmd).split()[0])
+        return '%.2f%' % (100 * lines / total)
 
 if __name__ == '__main__':
     pass
