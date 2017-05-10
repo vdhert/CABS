@@ -173,4 +173,4 @@ class Job:
         bar.done(show_time=True)
 
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', ligand='MICHAL', mc_steps=50, mc_cycles=50, replicas=1)
+    j = Job(receptor='1rjk:A', ligand='MICHAL', mc_steps=50, mc_cycles=50, replicas=1)

@@ -11,6 +11,7 @@ from random import randint
 from threading import Thread
 
 from vector3d import Vector3d
+from atom import Atom, Atoms
 from utils import CABS_HOME
 
 
@@ -267,5 +268,67 @@ class CabsRun(Thread):
 
         return progress
 
+
+class CabsTrajectory(Atoms):
+    """CABS trajectory compressed object"""
+    CABS_GRID = 0.61
+
+    class Header:
+        def __init__(self, arg):
+            if type(arg) is str:
+                header = arg.split()
+                self.frame = int(header[0])
+                self.length = int(header[1])
+                self.e_internal = (float(header[2]), )
+                self.e_interaction = (float(header[3]), )
+                self.e_total = float(header[4])
+                self.temperature = float(header[5])
+                self.replica = int(header[6])
+            else:
+                headers = iter(arg)
+
+
+    def __init__(self, traf, seq):
+        Atoms.__init__(self)
+        self.template = self.read_seq(seq)
+        self.tra = self.read_traf(traf)
+
+    @staticmethod
+    def read_seq(filename):
+        atoms = []
+        with open(filename) as f:
+            for i, line in enumerate(f):
+                atoms.append(
+                    Atom(
+                        hetatm=False,
+                        serial=i + 1,
+                        name='CA',
+                        alt=line[7],
+                        resname=line[8:11],
+                        chid=line[12],
+                        resnum=int(line[1:5]),
+                        icode=line[5],
+                        occ=float(line[15]),
+                        bfac=float(line[16:22])
+                    )
+                )
+        return atoms
+
+    @staticmethod
+    def read_traf(filename):
+        with open(filename) as f:
+            for line in f:
+                if '.' in line:
+                    header = line.split()
+                    frame = int(header[0])
+                    length = int(header[1])
+                    energy = header[2:6]
+                    replica = int(header[6])
+                else:
+                    coords.extend(map(int, line.split()))
+
+
+
 if __name__ == '__main__':
-    pass
+    tra = CabsTrajectory('TRAF', 'SEQ')
+    print tra.tra[0]
