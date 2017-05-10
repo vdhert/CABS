@@ -4,14 +4,13 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 
 import re
 from os.path import exists, join
-from atom import *
-from pdb import *
 from copy import deepcopy
-from vector3d import *
-from utils import *
 from random import randint
 
-__all__ = ['ProteinComplex']
+from vector3d import Vector3d
+from atom import Atoms
+from pdb import Pdb, InvalidPdbCode
+from utils import RANDOM_LIGAND_LIBRARY, next_letter
 
 
 class Receptor(Atoms):

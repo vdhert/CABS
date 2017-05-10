@@ -1,18 +1,17 @@
 """Module for handling CABS file formats"""
 
-from vector3d import *
+import os
+import re
 import numpy as np
 from os.path import join, exists, isdir, basename
-from os import mkdir, symlink
 from operator import attrgetter
-from utils import CABS_HOME
-import re
 from subprocess import Popen, PIPE, check_output
 from glob import glob
 from random import randint
 from threading import Thread
 
-__all__ = ['CabsLattice', 'CabsRun']
+from vector3d import Vector3d
+from utils import CABS_HOME
 
 
 class CabsLattice:
@@ -95,6 +94,8 @@ class CabsLattice:
 class CabsRun(Thread):
     """
     Class representing single cabs run.
+    TODO: add state() = initializing/running/done/error/interrupted
+    Generalnie to cala klase warto przepisac.
     """
     LATTICE = CabsLattice()
     FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)
@@ -117,8 +118,13 @@ class CabsRun(Thread):
         if exists(cabs_dir):
             if not isdir(cabs_dir):
                 raise Exception(cabs_dir + ' exists and is not a directory!!!')
+            else:
+                tra = join(cabs_dir, 'TRAF')
+                if exists(tra):
+                    os.remove(tra)
+
         else:
-            mkdir(cabs_dir, 0755)
+            os.mkdir(cabs_dir, 0755)
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)
@@ -139,7 +145,7 @@ class CabsRun(Thread):
         for f in glob(join(CABS_HOME, 'data/params/*')):
             l = join(cabs_dir, basename(f))
             if not exists(l):
-                symlink(f, l)
+                os.symlink(f, l)
 
         self.cfg = {
             'cwd': cabs_dir,

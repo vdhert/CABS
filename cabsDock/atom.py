@@ -3,16 +3,15 @@ Module contains two classes: Atom and Atoms. Atom represents single atom/line fr
 Atoms is a container for Atom objects, without actually specyfing if they are in the same molecule/chain/residue etc.
 """
 
-from vector3d import Vector3d
+import re
+import numpy as np
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
-import re
-import numpy as np
-from utils import *
 
-__all__ = ['Atom', 'Atoms']
+from vector3d import Vector3d
+from utils import CABS_SS, aa_to_long
 
 
 class Atom:

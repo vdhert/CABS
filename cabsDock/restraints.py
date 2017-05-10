@@ -2,8 +2,6 @@
 
 from copy import copy
 
-__all__ = ['Restraint', 'Restraints']
-
 
 class Restraint:
     """Class represents single distance restraint"""

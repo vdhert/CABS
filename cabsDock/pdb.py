@@ -5,10 +5,9 @@ from os.path import exists
 from gzip import GzipFile
 from urllib2 import urlopen, HTTPError
 from StringIO import StringIO
-from atom import *
 from subprocess import Popen, PIPE
 
-__all__ = ['Pdb', 'download_pdb', 'InvalidPdbCode', 'PdbFileEmpty']
+from atom import Atom, Atoms
 
 
 class Pdb:

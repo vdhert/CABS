@@ -2,14 +2,15 @@
 Module for running cabsDock jobs.
 """
 
+import re
 from os import getcwd, mkdir
 from os.path import exists, isdir
-import re
-from protein import *
-from restraints import *
-from cabs import *
 from time import sleep
-from sys import stderr
+
+from protein import ProteinComplex
+from restraints import Restraints
+from cabs import CabsRun
+from utils import ProgressBar
 
 __all__ = ['Job']
 
@@ -165,10 +166,11 @@ class Job:
         # run cabs
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
         cabs_run.start()
+        bar = ProgressBar(100, msg='CABS is running:')
         while cabs_run.is_alive():
-            stderr.write("\r%6.2f%%" % cabs_run.status())
-            stderr.flush()
-            sleep(1)
+            bar.update(cabs_run.status())
+            sleep(0.1)
+        bar.done(show_time=True)
 
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', mc_steps=2)
+    j = Job(receptor='2gb1', ligand='MICHAL', mc_steps=50, mc_cycles=50, replicas=1)
