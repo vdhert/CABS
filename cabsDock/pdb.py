@@ -126,4 +126,4 @@ class InvalidPdbCode(Exception):
 
 
 if __name__ == '__main__':
-    print Pdb('2gb1').atoms
+    pass

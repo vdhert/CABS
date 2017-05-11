@@ -4,7 +4,7 @@ Module for running cabsDock jobs.
 
 import re
 from os import getcwd, mkdir
-from os.path import exists, isdir
+from os.path import exists, isdir, join
 from time import sleep
 
 from protein import ProteinComplex
@@ -170,7 +170,11 @@ class Job:
         while cabs_run.is_alive():
             bar.update(cabs_run.status())
             sleep(0.1)
-        bar.done(show_time=True)
+        bar.done()
+        tra = cabs_run.get_trajectory()
+        replicas = tra.split_replicas()
+        for i, r in enumerate(replicas, 1):
+            r.save_to_pdb(join(work_dir, 'replica_%d.pdb' % i))
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', ligand='MICHAL', mc_steps=50, mc_cycles=50, replicas=1)
+    j = Job(receptor='1rjk:A', ligand='MICHAL', mc_steps=5, mc_cycles=5, replicas=5)

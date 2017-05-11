@@ -11,7 +11,7 @@ from itertools import combinations
 from string import ascii_uppercase
 
 from vector3d import Vector3d
-from utils import CABS_SS, aa_to_long
+from utils import CABS_SS, aa_to_long, ProgressBar
 
 
 class Atom:
@@ -334,10 +334,10 @@ class Atoms:
 
     def to_matrix(self):
         """"
-        Returns numpy.matrix(3,N) where N is number of Atoms.
+        Returns numpy.matrix(N, 3) where N is number of Atoms.
         Matrix holds Atoms' coordinates.
         """
-        return np.matrix("; ".join([repr(a.coord) for a in self.atoms])).getT()
+        return np.concatenate([a.coord.to_matrix() for a in self.atoms])
 
     def from_matrix(self, matrix):
         """
@@ -359,6 +359,7 @@ class Atoms:
                 )
         else:
             raise Exception('Invalid matrix shape: ' + matrix.shape)
+        return self
 
     def move(self, v):
         """
@@ -375,7 +376,7 @@ class Atoms:
         """
         if matrix.shape != (3, 3):
             raise Exception('Invalid matrix shape: ' + matrix.shape)
-        self.from_matrix(matrix * self.to_matrix())
+        self.from_matrix(matrix * self.to_matrix().T)
         return self
 
     def cent_of_mass(self):
@@ -412,7 +413,7 @@ class Atoms:
         if not concentric:
             t = np.subtract(t, np.average(t, 1))
             q = np.subtract(q, np.average(q, 1))
-        v, s, w = np.linalg.svd(np.dot(t, q.T))
+        v, s, w = np.linalg.svd(np.dot(t.T, q))
         d = np.identity(3)
         if np.linalg.det(np.dot(w.T, v.T)) < 0:
             d[2, 2] = -1
@@ -503,6 +504,10 @@ class Atoms:
                 s += m.__repr__()
                 s += '\nENDMDL\n'
         return s
+
+    def save_to_pdb(self, filename):
+        with open(filename, 'w') as f:
+            f.write(self.make_pdb())
 
     def select(self, sele):
         """

@@ -112,3 +112,11 @@ class ProgressBar:
             t = gmtime(time() - self.start_time)
             self.stream.write('Done in %s\n' % strftime('%H:%M:%S', t))
         self.stream.flush()
+
+
+def line_count(filename):
+    i = 0
+    with open(filename) as f:
+        for i, l in enumerate(f, 1):
+            pass
+    return i

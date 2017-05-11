@@ -16,6 +16,7 @@ class Vector3d:
     2. Vector3d(string), where string is a list of x, y, z coordinates separated by commas or whitespaces
     3. Vector3d(x=float/string, y=float/string, z=float/string), missing arguments are set to 0.
     4. Vector3d(np.matrix(3, 1) or (1, 3))
+    TODO: przerobic na numpy
     """
     def __init__(self, *args, **kwargs):
         self.x = self.y = self.z = 0
@@ -135,7 +136,7 @@ class Vector3d:
 
     def to_matrix(self):
         """Conversion to np.matrix(1, 3)"""
-        return np.matrix('%f %f %f' % (self.x, self.y, self.z))
+        return np.matrix([self.x, self.y, self.z])
 
     def random(self):
         """Returns random normalized vector from spherical uniform distribution"""
