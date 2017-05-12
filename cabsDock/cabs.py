@@ -209,7 +209,7 @@ class CabsRun(Thread):
             rest.sort(key=attrgetter('id1'))
             all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
             rest_count = {i: all_ids.count(i) for i in all_ids}
-            max_r = max(rest_count.values())
+            max_r = max(rest_count.values() + [1])
             rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
             restr += ''.join(rest)
     #  DO POPRAWY
@@ -283,7 +283,7 @@ class CabsRun(Thread):
 
 class CabsTrajectory:
     """
-    CABS trajectory compressed object. Holds simulation trajectory in large int array.
+    CABS trajectory compressed object. Holds simulation trajectory in a large int array.
     Attributes:
         template: Atoms with empty coordinates. Use template.from_matrix(np.matrix(with coordinates)) to generate models
         headers: List of Headers objects extracted from trajectory with energies and temperatures.
@@ -391,6 +391,7 @@ class CabsTrajectory:
         if size_test != len(self.coordinates):
             raise Exception('Invalid number of atoms in %s!!!' % traf)
 
+        self.shape = (self.replicas, self.frames, self.flength)
         self.f_size = self.flength * 3              # frame size
         self.r_size = self.f_size * self.frames     # replica size
 
@@ -427,8 +428,7 @@ class CabsTrajectory:
                 )
         return atoms
 
-    @staticmethod
-    def read_traf(filename):
+    def read_traf(self, filename):
         headers = []
         replicas = {}
 
@@ -440,7 +440,7 @@ class CabsTrajectory:
                 replicas[r] = []
             replicas[r].extend(c[3:-3])
 
-        bar = ProgressBar(line_count(filename), msg='Loading TRAF')
+        bar = ProgressBar(line_count(filename), msg='Processing trajectory')
         with open(filename) as f:
             current_header = None
             current_coord = []
@@ -466,9 +466,11 @@ class CabsTrajectory:
 
         headers.sort(key=lambda x: x.frame)
         headers.sort(key=lambda x: x.replica)
-        replicas = [x for y in sorted(replicas) for x in replicas[y]]
+        coordinates = np.array(
+            [x for y in sorted(replicas) for x in replicas[y]], np.int16
+        ).reshape(self.shape + (3,))
 
-        return headers, replicas
+        return headers, coordinates
 
     def split_replicas(self):
         replicas = []
@@ -489,5 +491,4 @@ class CabsTrajectory:
 if __name__ == '__main__':
     tra = CabsTrajectory('TRAF', 'SEQ')
     replicas = tra.split_replicas()
-    for i, r in enumerate(replicas, 1):
-        r.save_to_pdb('replica_%d.pdb' % i)
+

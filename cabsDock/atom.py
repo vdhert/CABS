@@ -22,7 +22,7 @@ class Atom:
         """
         Constructor. Creates an Atom object from string - ATOM/HETATM line from the pdb file.
         If line is empty creates an empty atom equivalent to:
-        Atom('HETATM    0 XXXX XXX X   0       0.000   0.000   0.000  1.00  0.00')
+        Atom('HETATM    0 XXXX XXX X   0       0.000   0.000   0.000  0.00  0.00')
         Passing attribute=value to the constructor overwrites default/read values.
         """
         if line:
@@ -50,7 +50,7 @@ class Atom:
             self.resnum = 0
             self.icode = ""
             self.coord = Vector3d()
-            self.occ = 1.0
+            self.occ = 0.0
             self.bfac = 0.0
             self.tail = ""
 
@@ -535,17 +535,18 @@ class Atoms:
         and puts it into self.occ in CABS code:
         Helix - > 2.0, Sheet -> 4.0, Turn -> 3.0, Coil -> 1.0
         """
-        for i in self.atoms:
-            k = i.resid_id()
-            if k in sec:
-                if sec[k] == 'H':
-                    i.occ = 2.0
-                elif sec[k] == 'E':
-                    i.occ = 4.0
-                elif sec[k] == 'T':
-                    i.occ = 3.0
-                else:
-                    i.occ = 1.0
+        if sec:
+            for i in self.atoms:
+                k = i.resid_id()
+                if k in sec:
+                    if sec[k] == 'H':
+                        i.occ = 2.0
+                    elif sec[k] == 'E':
+                        i.occ = 4.0
+                    elif sec[k] == 'T':
+                        i.occ = 3.0
+                    else:
+                        i.occ = 1.0
         return self
 
     def update_bfac(self, bfac, d=0):

@@ -74,13 +74,15 @@ class Pdb:
     def dssp(self, dssp_command='dssp'):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
         try:
-            proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE)
+            proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         except OSError:
             raise Exception('Dssp not found!!!')
-        out = proc.communicate(input=''.join(self.lines))[0].split('\n')
+        out, err = proc.communicate(input=''.join(self.lines))
+        if err:
+            return None
         sec = {}
         p = '^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITS ])(.*)$'
-        for line in out:
+        for line in out.split('\n'):
             m = re.match(p, line)
             if m:
                 key = m.group(2).strip() + ':' + m.group(3)
