@@ -278,10 +278,10 @@ class CabsRun(Thread):
     def get_trajectory(self):
         traf = join(self.cfg['cwd'], 'TRAF')
         seq = join(self.cfg['cwd'], 'SEQ')
-        return CabsTrajectory(traf, seq)
+        return Trajectory(traf, seq)
 
 
-class CabsTrajectory:
+class Trajectory:
     """
     CABS trajectory compressed object. Holds simulation trajectory in a large int array.
     Attributes:
@@ -300,9 +300,6 @@ class CabsTrajectory:
         
         This allows for purely integer indexing of arbitrary (sub)structures. Also consumes little memory.
         
-        replicas: number of replicas
-        frames: number of trajectory frames
-        length: tuple with chain lengths
     """
     CABS_GRID = 0.61  # temporary set to constant
 
@@ -322,7 +319,7 @@ class CabsTrajectory:
             Init header from trajectory header.
             Attributes:
                 replica - replica number
-                frame - number in the trajectory (time)
+                model - number in the trajectory (time)
                 length - tuple with lengths of all chains
                 energy - np.matrix(N, 3) where N is number of chains. Each row contains: Etotal, Einteraction, Einternal
                     Einteraction - Energy between n-th chain and rest of the system.
@@ -331,7 +328,7 @@ class CabsTrajectory:
             :param line: String - header for one chain in trajectory. 
             """
             header = line.split()
-            self.frame = int(header[0])
+            self.model = int(header[0])
             self.length = (int(header[1]) - 2,)
             self.energy = np.matrix(header[4:1:-1], float)
             self.temperature = float(header[5])
@@ -339,18 +336,18 @@ class CabsTrajectory:
             self.e_complex = None
 
         def __repr__(self):
-            return 'Replica: %d Frame: %d Length: %s T: %.2f E: %s' % (
+            return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
                 self.replica,
-                self.frame,
+                self.model,
                 self.length,
                 self.temperature,
-                str(self.energy)
+                str(self.energy.tolist())
             )
 
         def __add__(self, other):
             """Merges two headers from two chains of the same frame"""
-            if self.replica != other.replica or self.frame != other.frame:
-                raise CabsTrajectory.Header.CannotMerge(self, other)
+            if self.replica != other.replica or self.model != other.model:
+                raise Trajectory.Header.CannotMerge(self, other)
             else:
                 dt = self.temperature - other.temperature
                 de = self.energy[0, 0] - other.energy[0, 0]
@@ -371,41 +368,27 @@ class CabsTrajectory:
         self.template = Atoms(self.read_seq(seq))
         self.headers, self.coordinates = self.read_traf(traf)
 
-        self.replicas = len(set(h.replica for h in self.headers))
-        if len(self.headers) % self.replicas:
+        replicas = len(set(h.replica for h in self.headers))
+        if len(self.headers) % replicas:
             raise Exception('Replicas have different sizes!!!')
-        self.frames = len(self.headers) / self.replicas
+        models = len(self.headers) / replicas
         self.length = self.headers[0].length
 
         if any(self.length != h.length for h in self.headers):  # check if all frames have the same shape
             raise Exception('Invalid headers in %s!!!' % traf)
 
-        self.flength = sum(self.length)
+        self.sum_length = sum(self.length)
 
-        if self.flength != len(self.template):
-            # check if number of atoms in SEQ matches that in trajectory headers
+        if self.sum_length != len(self.template):
+            # check if number of atoms in SEQ matches that in trajectory head.ers
             raise Exception('Different number of atoms in %s and %s!!!' % (traf, seq))
 
         # final test if information from headers agrees with number of coordinates
-        size_test = self.replicas * self.frames * self.flength * 3
+        size_test = replicas * models * self.sum_length * 3
         if size_test != len(self.coordinates):
             raise Exception('Invalid number of atoms in %s!!!' % traf)
 
-        self.shape = (self.replicas, self.frames, self.flength)
-        self.f_size = self.flength * 3              # frame size
-        self.r_size = self.f_size * self.frames     # replica size
-
-    def r_index(self, r):
-        """Returns index for the beginning of the r-th replica"""
-        return r * self.r_size
-
-    def f_index(self, r, f):
-        """Returns index for the beginning of the f-th frame in the r-th replica"""
-        return self.r_index(r) + f * self.f_size
-
-    def a_index(self, r, f, i):
-        """Returns index for the beginning of the i-th atom in the f-th frame in the r-th replica"""
-        return self.f_index(r, f) + i
+        self.shape = (replicas, models, self.sum_length)
 
     @staticmethod
     def read_seq(filename):
@@ -428,7 +411,8 @@ class CabsTrajectory:
                 )
         return atoms
 
-    def read_traf(self, filename):
+    @staticmethod
+    def read_traf(filename):
         headers = []
         replicas = {}
 
@@ -447,7 +431,7 @@ class CabsTrajectory:
             for index, line in enumerate(f):
                 bar.update(index)
                 if '.' in line:
-                    header = CabsTrajectory.Header(line)
+                    header = Trajectory.Header(line)
                     if not current_header:
                         current_header = header
                     else:
@@ -455,7 +439,7 @@ class CabsTrajectory:
                         current_coord = []
                         try:
                             current_header = current_header + header
-                        except CabsTrajectory.Header.CannotMerge:
+                        except Trajectory.Header.CannotMerge:
                             save_header(current_header)
                             current_header = header
                 else:
@@ -464,31 +448,13 @@ class CabsTrajectory:
             save_coord(current_coord, current_header.replica)
         bar.done()
 
-        headers.sort(key=lambda x: x.frame)
+        headers.sort(key=lambda x: x.model)
         headers.sort(key=lambda x: x.replica)
-        coordinates = np.array(
-            [x for y in sorted(replicas) for x in replicas[y]], np.int16
-        ).reshape(self.shape + (3,))
+        coordinates = np.array([x for y in sorted(replicas) for x in replicas[y]], np.int16)
 
         return headers, coordinates
 
-    def split_replicas(self):
-        replicas = []
-        for replica in range(self.replicas):
-            atoms = Atoms()
-            bar = ProgressBar(self.frames, msg='Processing replica: %d' % (replica + 1))
-            for frame in range(self.frames):
-                bar.update(frame)
-                model = deepcopy(self.template)
-                model.set_model_number(frame)
-                index = self.f_index(replica, frame)
-                coordinates = np.array(self.coordinates[index:index + self.f_size]).reshape((self.flength, 3))
-                atoms.extend(model.from_matrix(np.matrix(coordinates * self.CABS_GRID)))
-            replicas.append(atoms)
-            bar.done()
-        return replicas
 
 if __name__ == '__main__':
-    tra = CabsTrajectory('TRAF', 'SEQ')
-    replicas = tra.split_replicas()
-
+    tra = Trajectory('CABS/TRAF', 'CABS/SEQ')
+    print '\n'.join(map(str, tra.headers))

@@ -128,7 +128,7 @@ class Job:
             'sg_restraints_strength': 1.0,
             'receptor_restraints': (4, 5.0, 15.0),  # sequence gap, min length, max length
             'dssp_command': 'dssp',
-            'fortran_compiler': ('gfortran', '-02')    # build (command, flags)
+            'fortran_compiler': ('gfortran', '-O2')    # build (command, flags)
         }
 
         self.config = Config(defaults)
@@ -165,7 +165,8 @@ class Job:
 
         # run cabs
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
-        #cabs_run.start()
+        exit(1)
+        cabs_run.start()
         bar = ProgressBar(100, msg='CABS is running:')
         while cabs_run.is_alive():
             bar.update(cabs_run.status())
@@ -177,4 +178,4 @@ class Job:
             r.save_to_pdb(join(work_dir, 'replica_%d.pdb' % i))
 
 if __name__ == '__main__':
-    j = Job(receptor='dupa.pdb', ligand='ICH', mc_steps=50, mc_cycles=50, replicas=10)
+    j = Job(receptor='dupa.pdb', ligand='ICH', mc_steps=1, mc_cycles=50, replicas=3)
