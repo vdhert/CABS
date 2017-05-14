@@ -454,6 +454,9 @@ class Trajectory:
 
         return headers, coordinates
 
+    def get_coordintaes(self, replica, model, front, back):
+        return
+
 
 if __name__ == '__main__':
     tra = Trajectory('CABS/TRAF', 'CABS/SEQ')
