@@ -279,6 +279,9 @@ class CabsRun(Thread):
     #     seq = join(self.cfg['cwd'], 'SEQ')
     #     return Trajectory(traf, seq)
 
+    def get_coordintaes(self, replica, model, front, back):
+        return
+
 
 if __name__ == '__main__':
     pass
