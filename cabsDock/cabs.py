@@ -9,11 +9,10 @@ from subprocess import Popen, PIPE, check_output
 from glob import glob
 from random import randint
 from threading import Thread
-from copy import deepcopy
 
 from vector3d import Vector3d
-from atom import Atom, Atoms
-from utils import CABS_HOME, ProgressBar, line_count
+from trajectory import Trajectory
+from utils import CABS_HOME
 
 
 class CabsLattice:
@@ -227,7 +226,7 @@ class CabsRun(Thread):
         return restr, max_r
 
     @staticmethod
-    def build_exe(params, src='cabs.f', exe='cabs', build_command='gfortran', build_flags='-O2', destination='.'):
+    def build_exe(params, src='cabs.f', exe='cabs', build_command='gfortran', build_flags='-O1', destination='.'):
 
         with open(src) as f:
             lines = f.read()
@@ -275,186 +274,11 @@ class CabsRun(Thread):
 
         return progress
 
-    def get_trajectory(self):
-        traf = join(self.cfg['cwd'], 'TRAF')
-        seq = join(self.cfg['cwd'], 'SEQ')
-        return Trajectory(traf, seq)
-
-
-class Trajectory:
-    """
-    CABS trajectory compressed object. Holds simulation trajectory in a large int array.
-    Attributes:
-        template: Atoms with empty coordinates. Use template.from_matrix(np.matrix(with coordinates)) to generate models
-        headers: List of Headers objects extracted from trajectory with energies and temperatures.
-        coordinates: large int array with coordinates in lattice units, arranged as:
-        
-        [x1, y1, z1][x2, y2, z2] ... [xn, yn, zn] - n is number of atoms in one model (all chains)
-        [    v1    ][    v2    ] ... [    vn    ]
-        
-        [v1, v2, ... , vn][v1, v2, ... , vn] ... [v1, v2, ... , vn]
-        [     frame1     ][     frame2     ] ... [     frameN     ] - N is number of frames in the trajectory
-        
-        [                       REPLICA 1                         ]
-        [REPLICA 1][REPLICA 2] ... [REPLICA R] - r number of replicas
-        
-        This allows for purely integer indexing of arbitrary (sub)structures. Also consumes little memory.
-        
-    """
-    CABS_GRID = 0.61  # temporary set to constant
-
-    class Header:
-        """Trajectory header read from CABS output: energies and temperatures"""
-
-        class CannotMerge(Exception):
-            """Raised when trying to merge headers for different frames"""
-            def __init__(self, h1, h2):
-                self.msg = 'Cannot merge headers: %s and %s' % (h1, h2)
-
-            def __str__(self):
-                return self.msg
-
-        def __init__(self, line):
-            """
-            Init header from trajectory header.
-            Attributes:
-                replica - replica number
-                model - number in the trajectory (time)
-                length - tuple with lengths of all chains
-                energy - np.matrix(N, 3) where N is number of chains. Each row contains: Etotal, Einteraction, Einternal
-                    Einteraction - Energy between n-th chain and rest of the system.
-                e_complex - tuple (Etotal, Ereceptor, Eligand, Ebinding)
-                temperature - no surprise here - it's the temperature
-            :param line: String - header for one chain in trajectory. 
-            """
-            header = line.split()
-            self.model = int(header[0])
-            self.length = (int(header[1]) - 2,)
-            self.energy = np.matrix(header[4:1:-1], float)
-            self.temperature = float(header[5])
-            self.replica = int(header[6])
-            self.e_complex = None
-
-        def __repr__(self):
-            return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
-                self.replica,
-                self.model,
-                self.length,
-                self.temperature,
-                str(self.energy.tolist())
-            )
-
-        def __add__(self, other):
-            """Merges two headers from two chains of the same frame"""
-            if self.replica != other.replica or self.model != other.model:
-                raise Trajectory.Header.CannotMerge(self, other)
-            else:
-                dt = self.temperature - other.temperature
-                de = self.energy[0, 0] - other.energy[0, 0]
-                if dt ** 2 > 1e-6 or de ** 2 > 1e-6:
-                    raise Exception("Cannot merge headers with different T or E!!!")
-                else:
-                    h = deepcopy(self)
-                    h.length += other.length
-                    h.energy = np.concatenate([self.energy, other.energy])
-            return h
-
-    def __init__(self, traf, seq):
-        """
-        Load TRAF and SEQ from CABS and check if SEQ fits TRAF.
-        :param traf: String with TRAF file location 
-        :param seq: String with SEQ file location
-        """
-        self.template = Atoms(self.read_seq(seq))
-        self.headers, self.coordinates = self.read_traf(traf)
-
-        replicas = len(set(h.replica for h in self.headers))
-        if len(self.headers) % replicas:
-            raise Exception('Replicas have different sizes!!!')
-        models = len(self.headers) / replicas
-        self.length = self.headers[0].length
-
-        if any(self.length != h.length for h in self.headers):  # check if all frames have the same shape
-            raise Exception('Invalid headers in %s!!!' % traf)
-
-        self.sum_length = sum(self.length)
-
-        if self.sum_length != len(self.template):
-            # check if number of atoms in SEQ matches that in trajectory head.ers
-            raise Exception('Different number of atoms in %s and %s!!!' % (traf, seq))
-
-        # final test if information from headers agrees with number of coordinates
-        size_test = replicas * models * self.sum_length * 3
-        if size_test != len(self.coordinates):
-            raise Exception('Invalid number of atoms in %s!!!' % traf)
-
-        self.shape = (replicas, models, self.sum_length)
-
-    @staticmethod
-    def read_seq(filename):
-        atoms = []
-        with open(filename) as f:
-            for i, line in enumerate(f):
-                atoms.append(
-                    Atom(
-                        hetatm=False,
-                        serial=i + 1,
-                        name='CA',
-                        alt=line[7],
-                        resname=line[8:11],
-                        chid=line[12],
-                        resnum=int(line[1:5]),
-                        icode=line[5],
-                        occ=float(line[15]),
-                        bfac=float(line[16:22])
-                    )
-                )
-        return atoms
-
-    @staticmethod
-    def read_traf(filename):
-        headers = []
-        replicas = {}
-
-        def save_header(h):
-            headers.append(h)
-
-        def save_coord(c, r):
-            if r not in replicas:
-                replicas[r] = []
-            replicas[r].extend(c[3:-3])
-
-        bar = ProgressBar(line_count(filename), msg='Processing trajectory')
-        with open(filename) as f:
-            current_header = None
-            current_coord = []
-            for index, line in enumerate(f):
-                bar.update(index)
-                if '.' in line:
-                    header = Trajectory.Header(line)
-                    if not current_header:
-                        current_header = header
-                    else:
-                        save_coord(current_coord, current_header.replica)
-                        current_coord = []
-                        try:
-                            current_header = current_header + header
-                        except Trajectory.Header.CannotMerge:
-                            save_header(current_header)
-                            current_header = header
-                else:
-                    current_coord.extend(map(int, line.split()))
-            save_header(current_header)
-            save_coord(current_coord, current_header.replica)
-        bar.done()
-
-        headers.sort(key=lambda x: x.model)
-        headers.sort(key=lambda x: x.replica)
-        coordinates = np.array([x for y in sorted(replicas) for x in replicas[y]], np.int16)
-
-        return headers, coordinates
+    # def get_trajectory(self):
+    #     traf = join(self.cfg['cwd'], 'TRAF')
+    #     seq = join(self.cfg['cwd'], 'SEQ')
+    #     return Trajectory(traf, seq)
 
 
 if __name__ == '__main__':
-    tra = Trajectory('CABS/TRAF', 'CABS/SEQ')
-    print '\n'.join(map(str, tra.headers))
+    pass

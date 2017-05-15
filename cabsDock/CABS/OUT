@@ -1,0 +1,21 @@
+ CHAIN:            1
+FINAL ENERGY    -27.65    -38.40
+FINAL ENERGY    -27.65    -38.40
+
+ Ca-Ca overlaps             0
+ Ca-Cb overlaps             0
+ Cb-Cb overlaps             0
+
+ CHAIN:            2
+FINAL ENERGY     -0.50    -38.40
+FINAL ENERGY     -0.50    -38.40
+
+ Ca-Ca overlaps             0
+ Ca-Cb overlaps             0
+ Cb-Cb overlaps             0
+
+
+    	FINAL REPLICA DISTRIBUTION
+   replica #   1   T =  1.00  E =   -66.6       518
+   replica #   2   T =  1.50  E =   -18.7       968
+   replica #   3   T =  2.00  E =   -24.5       808

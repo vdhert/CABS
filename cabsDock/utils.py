@@ -120,3 +120,19 @@ def line_count(filename):
         for i, l in enumerate(f, 1):
             pass
     return i
+
+
+def ranges(data):
+    result = []
+    if not data:
+        return result
+    idata = iter(data)
+    first = prev = next(idata)
+    for following in idata:
+        if following - prev == 1:
+            prev = following
+        else:
+            result.append((first, prev + 1))
+            first = prev = following
+    result.append((first, prev+1))
+    return result
