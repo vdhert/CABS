@@ -165,17 +165,15 @@ class Job:
 
         # run cabs
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
-        exit(1)
         cabs_run.start()
         bar = ProgressBar(100, msg='CABS is running:')
         while cabs_run.is_alive():
             bar.update(cabs_run.status())
             sleep(0.1)
         bar.done()
-        tra = cabs_run.get_trajectory()
-        replicas = tra.split_replicas()
-        for i, r in enumerate(replicas, 1):
-            r.save_to_pdb(join(work_dir, 'replica_%d.pdb' % i))
+        trajectory, headers = cabs_run.get_trajectory()
+        trajectory.align_to(self.initial_complex)
+
 
 if __name__ == '__main__':
-    j = Job(receptor='dupa.pdb', ligand='ICH', mc_steps=1, mc_cycles=50, replicas=3)
+    j = Job(receptor='1rjk:A', ligand='MICHAL', mc_steps=2, mc_cycles=2, replicas=2)

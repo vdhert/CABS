@@ -11,7 +11,7 @@ from random import randint
 from threading import Thread
 
 from vector3d import Vector3d
-from trajectory import Trajectory
+from trajectory import read_trajectory
 from utils import CABS_HOME
 
 
@@ -274,13 +274,10 @@ class CabsRun(Thread):
 
         return progress
 
-    # def get_trajectory(self):
-    #     traf = join(self.cfg['cwd'], 'TRAF')
-    #     seq = join(self.cfg['cwd'], 'SEQ')
-    #     return Trajectory(traf, seq)
-
-    def get_coordintaes(self, replica, model, front, back):
-        return
+    def get_trajectory(self):
+        traf = join(self.cfg['cwd'], 'TRAF')
+        seq = join(self.cfg['cwd'], 'SEQ')
+        return read_trajectory(traf, seq)
 
 
 if __name__ == '__main__':

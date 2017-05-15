@@ -2,7 +2,7 @@ from string import ascii_uppercase
 import numpy as np
 import re
 from os.path import abspath, join
-from sys import stdout
+from sys import stderr
 from time import time, strftime, gmtime, sleep
 
 
@@ -76,7 +76,7 @@ class ProgressBar:
     BAR0 = ' '
     BAR1 = '='
 
-    def __init__(self, total=100, msg='', stream=stdout, delay=0):
+    def __init__(self, total=100, msg='', stream=stderr, delay=0):
         self.total = total
         self.current = 0
         self.stream = stream
@@ -93,7 +93,7 @@ class ProgressBar:
         self.stream.write(self.FORMAT % (bar, percent))
         self.stream.flush()
 
-    def update(self, state):
+    def update(self, state=None):
         if not state:
             self.current += 1
         elif state < 0:

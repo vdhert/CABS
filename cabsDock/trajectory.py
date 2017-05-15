@@ -14,19 +14,44 @@ class Trajectory:
 
     def select(self, selection):
         template = self.template.select(selection)
-        rng = ranges([self.template.atoms.index(a) for a in template])
-        return Trajectory(template, np.concatenate([self.coordinates[:, :, r[0]: r[1]] for r in rng], 2))
+        return ranges([self.template.atoms.index(a) for a in template])
 
     def to_atoms(self):
         replicas = []
         for r in range(self.coordinates.shape[0]):
             replicas.append(Atoms(None))
+            msg = 'Processing replica: %d' % (r + 1)
+            bar = ProgressBar(self.coordinates.shape[1], msg=msg)
             for m in range(self.coordinates.shape[1]):
                 atoms = deepcopy(self.template)
                 atoms.set_model_number(m + 1)
                 atoms.from_matrix(0.61* self.coordinates[r][m])
                 replicas[r].extend(atoms)
+                bar.update()
+            bar.done(False)
         return replicas
+
+    def align_to(self, target):
+        selection = 'chain ' + ','.join(target.list_chains().keys())
+        rng = self.select(selection)
+        if not rng:
+            raise Exception('Invalid selection: \'%s\'' % selection)
+        else:
+            t = target.to_matrix()
+            t_com = np.average(t, 0)
+            t = np.subtract(t, t_com)
+
+            is_same = (rng == [(0, len(self.template))])
+            replicas, models, atoms = self.coordinates.shape
+            for r in range(replicas):
+                replica = self.coordinates[r]
+                for m in models:
+                    model = replica[m]
+                    if is_same:
+                        sele = model
+                    else:
+                        sele = np.concatenate([model[r[0]: r[1]] for r in rng])
+
 
 
 class Header:
@@ -101,7 +126,7 @@ def read_trajectory(traf, seq):
 
     shape = (replicas, models, sum_length)
     coordinates = coordinates.reshape(shape + (3,))
-    return (template, coordinates), headers
+    return Trajectory(template, coordinates), headers
 
 
 def read_seq(filename):
@@ -168,7 +193,4 @@ def read_traf(filename):
     return headers, coordinates
 
 if __name__ == '__main__':
-    t, h = read_trajectory('CABS/TRAF', 'CABS/SEQ')
-    tra = Trajectory(*t)
-    replicas = tra.to_atoms()
-    print replicas[0].make_pdb()
+    pass
