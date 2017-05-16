@@ -2,12 +2,14 @@ import numpy as np
 from copy import deepcopy
 
 from atom import Atom, Atoms
-from utils import ProgressBar, ranges, line_count
+from utils import ProgressBar, ranges, line_count, kabsch
 
 __all__ = ['Trajectory', 'Header']
 
 
 class Trajectory:
+    GRID = 0.61
+
     def __init__(self, template, coordinates):
         self.template = template
         self.coordinates = coordinates
@@ -25,7 +27,7 @@ class Trajectory:
             for m in range(self.coordinates.shape[1]):
                 atoms = deepcopy(self.template)
                 atoms.set_model_number(m + 1)
-                atoms.from_matrix(0.61* self.coordinates[r][m])
+                atoms.from_matrix(self.coordinates[r][m])
                 replicas[r].extend(atoms)
                 bar.update()
             bar.done(False)
@@ -41,16 +43,17 @@ class Trajectory:
             t_com = np.average(t, 0)
             t = np.subtract(t, t_com)
 
-            is_same = (rng == [(0, len(self.template))])
-            replicas, models, atoms = self.coordinates.shape
+            replicas, models = self.coordinates.shape[0:2]
             for r in range(replicas):
                 replica = self.coordinates[r]
-                for m in models:
+                for m in range(models):
                     model = replica[m]
-                    if is_same:
-                        sele = model
-                    else:
-                        sele = np.concatenate([model[r[0]: r[1]] for r in rng])
+                    sele = np.concatenate([model[r[0]: r[1]] for r in rng])
+                    sele_com = np.average(sele, 0)
+                    q = np.subtract(sele, sele_com)
+                    np.copyto(
+                        model, np.add(np.dot(np.subtract(model, sele_com), kabsch(t, q, concentric=True)), t_com)
+                    )
 
 
 
@@ -188,7 +191,7 @@ def read_traf(filename):
 
     headers.sort(key=lambda x: x.model)
     headers.sort(key=lambda x: x.replica)
-    coordinates = np.array([x for y in sorted(replicas) for x in replicas[y]], np.int16)
+    coordinates = np.array([Trajectory.GRID * x for y in sorted(replicas) for x in replicas[y]])
 
     return headers, coordinates
 

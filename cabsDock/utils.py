@@ -134,5 +134,38 @@ def ranges(data):
         else:
             result.append((first, prev + 1))
             first = prev = following
-    result.append((first, prev+1))
+    result.append((first, prev + 1))
     return result
+
+
+def kabsch(t, q, concentric=False):
+    if not concentric:
+        t = np.subtract(t, np.average(t, 0))
+        q = np.subtract(q, np.average(q, 0))
+    v, s, w = np.linalg.svd(np.dot(t.T, q))
+    d = np.identity(3)
+    if np.linalg.det(np.dot(w.T, v.T)) < 0:
+        d[2, 2] = -1
+    return np.dot(np.dot(w.T, d), v.T)
+
+
+def smart_flatten(l):
+    """
+    Function which expands and flattens a list of integers.
+    m-n -> m, m+1, ..., n
+    """
+    fl = []
+    for i in l:
+        if '-' in i:
+            j = i.split('-')
+            if len(j) is not 2:
+                raise Exception('Invalid range syntax: ' + l)
+            beg = int(j[0])
+            end = int(j[1])
+            if beg > end:
+                raise Exception('The left index(%i) is greater than the right(%i)' % (beg, end))
+            for k in range(beg, end + 1):
+                fl.append(k)
+        else:
+            fl.append(int(i))
+    return fl

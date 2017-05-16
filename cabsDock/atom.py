@@ -10,8 +10,8 @@ from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
 
+from utils import CABS_SS, aa_to_long, smart_flatten, kabsch, ProgressBar
 from vector3d import Vector3d
-from utils import CABS_SS, aa_to_long, ProgressBar
 
 
 class Atom:
@@ -402,7 +402,7 @@ class Atoms:
         self.move(v - self.cent_of_mass())
         return self
 
-    def kabsch(self, other, concentric=False):
+    def compute_rotation(self, other, concentric=False):
         """
         Computes the rotation matrix for best fit between two sets of Atoms.
         """
@@ -410,20 +410,13 @@ class Atoms:
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
         t = other.to_matrix()
         q = self.to_matrix()
-        if not concentric:
-            t = np.subtract(t, np.average(t, 1))
-            q = np.subtract(q, np.average(q, 1))
-        v, s, w = np.linalg.svd(np.dot(t.T, q))
-        d = np.identity(3)
-        if np.linalg.det(np.dot(w.T, v.T)) < 0:
-            d[2, 2] = -1
-        return np.matrix(np.dot(np.dot(w.T, d), v.T))
+        return kabsch(t, q, concentric)
 
     def str_align(self, other):
         """
         Aligns structurally set of atoms to another set.
         """
-        r = self.kabsch(other)
+        r = self.compute_rotation(other)
         self.center_at_origin().rotate(r).move(other.cent_of_mass())
         return self
 
@@ -490,11 +483,15 @@ class Atoms:
         """
         return sqrt(max([p[0].dist2(p[1]) for p in combinations(self.atoms, 2)]))
 
-    def make_pdb(self):
+    def make_pdb(self, bar_msg=''):
         """
         Returns a pdb-like formatted string.
         """
         models = self.models()
+        if bar_msg:
+            bar = ProgressBar(len(models), bar_msg)
+        else:
+            bar = None
         if len(models) == 1:
             s = self.__repr__()
         else:
@@ -503,11 +500,15 @@ class Atoms:
                 s += 'MODEL%9i\n' % m[0].model
                 s += m.__repr__()
                 s += '\nENDMDL\n'
+                if bar:
+                    bar.update()
+        if bar:
+            bar.done(False)
         return s
 
-    def save_to_pdb(self, filename):
+    def save_to_pdb(self, filename, bar_msg=''):
         with open(filename, 'w') as f:
-            f.write(self.make_pdb())
+            f.write(self.make_pdb(bar_msg=bar_msg))
 
     def select(self, sele):
         """
@@ -653,27 +654,6 @@ class Selection:
     def __repr__(self):
         return " ".join(self.tokens)
 
-
-def smart_flatten(l):
-    """
-    Function which expands and flattens a list of integers.
-    m-n -> m, m+1, ..., n
-    """
-    fl = []
-    for i in l:
-        if '-' in i:
-            j = i.split('-')
-            if len(j) is not 2:
-                raise Exception('Invalid range syntax: ' + l)
-            beg = int(j[0])
-            end = int(j[1])
-            if beg > end:
-                raise Exception('The left index(%i) is greater than the right(%i)' % (beg, end))
-            for k in range(beg, end + 1):
-                fl.append(k)
-        else:
-            fl.append(int(i))
-    return fl
 
 if __name__ == '__main__':
     pass
