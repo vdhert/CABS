@@ -39,7 +39,7 @@ class Trajectory:
             t_com = np.average(t, 0)
             t = np.subtract(t, t_com)
 
-            replicas, models = self.coordinates.shape[0:2]
+            replicas, models = self.coordinates.shape[:2]
             for r in range(replicas):
                 replica = self.coordinates[r]
                 for m in range(models):
@@ -50,6 +50,14 @@ class Trajectory:
                     np.copyto(
                         model, np.add(np.dot(np.subtract(model, sele_com), kabsch(t, q, concentric=True)), t_com)
                     )
+
+    def from_headers(self, headers):
+        replicas = self.coordinates.shape[0]
+        coordinates = []
+        for replica in range(replicas):
+            for r in ranges(h.model for h in headers if h.replica == replica + 1):
+                coordinates.append(self.coordinates[replica][r[0]: r[1]])
+        return Trajectory(self.template, np.concatenate(coordinates))
 
 
 class Header:
@@ -95,6 +103,24 @@ class Header:
                 h.length += other.length
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
+
+
+def filter_headers(number, headers, shape):
+    """
+    Temporary filtering - top N from each replica by total energy
+    """
+    replicas, models = shape[0:2]
+    if 0 < replicas * models <= number:
+        return headers
+    else:
+        filtered = []
+        from_replica = int(number / replicas)
+        remains = number - replicas * from_replica
+        for r in range(1, replicas + 1):
+            by_energy = sorted([h for h in headers if h.replica == r], key=lambda x: np.sum(x.energy[:, 1:2]))
+            top = from_replica + (r <= remains)
+            filtered.extend(sorted(sorted(by_energy[:top], key=lambda x: x.model), key=lambda x: x.replica))
+        return filtered
 
 
 def read_trajectory(traf, seq):
@@ -187,4 +213,7 @@ def read_traf(filename):
     return headers, coordinates
 
 if __name__ == '__main__':
-    pass
+    tra, h = read_trajectory('CABS/TRAF', 'CABS/SEQ')
+    f = filter_headers(11, h, tra.coordinates.shape)
+    filtered = tra.from_headers(f)
+

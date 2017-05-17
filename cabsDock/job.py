@@ -128,7 +128,9 @@ class Job:
             'sg_restraints_strength': 1.0,
             'receptor_restraints': (4, 5.0, 15.0),  # sequence gap, min length, max length
             'dssp_command': 'dssp',
-            'fortran_compiler': ('gfortran', '-O2')    # build (command, flags)
+            'fortran_compiler': ('gfortran', '-O2'),    # build (command, flags)
+            'filtering': 1000,  # number of models to filter
+            'clustering': (10, 100)  # number of clusters, iterations
         }
 
         self.config = Config(defaults)
