@@ -18,12 +18,18 @@ class Atom:
     """
     Class for representation of a single atom.
     """
+
+    # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
+    RES_ID_PATT = re.compile(r'([0-9]{1,4})([^0-9]?):([A-Z])')
+
     def __init__(self, line=None, model=0, **kwargs):
         """
         Constructor. Creates an Atom object from string - ATOM/HETATM line from the pdb file.
         If line is empty creates an empty atom equivalent to:
         Atom('HETATM    0 XXXX XXX X   0       0.000   0.000   0.000  0.00  0.00')
         Passing attribute=value to the constructor overwrites default/read values.
+        :param line: str 
+        :param model: int
         """
         if line:
             self.model = model
@@ -83,18 +89,24 @@ class Atom:
     def same_model(self, other):
         """
         Returns True if both atoms belong to the same model. False otherwise.
+        :param other: Atom
+        :return: Bool
         """
         return self.model == other.model
 
     def same_chain(self, other):
         """
         Returns True if both atoms belong to the same chain and model. False otherwise.
+        :param other: Atom
+        :return: Bool
         """
         return self.same_model(other) and self.chid == other.chid
 
     def same_residue(self, other):
         """
         Returns True if both atoms belong to the same residue, chain and model. False otherwise.
+        :param other: Atom
+        :return: Bool
         """
         return self.same_chain(other) and self.resnum == other.resnum and self.icode == other.icode
 
@@ -102,6 +114,7 @@ class Atom:
         """
         Returns true if Atom is hydrogen, false otherwise.
         Determined by the first non-digit character in atom's name. If "H" then hydrogen.
+        :return: Bool
         """
         m = re.search("([A-Z])", self.name)
         return m and m.group(0) == "H"
@@ -109,24 +122,32 @@ class Atom:
     def dist2(self, other):
         """
         Returns squared distance between two atoms.
+        :param other: Atom
+        :return: float
         """
         return (self.coord - other.coord).mod2()
 
     def distance(self, other):
         """
         Returns distance in Angstroms between two atoms.
+        :param other: Atom
+        :return: float
         """
         return sqrt(self.dist2(other))
 
     def min_distance(self, other):
         """
         Returns minimal distance between atom and group of atoms.
+        :param other: Atom
+        :return: float
         """
         return min(self.distance(atom) for atom in other)
 
     def match_token(self, token):
         """
         Returns True if Atom matches selection token. False otherwise.
+        :param token: str
+        :return: Bool
         """
         words = token.split()
         if len(words) == 1:
@@ -158,6 +179,8 @@ class Atom:
     def match(self, sele):
         """
          Returns True if Atom matches selection pattern. False otherwise.
+        :param sele: str
+        :return: Bool
         """
         pattern = deepcopy(sele.tokens)
         for i, t in enumerate(pattern):
@@ -166,8 +189,29 @@ class Atom:
         return eval(" ".join(pattern))
 
     def resid_id(self):
-        """Returns a string with residue identification i.e. 123:A"""
+        """
+        Returns a string with residue identification i.e. 123:A
+        :return: str
+        """
         return (str(self.resnum) + self.icode).strip() + ":" + self.chid
+
+    def update_id(self, res_id):
+        """
+        Updates resnum, chid and icode(when necessary) with values taken from dictionary res_id(i.e. 123A:B or 123:C).
+        :param res_id: {str: str}
+        """
+
+        match = re.match(Atom.RES_ID_PATT, res_id)
+        if not match:
+            raise Exception('Invalid res_id format: %s' % res_id)
+        else:
+            if match.group(2):
+                self.icode = match.group(2)
+            else:
+                self.icode = ' '
+            self.resnum = int(match.group(1))
+            self.chid = match.group(3)
+        return self
 
 
 class Atoms:
@@ -263,6 +307,7 @@ class Atoms:
     def residues(self):
         """
         Returns a list of Atoms objects representing residues.
+        :return: [Atoms]
         """
         res = []
         residue = Atoms()
@@ -287,6 +332,7 @@ class Atoms:
     def chains(self):
         """
         Returns a list of Atoms objects representing chains.
+        :return: [Atoms]
         """
         chn = []
         chain = Atoms()
@@ -311,6 +357,7 @@ class Atoms:
     def models(self):
         """
         Returns a list of Atoms objects representing models.
+        :return: [Atoms]
         """
         mdl = []
         model = Atoms()
@@ -336,12 +383,14 @@ class Atoms:
         """"
         Returns numpy.matrix(N, 3) where N is number of Atoms.
         Matrix holds Atoms' coordinates.
+        :return: numpy.matrix(N, 3)
         """
         return np.concatenate([a.coord.to_matrix() for a in self.atoms])
 
     def from_matrix(self, matrix):
         """
         Sets Atoms' coordinates from numpy.matrix(3,N) or(N,3).
+        :param matrix: numpy.matrix(3, N or N, 3) 
         """
         if matrix.shape == (3, len(self)):
             for index, atom in enumerate(self.atoms):
@@ -364,6 +413,8 @@ class Atoms:
     def move(self, v):
         """
         Move atoms by vector.
+        :param v: Vector3d
+        :return: Atoms
         """
         if v is not None:
             for a in self.atoms:
@@ -373,6 +424,8 @@ class Atoms:
     def rotate(self, matrix):
         """
         Rotate atoms by rotation matrix.
+        :param matrix: numpy.matrix(3, 3)
+        :return: Atoms
         """
         if matrix.shape != (3, 3):
             raise Exception('Invalid matrix shape: ' + matrix.shape)
@@ -382,6 +435,7 @@ class Atoms:
     def cent_of_mass(self):
         """
         Returns a vector of the geometrical center of atoms.
+        :return: Vector3d
         """
         com = Vector3d()
         for atom in self.atoms:
@@ -391,13 +445,16 @@ class Atoms:
     def center_at_origin(self):
         """
         Moves atoms so that their geometrical center is in [0, 0, 0].
+        :return: Atoms
         """
         self.move(-self.cent_of_mass())
         return self
 
     def move_to(self, v):
         """
-        Moves atoms so that their geometrical center is in [vx, vy, vz]. 
+        Moves atoms so that their geometrical center is in [vx, vy, vz].
+        :param v: Vector3d
+        :return: Atoms
         """
         self.move(v - self.cent_of_mass())
         return self
@@ -405,6 +462,9 @@ class Atoms:
     def compute_rotation(self, other, concentric=False):
         """
         Computes the rotation matrix for best fit between two sets of Atoms.
+        :param other: Atoms
+        :param concentric: Bool
+        :return: numpy.matrix(3, 3)
         """
         if len(self) != len(other):
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
@@ -415,6 +475,8 @@ class Atoms:
     def str_align(self, other):
         """
         Aligns structurally set of atoms to another set.
+        :param other: Atoms
+        :return: Atoms
         """
         r = self.compute_rotation(other)
         self.center_at_origin().rotate(r).move(other.cent_of_mass())
@@ -423,6 +485,8 @@ class Atoms:
     def rmsd(self, other):
         """
         Calculates rmsd between two sets of atoms.
+        :param other: Atoms
+        :return: float
         """
         if len(self) != len(other):
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
@@ -434,12 +498,17 @@ class Atoms:
     def min_distance(self, other):
         """
         Calculates minimal distance between two sets of atoms.
+        :param other: Atoms
+        :return: float
         """
         return min(a.min_distance(other) for a in self.atoms)
 
     def change_chid(self, old, new):
         """
         Changes chain ID. Can do multiple changes at once.
+        :param old: str
+        :param new: str
+        :return: Atoms
         """
         if len(old) == len(new) and len(old) > 0:
             d = {}
@@ -453,24 +522,28 @@ class Atoms:
     def model_count(self):
         """
         Returns number of models in Atoms object.
+        :return: int
         """
         return len(self.models())
 
     def chain_count(self):
         """
         Returns number of chains in Atoms object.
+        :return: int
         """
         return len(self.chains())
 
     def residue_count(self):
         """
         Returns number of residues in Atoms object.
+        :return: int
         """
         return len(self.residues())
 
     def list_chains(self):
         """
         Returns a dictionary [chain ID] = chain_residue_count
+        :return: {str: int}
         """
         d = {}
         for ch in self.chains():
@@ -480,12 +553,16 @@ class Atoms:
     def max_dimension(self):
         """
         Returns maximal distance between any two atoms from the Atoms object.
+        :return: float
         """
         return sqrt(max([p[0].dist2(p[1]) for p in combinations(self.atoms, 2)]))
 
     def make_pdb(self, bar_msg=''):
         """
-        Returns a pdb-like formatted string.
+        Returns a pdb-like formatted string. bar_msg is a string with message to show at ProgressBar initialization.
+        bar_msg = '' disables the bar.
+        :param bar_msg: str
+        :return: str
         """
         models = self.models()
         if bar_msg:
@@ -507,12 +584,21 @@ class Atoms:
         return s
 
     def save_to_pdb(self, filename, bar_msg=''):
+        """
+        Saves atoms to a file in the pdb format. Calls Atoms.make_pdb(). bar_msg is a string with message to show
+        at ProgressBar initialization. bar_msg = '' disables the bar.
+        :param filename: str
+        :param bar_msg: str
+        :return: None
+        """
         with open(filename, 'w') as f:
             f.write(self.make_pdb(bar_msg=bar_msg))
 
     def select(self, sele):
         """
         Selects subset of atoms defined by selection sentence.
+        :param sele: str or Selection
+        :return: Atoms
         """
         if type(sele) is str:
             s = Selection(sele)
@@ -523,6 +609,8 @@ class Atoms:
     def drop(self, sele):
         """
         Removes subset of atoms defined by selection sentence.
+        :param sele: str or Selection
+        :return: Atoms
         """
         if type(sele) is str:
             s = Selection(sele)
@@ -533,40 +621,44 @@ class Atoms:
     def update_sec(self, sec):
         """
         Reads secondary structure dictionary sec[] with Atoms.resid_id() as keys
-        and puts it into self.occ in CABS code:
+        and puts it into Atom.occ in CABS code:
         Helix - > 2.0, Sheet -> 4.0, Turn -> 3.0, Coil -> 1.0
+        :param sec: {str: str}
+        :return: Atoms
         """
         if sec:
-            for i in self.atoms:
-                k = i.resid_id()
-                if k in sec:
-                    if sec[k] == 'H':
-                        i.occ = 2.0
-                    elif sec[k] == 'E':
-                        i.occ = 4.0
-                    elif sec[k] == 'T':
-                        i.occ = 3.0
-                    else:
-                        i.occ = 1.0
+            for a in self.atoms:
+                a.occ = CABS_SS[sec.get(a.resid_id(), 'C')]
         return self
 
-    def update_bfac(self, bfac, d=0):
-        for i in self.atoms:
-            k = i.resid_id()
-            if k in bfac:
-                i.bfac = bfac[k]
-            else:
-                i.bfac = d
+    def update_bfac(self, bfac, default=0.0):
+        """
+        Reads dictionary with keys = Atom.resid_id() and values = beta factors and puts it into Atom.bfac
+        if key is found, default otherwise.
+        :param bfac: {str: float}
+        :param default: float
+        :return: Atoms
+        """
+        for a in self.atoms:
+            a.bfac = bfac.get(a.resid_id(), default)
+        return self
 
-    def set_bfac(self, b=0.0):
+    def set_bfac(self, bfac=0.0):
+        """
+        Sets beta factor of all atoms to bfac.
+        :param bfac: float 
+        :return: Atoms
+        """
         for atom in self.atoms:
-            atom.bfac = b
+            atom.bfac = bfac
         return self
 
     def valid_residues(self, must_have='CA, N, C, O'):
         """
         Returns only those residues that have atoms specified in "must_have" parameter.
         TODO: This is just temporary and it will be replaced by conditional selection class.
+        :param must_have: str
+        :return: Atoms
         """
         valid = Atoms()
         mh = [word.strip() for word in must_have.split(',')]
@@ -583,6 +675,7 @@ class Atoms:
     def remove_alternative_locations(self):
         """
         Removes atoms with alternative locations other than ' ' or 'A'
+        :return: Atoms
         """
         self.atoms = [atom for atom in self.atoms if (atom.alt == ' ' or atom.alt == 'A')]
         return self
@@ -590,16 +683,21 @@ class Atoms:
     def set_model_number(self, number):
         """
         Sets model number to [number] for all atoms.
+        :param number: int
+        :return: Atoms
         """
         for a in self.atoms:
             a.model = number
         return self
 
-    def fix_broken_chains(self, cut_off=4.5, used_letters=""):
+    def fix_broken_chains(self, cut_off=4.5, used_letters=''):
         """
         Checks for gaps in protein chains (Ca-Ca distance > cut_off). Splits broken chains
         on gaps taking next available letter for the new chain, except for those in used_letters.
         Returns a dictionary with residue ids (new -> old).
+        :param cut_off: float
+        :param used_letters: str
+        :return: Atoms
         """
 
         used_letters += ''.join(self.list_chains().keys())
@@ -622,6 +720,23 @@ class Atoms:
                 prev = ca
         return old_ids
 
+    def update_ids(self, ids, pedantic=True):
+        """
+        Updates resnum, icode, chid from dictionary ids with pairs old, new resid_id. Pedantic controls behaviour
+        if key not found in ids. pedantic = True raises Exception, pedantic = False does nothing
+        :param ids: {str: str}
+        :param pedantic: Bool
+        :return: Atoms
+        """
+        for a in self.atoms:
+            r_id = ids.get(a.resid_id())
+            if not r_id:
+                if pedantic:
+                    raise Exception('%s not found in %s' % (a.resid_id(), sorted(ids.keys())))
+            else:
+                a.update_id(r_id)
+        return self
+
 
 class Selection:
     """
@@ -639,6 +754,8 @@ class Selection:
     def __init__(self, s=''):
         """
         Takes a string as input and parses it into selection tokens
+        :param s: str
+        :return: [str]
         """
         self.tokens = []
         if s is not None:

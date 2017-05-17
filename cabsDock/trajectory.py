@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 
 from atom import Atom, Atoms
-from utils import ProgressBar, ranges, line_count, kabsch
+from utils import ranges, kabsch
 
 __all__ = ['Trajectory', 'Header']
 
@@ -22,15 +22,11 @@ class Trajectory:
         replicas = []
         for r in range(self.coordinates.shape[0]):
             replicas.append(Atoms(None))
-            msg = 'Processing replica: %d' % (r + 1)
-            bar = ProgressBar(self.coordinates.shape[1], msg=msg)
             for m in range(self.coordinates.shape[1]):
                 atoms = deepcopy(self.template)
                 atoms.set_model_number(m + 1)
                 atoms.from_matrix(self.coordinates[r][m])
                 replicas[r].extend(atoms)
-                bar.update()
-            bar.done(False)
         return replicas
 
     def align_to(self, target):
@@ -56,7 +52,6 @@ class Trajectory:
                     )
 
 
-
 class Header:
     """Trajectory header read from CABS output: energies and temperatures"""
 
@@ -76,7 +71,6 @@ class Header:
         self.energy = np.matrix(header[4:1:-1], float)
         self.temperature = float(header[5])
         self.replica = int(header[6])
-        self.e_complex = None
 
     def __repr__(self):
         return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
@@ -165,12 +159,10 @@ def read_traf(filename):
             replicas[r] = []
         replicas[r].extend(c[3:-3])
 
-    bar = ProgressBar(line_count(filename), msg='Processing trajectory')
     with open(filename) as f:
         current_header = None
         current_coord = []
-        for index, line in enumerate(f):
-            bar.update(index)
+        for line in f:
             if '.' in line:
                 header = Header(line)
                 if not current_header:
@@ -187,7 +179,6 @@ def read_traf(filename):
                 current_coord.extend(map(int, line.split()))
         save_header(current_header)
         save_coord(current_coord, current_header.replica)
-    bar.done()
 
     headers.sort(key=lambda x: x.model)
     headers.sort(key=lambda x: x.replica)

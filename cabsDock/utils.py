@@ -6,17 +6,6 @@ from sys import stderr
 from time import time, strftime, gmtime, sleep
 
 
-__all__ = [
-    'CABS_HOME',
-    'CABS_SS',
-    'RANDOM_LIGAND_LIBRARY',
-    'AA_NAMES',
-    'aa_to_long',
-    'aa_to_short',
-    'next_letter',
-    'ProgressBar'
-]
-
 # Location of the CABSdock dir
 CABS_HOME = abspath(join(__file__, '../..'))
 

@@ -4,7 +4,7 @@ Module for running cabsDock jobs.
 
 import re
 from os import getcwd, mkdir
-from os.path import exists, isdir, join
+from os.path import exists, isdir
 from time import sleep
 
 from protein import ProteinComplex
@@ -148,6 +148,9 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
+            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
+            # if ans != 'y':
+            #     exit(code=1)
         else:
             mkdir(work_dir)
 
@@ -173,10 +176,12 @@ class Job:
         bar.done()
         trajectory, headers = cabs_run.get_trajectory()
         trajectory.align_to(self.initial_complex.receptor)
-        for i, r in enumerate(trajectory.to_atoms(), 1):
-            filename = join(work_dir, 'replica_%d.pdb' % i)
-            r.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        # trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        # for i, r in enumerate(trajectory.to_atoms(), 1):
+        #     filename = join(work_dir, 'replica_%d.pdb' % i)
+        #     r.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', ligand='MICHAL', mc_cycles=50,  mc_steps=1, replicas=10)
+    j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2,  mc_steps=2, replicas=2)
+    print j.config

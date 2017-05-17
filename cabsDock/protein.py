@@ -15,7 +15,7 @@ from utils import RANDOM_LIGAND_LIBRARY, next_letter
 
 class Receptor(Atoms):
     """
-    Class for the protein receptor molecule.
+    Class for the protein receptor molecule. Initialized with job's config dictionary.
     """
     def __init__(self, config):
         name = config['receptor']
@@ -54,13 +54,13 @@ class Receptor(Atoms):
             atoms.set_bfac(1)
 
         self.old_ids = atoms.update_sec(pdb.dssp()).fix_broken_chains()
-        self.new_ids = {v: k for k, v in self.old_ids.items()}
+        # self.new_ids = {v: k for k, v in self.old_ids.items()}
         Atoms.__init__(self, atoms)
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
 
-    def resolve_patch(self, location):
+    def convert_patch(self, location):
         if location not in self.patches:
             chains = {}
             for res in [self.new_ids[r] for r in location.split('+')]:
@@ -169,11 +169,11 @@ class ProteinComplex(Atoms):
         receptor = Receptor(config)
         self.chain_list = receptor.list_chains()
         receptor_chains = ''.join(self.chain_list.keys())
-        self.old_ids = receptor.old_ids
+        self.old_ids = deepcopy(receptor.old_ids)
 
         ligands = []
         if 'ligand' in config:
-            taken_chains = receptor_chains
+            taken_chains = receptor_chains + 'X'
             for num, ligand in enumerate(config['ligand']):
                 l = Ligand(config, num)
                 if l[0].chid in taken_chains:
@@ -210,7 +210,7 @@ class ProteinComplex(Atoms):
         elif ligand.location == 'random':
             location = Vector3d().random() * radius + receptor.center
         else:
-            location = receptor.resolve_patch(ligand.location) * radius + receptor.center
+            location = receptor.convert_patch(ligand.location) * radius + receptor.center
 
         if ligand.conformation == 'random':
             ligand.random_conformation()

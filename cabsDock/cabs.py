@@ -1,4 +1,4 @@
-"""Module for handling CABS simualtion"""
+"""Module for handling CABS simulation"""
 
 import os
 import re
@@ -227,7 +227,6 @@ class CabsRun(Thread):
 
     @staticmethod
     def build_exe(params, src='cabs.f', exe='cabs', build_command='gfortran', build_flags='-O1', destination='.'):
-
         with open(src) as f:
             lines = f.read()
 

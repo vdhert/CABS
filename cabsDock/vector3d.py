@@ -87,11 +87,17 @@ class Vector3d:
         return self * (1.0 / factor)
 
     def dot(self, other):
-        """Dot product of two vectors."""
+        """
+        Dot product of two vectors.
+        :return: float
+        """
         return self.x * other.x + self.y * other.y + self.z * other.z
 
     def cross(self, other):
-        """Cross product of two vectors."""
+        """
+        Cross product of two vectors.
+        :return: Vector3d
+        """
         return Vector3d(
             self.y * other.z - self.z * other.y,
             self.z * other.x - self.x * other.z,
@@ -99,47 +105,82 @@ class Vector3d:
         )
 
     def mod2(self):
-        """|vector|^2"""
+        """
+        |vector|^2
+        :return: float
+        """
         return self.dot(self)
 
     def length(self):
-        """Returns vector's length."""
+        """
+        Returns vector's length.
+        :return: float
+        """
         return self.mod2() ** 0.5
 
     def norm(self):
-        """Returns normalized vector."""
+        """
+        Returns normalized vector.
+        :return: Vector3d
+        """
         return self / self.length()
 
     def __iadd__(self, other):
+        """
+        Addition assignment.
+        :param other: Vector3d 
+        :return: Vector3d
+        """
         self.x += other.x
         self.y += other.y
         self.z += other.z
         return self
 
     def __isub__(self, other):
+        """
+        Subtraction assignment.
+        :param other: Vector3d 
+        :return: Vector3d
+        """
         self.x -= other.x
         self.y -= other.y
         self.z -= other.z
         return self
 
     def __imul__(self, factor):
+        """
+        Scalar multiplication assignment.
+        :param factor: Vector3d 
+        :return: Vector3d
+        """
         self.x *= factor
         self.y *= factor
         self.z *= factor
         return self
 
     def __idiv__(self, factor):
+        """
+        Scalar division assignment.
+        :param factor: Vector3d 
+        :return: Vector3d
+        """
         self.x /= factor
         self.y /= factor
         self.z /= factor
         return self
 
     def to_matrix(self):
-        """Conversion to np.matrix(1, 3)"""
+        """
+        Conversion to np.matrix(1, 3)
+        :return: np.matrix(1, 3)
+        """
         return np.matrix([self.x, self.y, self.z])
 
     def random(self):
-        """Returns random normalized vector from spherical uniform distribution"""
+        """
+        Returns random normalized vector from spherical uniform distribution
+        :return: Vector3d
+        """
         phi = uniform(0., 2. * pi)
         cos_theta = uniform(-1., 1.)
         sin_theta = sqrt(1. - cos_theta ** 2)
