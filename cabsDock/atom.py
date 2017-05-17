@@ -71,7 +71,7 @@ class Atom:
         fmt_name = " %-3s" % self.name
         if len(self.name) == 4:
             fmt_name = self.name
-        line += "%5d %4s%1s%-4s%1s%4d%1s   %24s%6.2f%6.2f%s" % (
+        line += "%5d %4s%1s%-4s%1s%4d%1s   %24s%6.2f%6.2f %s" % (
                 self.serial,
                 fmt_name,
                 self.alt,
@@ -407,7 +407,7 @@ class Atoms:
                     matrix[index, 2]
                 )
         else:
-            raise Exception('Invalid matrix shape: ' + matrix.shape)
+            raise Exception('Invalid matrix shape: ' + str(matrix.shape))
         return self
 
     def move(self, v):

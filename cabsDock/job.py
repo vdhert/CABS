@@ -176,14 +176,13 @@ class Job:
             bar.update(cabs_run.status())
             sleep(0.1)
         bar.done()
-        trajectory, headers = cabs_run.get_trajectory()
+        trajectory = cabs_run.get_trajectory()
         trajectory.align_to(self.initial_complex.receptor)
-        # trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        # for i, r in enumerate(trajectory.to_atoms(), 1):
-        #     filename = join(work_dir, 'replica_%d.pdb' % i)
-        #     r.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        tra = trajectory.filter(27)
+        tra.to_atoms().save_to_pdb('dupa.pdb', bar_msg='Saving ...')
 
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2,  mc_steps=2, replicas=2)
-    print j.config
+    j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=3,  mc_steps=3, replicas=3)
+
