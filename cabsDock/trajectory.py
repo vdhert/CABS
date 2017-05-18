@@ -61,6 +61,8 @@ class Trajectory:
     def __init__(self, template, coordinates, headers):
         self.template = template
         self.coordinates = coordinates
+        for i in range(len(self.coordinates.shape), 4):
+            self.coordinates = [self.coordinates]
         self.headers = headers
 
     @staticmethod
@@ -154,57 +156,52 @@ class Trajectory:
 
     def select(self, selection):
         template = self.template.select(selection)
-        return ranges([self.template.atoms.index(a) for a in template])
+        pieces = ranges([self.template.atoms.index(a) for a in template])
+        coordinates = [
+            [
+                np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in models
+            ] for models in self.coordinates
+        ]
+        return Trajectory(template, np.concatenate(coordinates), self.headers)
 
     def to_atoms(self):
-        replicas, models = self.coordinates.shape[:2]
         result = Atoms()
         num = 0
-        for r in range(replicas):
-            for m in range(models):
+        for r, models in enumerate(self.coordinates):
+            for m, model in enumerate(models):
                 atoms = deepcopy(self.template)
-                tail = '%d_%d' % (r + 1, m + 1)
+                h = self.headers[r * len(self.coordinates) + m]
+                tail = '%d_%d' % (h.replica, h.model)
                 for a in atoms:
                     a.tail = tail
                 num += 1
                 atoms.set_model_number(num)
-                atoms.from_matrix(self.coordinates[r][m])
+                atoms.from_matrix(model)
                 result.extend(atoms)
         return result
 
     def align_to(self, target, selection=''):
         if not selection:
             selection = 'chain ' + ','.join(target.list_chains().keys())
-        rng = self.select(selection)
-        if not rng:
-            raise Exception('Invalid selection: \'%s\'' % selection)
-        else:
-            t = target.to_matrix()
-            t_com = np.average(t, 0)
-            t = np.subtract(t, t_com)
+        pieces = ranges([self.template.atoms.index(a) for a in self.template.select(selection)])
 
-            shape = self.coordinates.shape
-            if len(shape) == 4:
-                models = shape[0] * shape[1]
-            elif len(shape) == 3:
-                models = shape[0]
-            else:
-                raise Exception('Invalid trajectory !!!')
+        t = target.to_matrix()
+        t_com = np.average(t, 0)
+        t = np.subtract(t, t_com)
 
-            for m in range(models):
-                model = self.coordinates[]
-                sele = np.concatenate([model[r[0]: r[1]] for r in rng])
-                sele_com = np.average(sele, 0)
-                q = np.subtract(sele, sele_com)
-                np.copyto(
-                    model, np.add(np.dot(np.subtract(model, sele_com), kabsch(t, q, concentric=True)), t_com)
-                )
+        for models in self.coordinates:
+            for model in models:
+                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                q_com = np.average(query, 0)
+                q = np.subtract(query, q_com)
+                np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
 
     def filter(self, number):
         """
         Temporary filtering - top N from each replica by total energy
         """
-        replicas, models = self.coordinates.shape[0:2]
+        replicas = len(self.coordinates)
+        models = len(self.coordinates[0])
         if 0 < replicas * models <= number:
             return self
         else:
@@ -229,4 +226,8 @@ class Trajectory:
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
-    tra.align_to()
+    from pdb import Pdb
+    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
+    tra.align_to(target, 'chain A, B')
+    traf = tra.select('chain B, D')
+    traf.to_atoms().save_to_pdb('dupa.pdb')
