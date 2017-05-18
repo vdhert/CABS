@@ -184,5 +184,9 @@ class Job:
 
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=3,  mc_steps=3, replicas=2)
+=======
+    j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=3,  mc_steps=3, replicas=1)
+>>>>>>> 99b1f22396d05ee3434016d47e7fb5d79753b7b1
 
