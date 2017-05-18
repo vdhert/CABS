@@ -157,16 +157,13 @@ class Trajectory:
     def select(self, selection):
         template = self.template.select(selection)
         pieces = ranges([self.template.atoms.index(a) for a in template])
-<<<<<<< HEAD
         coordinates = [
-            [
-                np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in models
-            ] for models in self.coordinates
+                [
+                    np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) 
+                    for model in models
+                ]
+                for models in self.coordinates
         ]
-=======
-        coordinates = np.concatenate(
-            [np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in models] for models in self.coordinates])
->>>>>>> 99b1f22396d05ee3434016d47e7fb5d79753b7b1
         return Trajectory(template, np.concatenate(coordinates), self.headers)
 
     def to_atoms(self):
