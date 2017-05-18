@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 
 from atom import Atom, Atoms
-from utils import ranges, kabsch
+from utils import ranges, kabsch, ProgressBar
 
 __all__ = ['Trajectory', 'Header']
 
@@ -61,8 +61,6 @@ class Trajectory:
     def __init__(self, template, coordinates, headers):
         self.template = template
         self.coordinates = coordinates
-        for i in range(len(self.coordinates.shape), 4):
-            self.coordinates = [self.coordinates]
         self.headers = headers
 
     @staticmethod
@@ -157,29 +155,23 @@ class Trajectory:
     def select(self, selection):
         template = self.template.select(selection)
         pieces = ranges([self.template.atoms.index(a) for a in template])
-        coordinates = [
-                [
-                    np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) 
-                    for model in models
-                ]
-                for models in self.coordinates
-        ]
+        shape = self.coordinates.shape
+        self.coordinates.reshape(-1, len(self.template), 3)
+        coordinates = [np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in self.coordinates]
+        self.coordinates.reshape(shape)
         return Trajectory(template, np.concatenate(coordinates), self.headers)
 
     def to_atoms(self):
         result = Atoms()
         num = 0
-        for r, models in enumerate(self.coordinates):
-            for m, model in enumerate(models):
-                atoms = deepcopy(self.template)
-                h = self.headers[r * len(self.coordinates) + m]
-                tail = '%d_%d' % (h.replica, h.model)
-                for a in atoms:
-                    a.tail = tail
-                num += 1
-                atoms.set_model_number(num)
-                atoms.from_matrix(model)
-                result.extend(atoms)
+        shape = self.coordinates.shape
+        for model in self.coordinates.reshape(-1, len(self.template), 3):
+            atoms = deepcopy(self.template)
+            num += 1
+            atoms.set_model_number(num)
+            atoms.from_matrix(model)
+            result.extend(atoms)
+        self.coordinates.reshape(shape)
         return result
 
     def align_to(self, target, selection=''):
@@ -191,12 +183,13 @@ class Trajectory:
         t_com = np.average(t, 0)
         t = np.subtract(t, t_com)
 
-        for models in self.coordinates:
-            for model in models:
-                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
-                q_com = np.average(query, 0)
-                q = np.subtract(query, q_com)
-                np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
+        shape = self.coordinates.shape
+        for model in self.coordinates.reshape(-1, len(self.template), 3):
+            query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+            q_com = np.average(query, 0)
+            q = np.subtract(query, q_com)
+            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
+        self.coordinates.reshape(shape)
 
     def filter(self, number):
         """
@@ -225,6 +218,35 @@ class Trajectory:
                     c = self.coordinates[replica][r[0]: r[1]]
                     coordinates.append(c)
             return Trajectory(self.template, np.concatenate(coordinates), headers)
+
+    def rmsd_matrix(self, msg=''):
+        """
+        Calculates rmsd matrix with no fitting for all pairs od models in trajectory.
+        :return: np.array
+        """
+        model_length = len(self.template)
+
+        def rmsd(m1, m2):
+            return np.sqrt(np.sum((m1 - m2) ** 2) / model_length)
+
+        shape = self.coordinates.shape
+        models = self.coordinates.reshape(-1, model_length, 3)
+        dim = len(models)
+        result = np.zeros(dim * dim).reshape(dim, dim)
+        if msg:
+            bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
+        else:
+            bar = None
+        for i in range(dim):
+            for j in range(i + 1, dim):
+                if bar:
+                    bar.update()
+                result[i, j] = result[j, i] = rmsd(models[i], models[j])
+        if bar:
+            bar.done(True)
+        self.coordinates.reshape(shape)
+        return result
+
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')

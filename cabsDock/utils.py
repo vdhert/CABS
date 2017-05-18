@@ -160,7 +160,7 @@ def smart_flatten(l):
     return fl
 
 
-def kMedoids(D, k, tmax=100):
+def kmedoids(D, k, tmax=100):
     # determine dimensions of distance matrix D
     m, n = D.shape
 

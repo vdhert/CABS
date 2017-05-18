@@ -10,7 +10,7 @@ from time import sleep
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar
+from utils import ProgressBar, kmedoids
 
 __all__ = ['Job']
 
@@ -180,8 +180,13 @@ class Job:
         trajectory.align_to(self.initial_complex.receptor)
         trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         tra = trajectory.filter(self.config['filtering'])
+        ligs = tra.select('chain B, C')
+        D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
+        M, C = kmedoids(D, *self.config['clustering'])
+        print M
+        print C
         tra.to_atoms().save_to_pdb('dupa.pdb', bar_msg='Saving ...')
 
 
 if __name__ == '__main__':
-    j = Job(receptor='1rjk:A', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=3,  mc_steps=3, replicas=2)
+    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=50,  mc_steps=1, replicas=10)
