@@ -179,7 +179,7 @@ class Job:
         trajectory = cabs_run.get_trajectory()
         trajectory.align_to(self.initial_complex.receptor)
         trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        tra = trajectory.filter(27)
+        tra = trajectory.filter(self.config['filtering'])
         tra.to_atoms().save_to_pdb('dupa.pdb', bar_msg='Saving ...')
 
 

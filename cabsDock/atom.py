@@ -737,6 +737,15 @@ class Atoms:
                 a.update_id(r_id)
         return self
 
+    def erase_tail(self):
+        """
+        Clears atoms' tail field.
+        :return: Atoms
+        """
+        for a in self.atoms:
+            a.tail = ''
+        return self
+
 
 class Selection:
     """
