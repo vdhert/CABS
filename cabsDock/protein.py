@@ -168,17 +168,19 @@ class ProteinComplex(Atoms):
 
         receptor = Receptor(config)
         self.chain_list = receptor.list_chains()
-        receptor_chains = ''.join(self.chain_list.keys())
+        self.receptor_chains = ''.join(self.chain_list.keys())
         self.old_ids = deepcopy(receptor.old_ids)
 
         ligands = []
+        self.ligand_chains = ''
         if 'ligand' in config:
-            taken_chains = receptor_chains + 'X'
+            taken_chains = self.receptor_chains + 'X'
             for num, ligand in enumerate(config['ligand']):
                 l = Ligand(config, num)
                 if l[0].chid in taken_chains:
                     l.change_chid(l[0].chid, next_letter(taken_chains))
                 taken_chains += l[0].chid
+                self.ligand_chains += l[0].chid
                 ligands.append(l)
                 self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())

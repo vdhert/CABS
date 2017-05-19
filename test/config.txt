@@ -2,7 +2,6 @@
 # 'START', 'STOP', 'LIGAND' and '=' have a special meaning
 
 # INPUT
-NATIVE_STRUCTURE            = 1RJK:A:C      # download and load native structure
 RECEPTOR                    = 1rjk_A.pdb    # filename or pdb_code
 RECEPTOR_FLEXIBILITY        = bfac_inv      # bfac - use beta factors (0 - fully flexible)
                                             # f :float - set global flexibility to f

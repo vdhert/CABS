@@ -142,7 +142,7 @@ class CabsRun(Thread):
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
-            src=join(CABS_HOME, 'src/cabs.f'),
+            src=join(CABS_HOME, 'data/src/cabs.f'),
             exe='cabs',
             build_command=config['fortran_compiler'][0],
             build_flags=config['fortran_compiler'][1],

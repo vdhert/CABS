@@ -247,6 +247,18 @@ class Trajectory:
         self.coordinates.reshape(shape)
         return result
 
+    def get_model(self, model):
+        """
+        Do poprawy 
+        """
+        shape = self.coordinates.shape
+        coordinates = self.coordinates.reshape(-1, len(self.template), 3)[model]
+        atoms = deepcopy(self.template)
+        atoms.set_model_number(model + 1)
+        m = atoms.from_matrix(coordinates)
+        self.coordinates.reshape(shape)
+        return m
+
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
