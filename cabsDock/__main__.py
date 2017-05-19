@@ -14,7 +14,7 @@ def run_job():
         '-p', '--add_peptide',
         nargs=3,
         action='append',
-        dest='ligands',
+        dest='ligand',
         metavar=(
             'PEPTIDE',
             'CONFORMATION',
