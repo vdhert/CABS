@@ -10,9 +10,6 @@ setup(
     author_email='mkurc@chem.uw.edu.pl',
     description='CABSDock in python',
     requires=['numpy'],
-    entry_points={
-        'console_scripts': [
-            'cabsDock = cabsDock.__main__:run_job'
-        ]
-    },
+    entry_points={'console_scripts': ['cabsDock = cabsDock.__main__:run_job']},
+    package_data={'cabsDock': ['data/*.dat']}
 )

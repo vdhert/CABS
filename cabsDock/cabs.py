@@ -3,16 +3,15 @@
 import os
 import re
 import numpy as np
-from os.path import join, exists, isdir, basename
+import tarfile
+from os.path import join, exists, isdir
 from operator import attrgetter
 from subprocess import Popen, PIPE, check_output
-from glob import glob
 from random import randint
 from threading import Thread
 
 from vector3d import Vector3d
 from trajectory import Trajectory
-from utils import CABS_HOME
 
 
 class CabsLattice:
@@ -121,7 +120,7 @@ class CabsRun(Thread):
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
             * nreps * config['mc_cycles'] * 20
 
-        cabs_dir = join(config['work_dir'], 'CABS')
+        cabs_dir = join(config['work_dir'], '.CABS')
         if exists(cabs_dir):
             if not isdir(cabs_dir):
                 raise Exception(cabs_dir + ' exists and is not a directory!!!')
@@ -142,17 +141,15 @@ class CabsRun(Thread):
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
-            src=join(CABS_HOME, 'data/src/cabs.f'),
+            src='data/data0.dat',
             exe='cabs',
             build_command=config['fortran_compiler'][0],
             build_flags=config['fortran_compiler'][1],
             destination=cabs_dir
         )
 
-        for f in glob(join(CABS_HOME, 'data/params/*')):
-            l = join(cabs_dir, basename(f))
-            if not exists(l):
-                os.symlink(f, l)
+        with tarfile.open('data/data1.dat') as f:
+            f.extractall(cabs_dir)
 
         self.cfg = {
             'cwd': cabs_dir,
@@ -226,7 +223,7 @@ class CabsRun(Thread):
         return restr, max_r
 
     @staticmethod
-    def build_exe(params, src='cabs.f', exe='cabs', build_command='gfortran', build_flags='-O1', destination='.'):
+    def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):
         with open(src) as f:
             lines = f.read()
 

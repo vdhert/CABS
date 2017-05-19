@@ -1,19 +1,15 @@
 from string import ascii_uppercase
 import numpy as np
 import re
-from os.path import abspath, join
 from sys import stderr
 from time import time, strftime, gmtime, sleep
 
-
-# Location of the CABSdock dir
-CABS_HOME = abspath(join(__file__, '../..'))
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
 
 # Library of 1000 random peptides with up to 50 amino acids each
-RANDOM_LIGAND_LIBRARY = np.reshape(np.fromfile(CABS_HOME + '/data/libLig50.dat', sep=' '), (1000, 50, 3))
+RANDOM_LIGAND_LIBRARY = np.reshape(np.fromfile('data/data2.dat', sep=' '), (1000, 50, 3))
 
 # Dictionary for amino acid name conversion
 AA_NAMES = {
