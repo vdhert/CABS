@@ -9,6 +9,7 @@ from operator import attrgetter
 from subprocess import Popen, PIPE, check_output
 from random import randint
 from threading import Thread
+from pkg_resources import resource_filename
 
 from vector3d import Vector3d
 from trajectory import Trajectory
@@ -141,14 +142,14 @@ class CabsRun(Thread):
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
-            src='data/data0.dat',
+            src=resource_filename('cabsDock', 'data/data0.dat'),
             exe='cabs',
             build_command=config['fortran_compiler'][0],
             build_flags=config['fortran_compiler'][1],
             destination=cabs_dir
         )
 
-        with tarfile.open('data/data1.dat') as f:
+        with tarfile.open(resource_filename('cabsDock', 'data/data1.dat')) as f:
             f.extractall(cabs_dir)
 
         self.cfg = {
