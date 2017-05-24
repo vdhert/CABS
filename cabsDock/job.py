@@ -4,7 +4,7 @@ Module for running cabsDock jobs.
 
 import re
 from os import getcwd, mkdir
-from os.path import exists, isdir, join
+from os.path import exists, isdir, join, abspath
 from time import sleep
 
 from protein import ProteinComplex
@@ -145,6 +145,9 @@ class Job:
 
         # update config with kwargs
         self.config.add_config(kwargs).fix_ligands()
+
+        # making sure work_dir is abspath
+        self.config['work_dir'] = abspath(self.config['work_dir'])
 
         # checks if work_dir exists, creates it otherwise
         work_dir = self.config['work_dir']
