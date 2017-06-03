@@ -22,13 +22,14 @@ class CabsLattice:
     r12: tuple with min and max allowed values for CA-CA pseudo-bond length
     r13: tuple with min and max allowed values for CA-CA-CA end distance
     """
+
     def __init__(self, grid_spacing=0.61, r12=(3.28, 4.27), r13=(4.1, 7.35)):
         self.grid = grid_spacing
-        r12min = round((r12[0] / self.grid)**2)
-        r12max = round((r12[1] / self.grid)**2)
-        r13min = round((r13[0] / self.grid)**2)
-        r13max = round((r13[1] / self.grid)**2)
-        dim = int(r12max**0.5)
+        r12min = round((r12[0] / self.grid) ** 2)
+        r12max = round((r12[1] / self.grid) ** 2)
+        r13min = round((r13[0] / self.grid) ** 2)
+        r13max = round((r13[1] / self.grid) ** 2)
+        dim = int(r12max ** 0.5)
 
         self.vectors = []
         for i in range(-dim, dim + 1):
@@ -119,7 +120,7 @@ class CabsRun(Thread):
         nreps = config['replicas']
         inp = CabsRun.make_inp(config, nmols, CabsRun.FORCE_FIELD)
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-            * nreps * config['mc_cycles'] * 20
+                      * nreps * config['mc_cycles'] * 20
 
         cabs_dir = join(config['work_dir'], '.CABS')
         if exists(cabs_dir):
@@ -209,7 +210,7 @@ class CabsRun(Thread):
             max_r = max(rest_count.values() + [1])
             rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
             restr += ''.join(rest)
-    #  DO POPRAWY
+            #  DO POPRAWY
         rest = [r for r in restraints.data if r.sg]
         restr += '%i %.2f\n' % (len(rest), sg_weight)
         if sg_weight:
@@ -217,7 +218,7 @@ class CabsRun(Thread):
             rest.sort(key=attrgetter('id1'))
             all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
             rest_count = {i: all_ids.count(i) for i in all_ids}
-            max_r = max(rest_count.values() + [max_r,])
+            max_r = max(rest_count.values() + [max_r, ])
             rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
             restr += ''.join(rest)
 
@@ -260,7 +261,7 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        Popen(self.cfg['exe'], cwd=self.cfg['cwd']).wait()
+        return Popen(self.cfg['exe'], cwd=self.cfg['cwd']).wait()
 
     def status(self):
         traj = join(self.cfg['cwd'], 'TRAF')
