@@ -206,7 +206,7 @@ class Case(object):
 
 
 bench = Benchmark(benchmark_file="/Users/maciek/Desktop/lista_kompl.txt")
-bench.cases = bench.cases[0:3]
+bench.cases = bench.cases[0:1]
 print([case.bound_pdb_code for case in bench.cases])
 bench.bench_set()
 bench.bench_run()
