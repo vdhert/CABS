@@ -170,10 +170,8 @@ class Trajectory(object):
                         model[piece[0]:piece[1]] for piece in pieces
                     ]
                 ))
-            print('repnew', np.stack(replica_new).shape)
             coordinates.append(np.stack(replica_new))
         coordinates = np.stack(coordinates)
-        print('coords', np.stack(coordinates).shape)
         self.coordinates.reshape(shape)
         return Trajectory(template, coordinates, self.headers)
 
@@ -271,32 +269,27 @@ class Trajectory(object):
         """
         model_length = len(self.template)
 
-        def rmsd(m1, m2):
-            return np.sqrt(np.sum((m1 - m2).T * (m1 - m2)) / model_length)
+        def rmsd(m1, m2, length):
+            return (np.sqrt(np.sum((m1 - m2).T * (m1 - m2)) / length))
 
         target_selection = 'name CA and not HETERO'
-        pdb = Pdb(pdb_code=native_pdb[:4])
         target_selection += ' and chain ' + ','.join(native_receptor_chain)
+        pdb = Pdb(pdb_code=native_pdb[:4])
         native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
-
         shape = self.coordinates.shape
         #number_of_models = len(models)
-        print('Receptor length = {0} AAs'.format(model_length))
         self.align_to(native, target_selection)
         models_peptide_traj = self.select("chain " + model_peptide_chain)
         peptide_length = len(models_peptide_traj.template)
-        print('Peptide length = {0} AAs'.format(peptide_length))
         models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
         native_peptide = pdb.atoms.remove_alternative_locations().select(
             "name CA and not HETERO and chain " + native_peptide_chain
         ).models()[0].to_matrix()
         result = np.zeros(
-            (len(models_peptide), 1)
+            (len(models_peptide))
         )
-        print len(models_peptide)
         for i, h in zip(range(len(models_peptide)), self.headers):
-            print(len(models_peptide[i]), len(native_peptide))
-            result[i] = rmsd(models_peptide[i], native_peptide)
+            result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
             h.rmsd = result[i]
 
         self.coordinates.reshape(shape)

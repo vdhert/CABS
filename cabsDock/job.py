@@ -168,8 +168,9 @@ class Job:
         print('CABS-docking job {0}'.format(self.config['receptor']))
         # prepare initial complex
         # noinspection PyAttributeOutsideInit
+        print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-
+        print(' ... done.')
         # generate restraints
         # noinspection PyAttributeOutsideInit
         self.restraints = \
@@ -184,7 +185,6 @@ class Job:
         print('CABS simulation starts.')
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
         cabs_run.run()
-        sleep(5)
         # bar = ProgressBar(100, msg='CABS is running:')
         # while cabs_run.is_alive():
         #     print('isAlive')
