@@ -28,23 +28,30 @@ class ContactMapFactory(object):
         self.ats1 = [temp.atoms[i] for i in self.inds1]
         self.ats2 = [temp.atoms[i] for i in self.inds2]
 
-    def mk_cmap(self, traj, thr, frames=(0, None), replicas=None):
+    def mk_cmap(self, traj, thr, frames=None, replicas=None):
         """Creates map of contacts between two given chains.
 
         Arguments:
         traj -- numpy.array of propper shape, i.e. Nreplicas x Nframes x Natoms x 3.
         thr -- float; threshold for side chain distance contact.
-        frames -- tuple of ints; range of frames to be taken.
-        replicas -- list of replicas' indexes to be taken.
+        frames -- tuple of ints; indexes of frames to be taken. All frames are taken by default.
+        replicas -- list of replicas' indexes to be taken. All replicas are taken by default.
 
         Returns list of ContactMap for each replica in trajectory.
         """
+        
         if replicas is None:
-            replicas = range(traj.shape[0])
+            replicas = xrange(traj.shape[0])
+        if frames is None:
+            fstf = 0
+            frames = slice(1, None)
+        else:
+            frames = list(frames)
+            fstf = frames.pop(0)
         resl = []
         for rep in traj[replicas,]:
-            cmtx = self.mk_cmtx(self.mk_dmtx(rep[frames[0]]), thr)
-            for fra in rep[frames[0] + 1:frames[1]]:
+            cmtx = self.mk_cmtx(self.mk_dmtx(rep[fstf]), thr)
+            for fra in rep[frames,]:
                 ncmtx = self.mk_cmtx(self.mk_dmtx(fra), thr)
                 cmtx += ncmtx
             resl.append(ContactMap(cmtx, self.ats1, self.ats2))
@@ -80,13 +87,13 @@ class ContactMap(object):
 
         Arguments:
         mtx -- 2D numpy.array of distances between (pseudo)atoms.
-        temp -- cabsDock.atom.Atoms instance; template for cmap.
+        atoms1, atoms2 -- cabsDock.atom.Atoms instance; template for cmap.
         """
         self.cmtx = mtx
         self.s1 = atoms1
         self.s2 = atoms2
 
-    def save(self, fname):
+    def save_png(self, fname):
         fig = matplotlib.pyplot.figure(figsize=(20, 20))
         sfig = fig.add_subplot(111)
 
@@ -100,3 +107,13 @@ class ContactMap(object):
         for atoms, fx in ((self.s1, sfig.set_xticklabels), (self.s2, sfig.set_yticklabels)):
             fx([''] + [(a.chid + str(a.resnum) + a.icode).strip() for a in atoms])
         matplotlib.pyplot.savefig(fname)
+        matplotlib.pyplot.close(fig)
+
+    def __add__(self, other):
+        """Addition of cmaps sums their matrices.
+
+        Raises ValueError for cmaps of different particles.
+        """
+        if self.s1 != other.s1 or self.s2 != other.s2:
+            raise ValueError("Cannot sum different particles' contact maps.")
+        return ContactMap(self.cmtx + other.cmtx, self.s1, self.s2)
