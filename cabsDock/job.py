@@ -3,6 +3,7 @@ Module for running cabsDock jobs.
 """
 
 import re
+import operator
 from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
@@ -196,18 +197,6 @@ class Job:
         trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         tra = trajectory.filter(self.config['filtering'])
 
-        #TO-start: cmap factory init; cmaps for replicas
-        try:
-            mkdir(defaults['work_dir'] + '/contact_maps')
-        except OSError:
-            pass
-        cmfs = {lig: ContactMapFactory(self.initial_complex.receptor_chains, lig, trajectory.template) for lig in self.initial_complex.ligand_chains}
-        for lig, cmf in cmfs.items():
-            cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
-            for n, cmap in enumerate(cmaps):
-                cmap.save(defaults['work_dir'] + '/contact_maps/replica_%i_ch_%s' % (n, lig))
-        #TO-end
-
         #  od tego miejsca poprawic
         lig_chains = ','.join(self.initial_complex.ligand_chains)
         if lig_chains:
@@ -216,6 +205,30 @@ class Job:
             ligs = tra
         D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
         M, C = kmedoids(D, *self.config['clustering'])
+
+        #TO-start: cmap factory init; cmaps for replicas
+        cmapdir = defaults['work_dir'] + '/contact_maps'
+        try:
+            mkdir(cmapdir)
+        except OSError:
+            pass
+        cmfs = {lig: ContactMapFactory(self.initial_complex.receptor_chains, lig, trajectory.template) for lig in self.initial_complex.ligand_chains}
+        for lig, cmf in cmfs.items():
+            cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
+            for n, cmap in enumerate(cmaps):
+                cmap.save_png(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+            cmap10k = reduce(operator.add, cmaps)
+            cmap10k.save_png(cmapdir + '/all_ch_%s' % lig)
+            cmap1k = cmf.mk_cmap(tra.coordinates, 6.5)[0]
+            cmap1k.save_png(cmapdir + '/top1000_ch_%s' % lig)
+            for cn, clust in C.items():
+                ccmap = cmf.mk_cmap(tra.coordinates, 6.5, frames=clust)[0]
+                ccmap.save_png(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+        #TO-end
+
+        if 'dbg' in kwargs:     #ROR
+            with open("test_clusters.pck", "w") as f:
+                pickle.dump(C, f)
         medoids = [tra.get_model(m) for m in M]
         for i, m in enumerate(medoids, 1):
             filename = join(work_dir, 'model_%d.pdb' % i)
