@@ -157,15 +157,6 @@ class Trajectory:
         inds = [self.template.atoms.index(a) for a in template]
         return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
 
-    #~ def select(self, selection):
-        #~ template = self.template.select(selection)
-        #~ pieces = ranges([self.template.atoms.index(a) for a in template])
-        #~ shape = self.coordinates.shape
-        #~ self.coordinates.reshape(-1, len(self.template), 3)
-        #~ coordinates = [np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in self.coordinates]
-        #~ self.coordinates.reshape(shape)
-        #~ return Trajectory(template, np.concatenate(coordinates), self.headers)
-
     def to_atoms(self):
         result = Atoms()
         num = 0
