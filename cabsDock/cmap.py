@@ -10,21 +10,21 @@ import matplotlib.pyplot
 import matplotlib.ticker
 
 class ContactMapFactory(object):
-    def __init__(self, chain1, chain2, temp):
+    def __init__(self, chains1, chains2, temp):
         """Builder for ContactMap.
 
         Arguments:
-        chain1 -- str; char for 1st chain.
-        chain2 -- str; char or 2nd chain.
+        chains1 -- list or str; chars for 1st chain(s).
+        chains2 -- list or str; chars for 2nd chain(s).
         temp -- cabsDock.atom.Atoms instance containing both given chains.
 
         """
         chs = {}
         for n, i in enumerate(temp.atoms):
             chs.setdefault(i.chid, []).append(n)
-        self.dims = map(len, [chs[chain1], chs[chain2]])
-        self.inds1 = reduce(operator.add, [chs[i] for i in chain1])
-        self.inds2 = reduce(operator.add, [chs[i] for i in chain2])
+        self.dims = (sum(map(len, [chs[ch1] for ch1 in chains1])), sum(map(len, [chs[ch2] for ch2 in chains2])))
+        self.inds1 = reduce(operator.add, [chs[i] for i in chains1])
+        self.inds2 = reduce(operator.add, [chs[i] for i in chains2])
         self.ats1 = [temp.atoms[i] for i in self.inds1]
         self.ats2 = [temp.atoms[i] for i in self.inds2]
 

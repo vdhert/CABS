@@ -7,11 +7,15 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
+import pickle
+
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar, kmedoids
 from trajectory import Trajectory
+from cabsDock.cmap import ContactMapFactory
+from cabsDock.cmap import ContactMap
 
 __all__ = ['Job']
 
@@ -163,6 +167,10 @@ class Job:
         # prepare initial complex
         self.initial_complex = ProteinComplex(self.config)
 
+        if 'dbg' in kwargs: #ROR
+            with open("test_complex.pck", "w") as f:
+                pickle.dump(self.initial_complex, f)
+
         # generate restraints
         self.restraints = \
             Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
@@ -181,9 +189,24 @@ class Job:
             sleep(0.1)
         bar.done()
         trajectory = cabs_run.get_trajectory()
+        if 'dbg' in kwargs:     #ROR
+            with open("test_traj.pck", "w") as f:
+                pickle.dump(trajectory, f)
         trajectory.align_to(self.initial_complex.receptor)
         trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         tra = trajectory.filter(self.config['filtering'])
+
+        #TO-start: cmap factory init; cmaps for replicas
+        try:
+            mkdir(defaults['work_dir'] + '/contact_maps')
+        except OSError:
+            pass
+        cmfs = {lig: ContactMapFactory(self.initial_complex.receptor_chains, lig, trajectory.template) for lig in self.initial_complex.ligand_chains}
+        for lig, cmf in cmfs.items():
+            cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
+            for n, cmap in enumerate(cmaps):
+                cmap.save(defaults['work_dir'] + '/contact_maps/replica_%i_ch_%s' % (n, lig))
+        #TO-end
 
         #  od tego miejsca poprawic
         lig_chains = ','.join(self.initial_complex.ligand_chains)

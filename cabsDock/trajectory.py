@@ -217,7 +217,7 @@ class Trajectory:
                 for r in rngs:
                     c = self.coordinates[replica][r[0]: r[1]]
                     coordinates.append(c)
-            return Trajectory(self.template, np.concatenate(coordinates), headers)
+            return Trajectory(self.template, np.array([np.concatenate(coordinates)]), headers)
 
     def rmsd_matrix(self, msg=''):
         """
