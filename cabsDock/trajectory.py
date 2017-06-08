@@ -1,8 +1,8 @@
 import numpy as np
 from copy import deepcopy
 
-from atom import Atom, Atoms
-from utils import ranges, kabsch, ProgressBar
+from cabsDock.atom import Atom, Atoms
+from cabsDock.utils import ranges, kabsch, ProgressBar
 
 __all__ = ['Trajectory', 'Header']
 
@@ -154,12 +154,17 @@ class Trajectory:
 
     def select(self, selection):
         template = self.template.select(selection)
-        pieces = ranges([self.template.atoms.index(a) for a in template])
-        shape = self.coordinates.shape
-        self.coordinates.reshape(-1, len(self.template), 3)
-        coordinates = [np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in self.coordinates]
-        self.coordinates.reshape(shape)
-        return Trajectory(template, np.concatenate(coordinates), self.headers)
+        inds = [self.template.atoms.index(a) for a in template]
+        return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
+
+    #~ def select(self, selection):
+        #~ template = self.template.select(selection)
+        #~ pieces = ranges([self.template.atoms.index(a) for a in template])
+        #~ shape = self.coordinates.shape
+        #~ self.coordinates.reshape(-1, len(self.template), 3)
+        #~ coordinates = [np.concatenate([model[piece[0]:piece[1]] for piece in pieces]) for model in self.coordinates]
+        #~ self.coordinates.reshape(shape)
+        #~ return Trajectory(template, np.concatenate(coordinates), self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -224,15 +229,14 @@ class Trajectory:
         Calculates rmsd matrix with no fitting for all pairs od models in trajectory.
         :return: np.array
         """
+
+        def rmsd(m1, m2, ml):
+            return np.sqrt(np.sum((m1 - m2) ** 2) / ml)
+
         model_length = len(self.template)
-
-        def rmsd(m1, m2):
-            return np.sqrt(np.sum((m1 - m2) ** 2) / model_length)
-
-        shape = self.coordinates.shape
         models = self.coordinates.reshape(-1, model_length, 3)
         dim = len(models)
-        result = np.zeros(dim * dim).reshape(dim, dim)
+        result = np.zeros((dim, dim))
         if msg:
             bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
@@ -241,10 +245,9 @@ class Trajectory:
             for j in range(i + 1, dim):
                 if bar:
                     bar.update()
-                result[i, j] = result[j, i] = rmsd(models[i], models[j])
+                result[i, j] = result[j, i] = rmsd(models[i], models[j], model_length)
         if bar:
             bar.done(True)
-        self.coordinates.reshape(shape)
         return result
 
     def get_model(self, model):
