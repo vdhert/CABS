@@ -207,7 +207,7 @@ class Job:
         M, C = kmedoids(D, *self.config['clustering'])
 
         #TO-start: cmap factory init; cmaps for replicas
-        cmapdir = defaults['work_dir'] + '/contact_maps'
+        cmapdir = self.config['work_dir'] + '/contact_maps'
         try:
             mkdir(cmapdir)
         except OSError:
@@ -216,14 +216,14 @@ class Job:
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
             for n, cmap in enumerate(cmaps):
-                cmap.save_png(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_png(cmapdir + '/all_ch_%s' % lig)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
             cmap1k = cmf.mk_cmap(tra.coordinates, 6.5)[0]
-            cmap1k.save_png(cmapdir + '/top1000_ch_%s' % lig)
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
             for cn, clust in C.items():
                 ccmap = cmf.mk_cmap(tra.coordinates, 6.5, frames=clust)[0]
-                ccmap.save_png(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
         #TO-end
 
         if 'dbg' in kwargs:     #ROR

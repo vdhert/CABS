@@ -51,10 +51,12 @@ class ContactMapFactory(object):
         resl = []
         for rep in traj[replicas,]:
             cmtx = self.mk_cmtx(self.mk_dmtx(rep[fstf]), thr)
+            nframes = 1
             for fra in rep[frames,]:
                 ncmtx = self.mk_cmtx(self.mk_dmtx(fra), thr)
                 cmtx += ncmtx
-            resl.append(ContactMap(cmtx, self.ats1, self.ats2))
+                nframes += 1
+            resl.append(ContactMap(cmtx, self.ats1, self.ats2, nframes))
         return resl
 
     def mk_cmtx(self, mtx, thr):
@@ -82,23 +84,25 @@ class ContactMapFactory(object):
 
 
 class ContactMap(object):
-    def __init__(self, mtx, atoms1, atoms2):
+    def __init__(self, mtx, atoms1, atoms2, n):
         """Contact map init.
 
         Arguments:
         mtx -- 2D numpy.array of distances between (pseudo)atoms.
         atoms1, atoms2 -- cabsDock.atom.Atoms instance; template for cmap.
+        n -- number of frames.
         """
         self.cmtx = mtx
         self.s1 = atoms1
         self.s2 = atoms2
+        self.n = n
 
     def save_png(self, fname):
         fig = matplotlib.pyplot.figure(figsize=(20, 20))
         sfig = fig.add_subplot(111)
 
         sfig.matshow(
-            self.cmtx.T,
+            self.cmtx.T / float(self.n),
             cmap=matplotlib.pyplot.cm.Oranges
             )
         sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
@@ -109,6 +113,22 @@ class ContactMap(object):
         matplotlib.pyplot.savefig(fname)
         matplotlib.pyplot.close(fig)
 
+    def save_txt(self, stream):
+        """Saves contact list in CSV format.
+
+        Argument:
+        stream -- file-like object; stream to which text will be passed.
+        """
+        inds1, inds2 = numpy.nonzero(self.cmtx)
+        for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
+           stream.write("%s%i%s\t%s%i%s\t%.3f\n" % (m1.chid, m1.resnum, m1.icode.strip(), m2.chid, m2.resnum, m2.icode.strip(), self.cmtx[c1, c2] / float(self.n)))
+
+    def save_all(self, fname):
+        """Creates txt and png of given name."""
+        with open(fname + '.txt', 'w') as f:
+            self.save_txt(f)
+        self.save_png(fname)
+
     def __add__(self, other):
         """Addition of cmaps sums their matrices.
 
@@ -116,4 +136,4 @@ class ContactMap(object):
         """
         if self.s1 != other.s1 or self.s2 != other.s2:
             raise ValueError("Cannot sum different particles' contact maps.")
-        return ContactMap(self.cmtx + other.cmtx, self.s1, self.s2)
+        return ContactMap(self.cmtx + other.cmtx, self.s1, self.s2, self.n + other.n)
