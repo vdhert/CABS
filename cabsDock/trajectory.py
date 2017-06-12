@@ -23,9 +23,9 @@ class Header:
         header = line.split()
         self.model = int(header[0])
         self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[4:1:-1], float)
-        self.temperature = float(header[5])
-        self.replica = int(header[6])
+        self.energy = np.matrix(header[3, -2], float)
+        self.temperature = float(header[-2])
+        self.replica = int(header[-1])
 
     def __repr__(self):
         return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
@@ -42,9 +42,8 @@ class Header:
             raise Header.CannotMerge(self, other)
         else:
             dt = self.temperature - other.temperature
-            de = self.energy[0, 0] - other.energy[0, 0]
-            if dt ** 2 > 1e-6 or de ** 2 > 1e-6:
-                raise Exception("Cannot merge headers with different T or E!!!")
+            if dt ** 2 > 1e-6:
+                raise Exception("Cannot merge headers with different T!!!")
             else:
                 h = deepcopy(self)
                 h.length += other.length
@@ -141,7 +140,7 @@ class Trajectory:
         sum_length = sum(length)
 
         if sum_length != len(template):
-            # check if number of atoms in SEQ matches that in trajectory head.ers
+            # check if number of atoms in SEQ matches that in trajectory headers
             raise Exception('Different number of atoms in %s and %s!!!' % (traf, seq))
 
         # final test if information from headers agrees with number of coordinates

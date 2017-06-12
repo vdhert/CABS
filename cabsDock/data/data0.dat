@@ -3,7 +3,7 @@ c       CABSDOCK
 c       authors: A. Kolinski(kolinski@chem.uw.edu.pl)
 c                M. Kurcinski(mkurc@chem.uw.edu.pl)
 c
-c       updated: 19/4/2017
+c       updated: 12/6/2017
 c
 c       This version supports sg-sg restraints.
 c       This code is part of the cabsDock package.
@@ -14,6 +14,7 @@ c       ***************************************************************
         LOGICAL LOOK,GOODC(800,800)
 
         character*3 aa(-1:20),NAME
+        character*15 log_fmt
 
         PARAMETER(NDIM=500)
         PARAMETER(NREPS=10)
@@ -27,26 +28,29 @@ c       The recommended
 c       number of replicas (T1=T2=1.0) is about 20 for small
 c       proteins up to 30 for N>200
 
-        COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
-        COMMON /THREE/   ICONF(800,800)
+        COMMON /CHAINS/ ICA(NDIM), X(NDIM), Y(NDIM), Z(NDIM)
+        COMMON /THREE/ ICONF(800,800)
         COMMON /LENGHTS/ PROD(800,800)
-        COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /VECTORS/ vx(800),vy(800),vz(800)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
-        COMMON /BISEC/   CAX(800,800),CAY(800,800),CAZ(800,800)
-        COMMON /HB/      HBX(800,800),HBY(800,800),HBZ(800,800)
+        COMMON /SEQE/ SEQ(nmols,ndim), SEC(nmols,ndim)
+        COMMON /VECTORS/ vx(800), vy(800), vz(800)
+        COMMON /BETAS/ CBX(800,800), CBY(800,800), CBZ(800,800)
+        COMMON /BISEC/ CAX(800,800), CAY(800,800), CAZ(800,800)
+        COMMON /HB/ HBX(800,800), HBY(800,800), HBZ(800,800)
+        COMMON /SG/ GX(800,800,0:19), GY(800,800,0:19),
+     &              GZ(800,800,0:19)
 
         common /arandom/ aarand,abrand,acrand,adrand
-        COMMON /ENERGY/  EHBOND,ESC,EREP,BAT,
-     &  EHBIJ(nmols,nmols,ndim,ndim)
+        COMMON /EPARAMS/ EHBOND,ESC,EREP,BAT,
+     &                   EHBIJ(nmols,nmols,ndim,ndim)
 
-        COMMON /pair/   apa(nmols,nmols,ndim,ndim,2,2),
-     &                  app(nmols,nmols,ndim,ndim,2,2),
-     &                  apm(nmols,nmols,ndim,ndim,2,2)
-        COMMON /size/   arla(2,0:19,0:19,2,2),arlm(2,0:19,0:19,2,2),
-     &                  arlp(2,0:19,0:19,2,2)
-        COMMON /sizea/  ala(2,0:19,0:19,2,2),alm(2,0:19,0:19,2,2),
-     &                  alp(2,0:19,0:19,2,2)
+        COMMON /pair/    apa(nmols,nmols,ndim,ndim,2,2),
+     &                   app(nmols,nmols,ndim,ndim,2,2),
+     &                   apm(nmols,nmols,ndim,ndim,2,2)
+
+        COMMON /size/    arla(2,0:19,0:19,2,2),arlm(2,0:19,0:19,2,2),
+     &                   arlp(2,0:19,0:19,2,2)
+        COMMON /sizea/   ala(2,0:19,0:19,2,2),alm(2,0:19,0:19,2,2),
+     &                   alp(2,0:19,0:19,2,2)
         
         COMMON /KBB/    kbin(800,800)
         COMMON /short/  IBIN(-500:500),asr(nmols,ndim,-12:12)
@@ -56,30 +60,27 @@ c       proteins up to 30 for N>200
         COMMON /one/    acrit(nmols),eoinp(0:19,0:100)
         common /onecm/  icmx(nmols),icmy(nmols),icmz(nmols)
         COMMON /FR/     FRG(nmols,ndim,ndim)
-        COMMON /RCN/    ERESTA,NRESTA
-        common /RRCA/   MRESA(nmols,ndim),KRESA(nmols,ndim,maxres),
-     &  arca(nmols,ndim,maxres),awrca(nmols,ndim,maxres)
-        common /cross/  mresax(nmols,ndim),kresax(nmols,ndim,maxres),
-     &  nresax(nmols,ndim,maxres),arcax(nmols,ndim,maxres),
-     &  awrcax(nmols,ndim,maxres)
-
-        common /RSGm/ nRSG,eRSG
-        common /RSG/  RSGcount(nmols,ndim),RSGind(nmols,ndim,maxres),
-     &  distRSG(nmols,ndim,maxres),forceRSG(nmols,ndim,maxres)
-        common /RSGX/ RSGXcount(nmols,ndim),RSGXind(nmols,ndim,maxres),
-     &  RSGXmol(nmols,ndim,maxres),distRSGX(nmols,ndim,maxres),
-     &  forceRSGX(nmols,ndim,maxres)
         
-        COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
         common /vec/ vector(-7:7,-7:7,-7:7)
+
+        common /RCA/ nRCA, eRCA, RCAcount(ndim, nmols, nmols),
+     &  distRCA(ndim, nmols, nmols, maxres),
+     &  forceRCA(ndim, nmols, nmols, maxres),
+     &  otherRCA(ndim, nmols, nmols, maxres)
+        
+        common /RSG/ nRSG, eRSG, RSGcount(ndim, nmols, nmols),
+     &  distRSG(ndim, nmols, nmols, maxres),
+     &  forceRSG(ndim, nmols, nmols, maxres),
+     &  otherRSG(ndim, nmols, nmols, maxres)
+
+
         DIMENSION apabla(2,0:19,0:19,2,2),apablp(2,0:19,0:19,2,2)
         DIMENSION apablm(2,0:19,0:19,2,2)
         DIMENSION asrr(0:19,0:19,-12:12),bsrr(0:19,0:19,16)
         DIMENSION asrh(0:19,0:19,-12:12),bsrh(0:19,0:19,16)
         DIMENSION asre(0:19,0:19,-12:12),bsre(0:19,0:19,16)
-        DIMENSION ATREP(NREPS),EREPLICA(NMOLS,NREPS),EREPLICAS(NREPS)
+        DIMENSION ATREP(NREPS), EREPLICA(NREPS)
         DIMENSION REPNUM(NREPS)
-        DIMENSION EINTER(nmols,nreps)
         common /reps/   xreps(ndim,NREPS,nmols),
      &                  yreps(ndim,NREPS,nmols),
      &                  zreps(ndim,NREPS,nmols)
@@ -88,10 +89,13 @@ c       proteins up to 30 for N>200
         DIMENSION axbet(0:19),aybet(0:19),azbet(0:19)
         dimension icao(ndim),icab(ndim)
 
-        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
-     &  al2,al4,al5,al19,length(nmols)
+        common /lenfs/ mols, imol, itemp, lenf, lenf1, lenf2, lenf3,
+     &                 al2, al4, al5, al19,length(nmols)
 
-        NFRAME=0
+        dimension elog(nmols)
+
+c	nframe - trajectory frame counter
+        NFRAME = 1
 
 c       x,y,z - Ca lattice coordinates
 c       [vx,vy,vz] 800 possible lattice Ca-Ca vectors
@@ -179,6 +183,8 @@ c       for larger distances energy grows in alinear fashion
         READ(5,*) RANDOM, NCYCLE, PHOT, REPLICAS, MOLS
         READ(5,*) ATEMP2, ATEMP1, EREP, ARLLO, DTEM
         READ(5,*) ESC_0, ARLO, ENONE, EHBOND, ASRO
+
+        write(log_fmt, '(a, i0, 2a)') '(', mols, 'f14.4', ')'
 
         do ii=0,19
         do j=0,100
@@ -729,83 +735,55 @@ c
 
 c       Ca-Ca distance restraints
 
-        do i=1,mols
-        do j=1,length(i)
-        mresa(i,j)=0
-        mresax(i,j)=0
-        enddo
+        do i = 1, mols
+         do l = 1, length(i)
+          do j = 1, mols
+           RCAcount(l, i, j) = 0
+           RSGcount(l, i, j) = 0
+          enddo
+         enddo
         enddo
 
-        read(5,*) NRESTA,ERESTA
-        if(NRESTA.gt.0) then
-        do k=1,NRESTA
-        read(5,*) imol,irest,jmol,jrest,ar,aw
-        ar=ar/0.61
-        i=irest+1
-        j=jrest+1
-        if(imol.eq.jmol) then
-        ii=mresa(imol,i)+1
-        jj=mresa(jmol,j)+1
-        mresa(imol,i)=ii
-        mresa(jmol,j)=jj
-        kresa(imol,i,ii)=j
-        kresa(jmol,j,jj)=i
-        arca(imol,i,ii)=ar
-        arca(jmol,j,jj)=ar
-        awrca(imol,i,ii)=aw
-        awrca(jmol,j,jj)=aw
-        else 
-        ii=mresax(imol,i)+1
-        jj=mresax(jmol,j)+1
-        mresax(imol,i)=ii
-        mresax(jmol,j)=jj
-        kresax(imol,i,ii)=j
-        kresax(jmol,j,jj)=i
-        nresax(imol,i,ii)=jmol
-        nresax(jmol,j,jj)=imol
-        arcax(imol,i,ii)=ar
-        arcax(jmol,j,jj)=ar
-        awrcax(imol,i,ii)=aw
-        awrcax(jmol,j,jj)=aw
-        endif
-        enddo
+        read(5,*) nRCA, eRCA
+        if(nRCA.gt.0) then
+         do k = 1, nRCA
+          read(5, *) imol, irest, jmol, jrest, ar, aw
+          ar = ar / 0.61
+          i = irest + 1
+          j = jrest + 1
+          ii = RCAcount(i, imol, jmol) + 1
+          jj = RCAcount(j, jmol, imol) + 1
+          RCAcount(i, imol, jmol) = ii
+          RCAcount(j, jmol, imol) = jj
+          otherRCA(i, imol, jmol, ii) = j
+          otherRCA(j, jmol, imol, jj) = i
+          distRCA(i, imol, jmol, ii) = ar
+          distRCA(j, jmol, imol, jj) = ar
+          forceRCA(i, imol, jmol, ii) = aw
+          forceRCA(j, jmol, imol, jj) = aw
+         enddo
         endif
 
 c       sg-sg restraints
 
-        read(5,*) nRSG,eRSG
+        read(5,*) nRSG, eRSG
         if(nRSG.gt.0) then
-        do k=1,nRSG
-        read(5,*) imol,irest,jmol,jrest,ar,aw
-        ar=ar/0.61
-        i=irest+1
-        j=jrest+1
-        if(imol.eq.jmol) then
-        ii=RSGcount(imol,i)+1
-        jj=RSGcount(jmol,j)+1
-        RSGcount(imol,i)=ii
-        RSGcount(jmol,j)=jj
-        RSGind(imol,i,ii)=j
-        RSGind(jmol,j,jj)=i
-        distRSG(imol,i,ii)=ar
-        distRSG(jmol,j,jj)=ar
-        forceRSG(imol,i,ii)=aw
-        forceRSG(jmol,j,jj)=aw
-        else
-        ii=RSGXcount(imol,i)+1
-        jj=RSGXcount(jmol,j)+1
-        RSGXcount(imol,i)=ii
-        RSGXcount(jmol,j)=jj
-        RSGXind(imol,i,ii)=j
-        RSGXind(jmol,j,jj)=i
-        RSGXmol(imol,i,ii)=jmol
-        RSGXmol(jmol,j,jj)=imol
-        distRSGX(imol,i,ii)=ar
-        distRSGX(jmol,j,jj)=ar
-        forceRSGX(imol,i,ii)=aw
-        forceRSGX(jmol,j,jj)=aw
-        endif
-        enddo
+         do k = 1, nRSG
+          read(5, *) imol, irest, jmol, jrest, ar, aw
+          ar = ar / 0.61
+          i = irest + 1
+          j = jrest + 1
+          ii = RSGcount(i, imol, jmol) + 1
+          jj = RSGcount(j, jmol, imol) + 1
+          RSGcount(i, imol, jmol) = ii
+          RSGcount(j, jmol, imol) = jj
+          otherRSG(i, imol, jmol, ii) = j
+          otherRSG(j, jmol, imol, jj) = i
+          distRSG(i, imol, jmol, ii) = ar
+          distRSG(j, jmol, imol, jj) = ar
+          forceRSG(i, imol, jmol, ii) = aw
+          forceRSG(j, jmol, imol, jj) = aw
+         enddo
         endif
 
         do imol=1,mols
@@ -963,27 +941,20 @@ c	twenty temperatures for the annealing - setting
 c	atemp2=atemp1 reduces program to a more standard REMC
 c	dtem1 -annealing increment
         
-        dtem1=(atemp2-atemp1)/20.
-c       dtem=5.8/float(lenf)
-c       dtem=0.1
+        dtem1 = (atemp2 - atemp1) / 20.
 c	dtem distance between replicas
-c   dtem read from INP
-        aatemp2=atemp2
+c	dtem read from INP
+        aatemp2 = atemp2
 
         DO IDDDUM=1,20
         
-        aatemp1=aatemp2-dtem1
-        atemp=aatemp1
+        aatemp1 = aatemp2 - dtem1
+        atemp = aatemp1
 
-        do i=1, REPLICAS
-        ATREP(i)=atemp
-C	atemp=atemp+dtem*((float(i-1+REPLICAS))/float(REPLICAS))**3
-        atemp=atemp+dtem
-c	atemp temperature of a replica, lowest replica temp=aatemp1
-        EREPLICAS(i)=0.0
-        do imol=1,mols
-        EREPLICA(imol,i)=0.0
-        enddo
+        do i = 1, replicas
+         ATREP(i) = atemp
+         atemp = atemp + dtem
+         ereplica(i) = 0.0
         enddo
 
         aatemp2=aatemp1
@@ -1000,7 +971,7 @@ c	exchanging replicas
 
         betam=1.0/ATREP(itemp)
         betan=1.0/ATREP(itemp1)
-        delta=(betan-betam)*(EREPLICAS(itemp)-EREPLICAS(itemp1))
+        delta=(betan-betam)*(EREPLICA(itemp)-EREPLICA(itemp1))
 
         if(abs(delta).gt.maxebase.or.exp(-delta).gt.arand(ise)) then
          rnum=repnum(itemp)
@@ -1019,18 +990,13 @@ c	exchanging replicas
            yreps(i,itemp1,imol)=yt
            zreps(i,itemp1,imol)=zt
           enddo
-
-          attt=EREPLICA(imol,itemp)
-          EREPLICA(imol,itemp)=EREPLICA(imol,itemp1)
-          EREPLICA(imol,itemp1)=attt
-
          ENDDO
 
          SWAPS(itemp)=SWAPS(itemp)+1
          SWAPS(itemp1)=SWAPS(itemp1)+1
-         attt=EREPLICAS(itemp)
-         EREPLICAS(itemp)=EREPLICAS(itemp1)
-         EREPLICAS(itemp1)=attt
+         attt=EREPLICA(itemp)
+         EREPLICA(itemp)=EREPLICA(itemp1)
+         EREPLICA(itemp1)=attt
         endif
         
         ENDDO
@@ -1044,10 +1010,6 @@ c	******************* ITERATE THE REPLICAS ********************
         DO ITEMP=REPLICAS,1,-1
 
         ATEMP=ATREP(itemp)
-
-c	SCALING UP AT HIGH TEMP THE SHORT RANGE INTERACTIONS (GENERIC)
-c	ESC=ESC_0 *sqrt(atemp/aatemp1)*(aatemp1/ATEMP1)
-c       ESC=ESC_0 *sqrt(aatemp1/ATEMP1)
         ESC=ESC_0
 
 c	a new cycle starts here (internal "time" loop)
@@ -1121,7 +1083,7 @@ c	CENTER THE SYSTEM at [0,0,0] point of the lattice
 
          assr=sqrt(float(ssx*ssx+ssy*ssy+ssz*ssz))
 
-	 edist=escapedistance/0.61
+         edist=escapedistance/0.61
          if(assr.gt.edist) then
           assr=(assr-edist)/assr
           ssx=nint(assr*ssx)
@@ -1161,8 +1123,7 @@ c	CENTER THE SYSTEM at [0,0,0] point of the lattice
         ENDDO
         ICA(LENF)=1
 
-        energ=EHB(2,lenf1)+ESHORT(2,lenf1)+EHL(2,lenf1)
-     &  +ERESTR(2,lenf1)+ECROSS(2,lenf1)
+        energ = energy(2, lenf1)
 
         DO 7775 IDUM=1,LENF2
 c
@@ -1218,7 +1179,7 @@ c	check planar angles with the rest of the chain
 c	No steric overlaps of Ca and Cb detected for the new conformer
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(i,k)+ESHORT(i,k)+EHL(i,k)+ERESTR(i,k)+ECROSS(i,k)
+        ENEW = energy(i, k)
 
         ICA(I)=ii
         ICA(j)=jj
@@ -1226,7 +1187,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         y(j)=ky
         z(j)=kz
 
-        EOLD=EHB(i,k)+ESHORT(i,k)+EHL(i,k)+ERESTR(i,k)+ECROSS(i,k)
+        EOLD = energy(i, k)
 
         DE=ENEW-EOLD
         IF(DE.GT.0.0) THEN
@@ -1258,10 +1219,6 @@ c	Move rejected - restore the initial state of the chain
 7774    CONTINUE
 
 c	THREE-BOND MOVE -permutation
-
-        if(idum.eq.5) then
-         dupa=1
-        endif
 
         I=INT(arand(ise)*AL5)+2
         a=arand(ise)
@@ -1328,7 +1285,7 @@ c	Store the old conformation
 c	No overalps of Cas and Cbs
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        ENEW = energy(i, l)
 
         ICA(i)=ii
         ICA(j)=jj
@@ -1340,7 +1297,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         y(k)=ky
         z(k)=kz
 
-        EOLD=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        EOLD = energy(i, l)
 
         DE=ENEW-EOLD
 
@@ -1438,7 +1395,7 @@ c	a move backward
 c	No overalps of Cas and Cbs
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        ENEW = energy(i, l)
 
         do kkkk=i,k
         ica(kkkk)=icao(kkkk)
@@ -1451,7 +1408,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         z(kkkk)=z(pp)+vz(ii)
         enddo
 
-        EOLD=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        EOLD = energy(i, l)
 
         DE=ENEW-EOLD
 
@@ -1550,7 +1507,7 @@ c	FOUR-to-22 BOOND MOVES
 c	No overalps of Cas and Cbs
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        ENEW = energy(i, l)
 
         ICA(i)=ii
         ICA(k)=kk
@@ -1560,7 +1517,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         z(kkkk)=z(kkkk)-mz
         enddo
 
-        EOLD=EHB(i,l)+ESHORT(i,l)+EHL(i,l)+ERESTR(i,l)+ECROSS(i,l)
+        EOLD = energy(i, l)
 
         DE=ENEW-EOLD
 
@@ -1632,7 +1589,7 @@ c	N TERMINUS
 
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(2,3)+ESHORT(2,3)+EHL(2,3)+ERESTR(2,3)+ECROSS(2,3)
+        ENEW = energy(2, 3)
         x(1)=kx
         y(1)=ky
         z(1)=kz
@@ -1642,7 +1599,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         ICA(1)=ica1
         ICA(2)=ica2
 
-        EOLD=EHB(2,3)+ESHORT(2,3)+EHL(2,3)+ERESTR(2,3)+ECROSS(2,3)
+        EOLD = energy(2, 3)
 
         DE=ENEW-EOLD
 
@@ -1711,8 +1668,7 @@ c	C TERMINUS
 
 c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
 
-        ENEW=EHB(lenf2,lenf1)+ESHORT(lenf2,lenf1)+EHL(lenf2,lenf1)
-     &  +ERESTR(lenf2,lenf1)+ECROSS(lenf2,lenf1)
+        ENEW = energy(lenf2, lenf1)
 
         x(lenf)=kx
         y(lenf)=ky
@@ -1723,8 +1679,7 @@ c	THE MOVE COULD BE SUCESSFULL. APPLY METROPOLIS CRITERION HERE
         ICA(lenf1)=ica1
         ICA(lenf2)=ica2
 
-        EOLD=EHB(lenf2,lenf1)+ESHORT(lenf2,lenf1)+EHL(lenf2,lenf1)
-     &  +ERESTR(lenf2,lenf1)+ECROSS(lenf2,lenf1)
+        EOLD = energy(lenf2, lenf1)
 
         DE=ENEW-EOLD
 
@@ -1765,46 +1720,54 @@ c	Move rejected - restore the initial state of the chain
         ENDIF
 
 9998    do i=1,lenf
-        xreps(i,itemp,imol)=x(i)
-        yreps(i,itemp,imol)=y(i)
-        zreps(i,itemp,imol)=z(i)
+         xreps(i, itemp, imol) = x(i)
+         yreps(i, itemp, imol) = y(i)
+         zreps(i, itemp, imol) = z(i)
         enddo
-
-        if(iphot.eq.phot) then
-        eitemp=EHL(2,lenf1)+ECROSS(2,lenf1)
-        EREPLICA(imol,itemp)=energ-eitemp
-c        write(*,*) EREPLICA(imol,itemp),EHB(2,lenf1)+ESHORT(2,lenf1)
-c     &  +ERESTR(2,lenf1)
-        endif
 
 9999    CONTINUE
 7777    CONTINUE
  
-        EREPLICAS(itemp)=0.0
+        EREPLICA(itemp) = 0.0
 
-        do imol=1,mols
+        do imol = 1, mols
 
-        lenf=length(imol)
-        lenf1=lenf-1
+         lenf = length(imol)
+         lenf1 = lenf-1
 
-        DO i=1,lenf
-        x(i)=xreps(i,itemp,imol)
-        y(i)=yreps(i,itemp,imol)
-        z(i)=zreps(i,itemp,imol)
-        enddo
+         do i=1, lenf
+          x(i) = xreps(i, itemp, imol)
+          y(i) = yreps(i, itemp, imol)
+          z(i) = zreps(i, itemp, imol)
+         enddo
 
-        DO I=1,LENF1
-        J=I+1
-        WX=X(J)-X(I)
-        WY=Y(J)-Y(I)
-        WZ=Z(J)-Z(I)
-        ICA(I)=VECTOR(WX,WY,WZ)
-        ENDDO
-        ICA(LENF)=1
+         do i = 1, lenf1
+          j = i + 1
+          wx = x(j) - x(i)
+          wy = y(j) - y(i)
+          wz = z(j) - z(i)
+          ica(i) = vector(wx, wy, wz)
+         enddo
+         ica(lenf) = 1
 
-        EINTER(imol,itemp)=EHL(2,lenf1)+ECROSS(2,lenf1)
-        EREPLICAS(itemp)=EREPLICAS(itemp)+EREPLICA(imol,itemp)
-     &  +0.5*EINTER(imol,itemp)
+         e_internal = einternal(2, lenf1)
+         e_interaction = 0.0
+         do kmol = 1, mols
+          if (imol .eq. kmol) then
+           elog(kmol) = e_internal
+          else
+           e_pair = epair(2, lenf1, kmol)
+           e_interaction = e_interaction + e_pair
+           elog(kmol) = e_pair
+          endif
+         enddo
+
+         write(9,'(2i5, '//log_fmt//', f6.2, i3)') nframe, lenf,
+     &   (elog(i), i = 1, mols), atrep(itemp), repnum(itemp)
+         write(9,'(12i5)') (x(i), y(i), z(i), i = 1 , lenf)
+
+         ereplica(itemp) = ereplica(itemp) 
+     &   + e_internal + 0.5 * e_interaction
 
         enddo
 
@@ -1812,41 +1775,17 @@ c	end of ITEMPs replica
  
         ENDDO
 
-c	Search for the lowest energy replica
-        energ=EREPLICAS(1)
-        ITEMP=1
-        do i=1,REPLICAS
-        if(ereplicas(i).lt.energ) then
-        energ=ereplicas(i)
-        ITEMP=i
-        endif
-        enddo
-
-        NFRAME=NFRAME+1
-
-        itemp1=itemp
-
-        do itemp=1,replicas
-        do imol=1,mols
-        WRITE(9,716) nframe,length(imol),ereplica(imol,itemp),
-     &  einter(imol,itemp),ereplicas(itemp)
-     &  ,atrep(itemp),repnum(itemp)
-        write(9,713) (xreps(i,itemp,imol),yreps(i,itemp,imol),
-     &  zreps(i,itemp,imol),i=1,length(imol))
-        enddo
-        enddo
-
-        itemp=itemp1
-
-716     format(2I6,3F10.2,F8.3,I6)
-713     format(12I5)
-
-7000    CONTINUE
+7000    nframe = nframe + 1
  
         ENDDO
 
 c	===============================================================	
- 
+
+        itemp = 1
+        do i = 2, replicas
+         if (ereplica(i) .lt. ereplica(itemp)) itemp = i
+        enddo
+
 c	CHECK THE GEOMETRY and WRITE THE FINAL CHAIN
 
         kcc=0
@@ -1966,15 +1905,12 @@ c	rapidly
         enddo
         enddo
         write(6,*) "CHAIN: ",imol
-        write(6,819) EREPLICA(imol,itemp),EINTER(imol,itemp)
+        write(6,819) einternal(2, lenf1), einteraction(2, lenf1)
 
 c	Compute from scratch the final energy for the consistency
 c	comparison with the cumulated value of energy - TEST
 
-        energ=EHB(2,lenf1)+ESHORT(2,lenf1)+ERESTR(2,lenf1)
-        energi=EHL(2,lenf1)+ECROSS(2,lenf1)
 
-        write(6,819) energ,energi
 819     FORMAT('FINAL ENERGY', 2f10.2)
 
         write(6,*)
@@ -1997,274 +1933,91 @@ c	comparison with the cumulated value of energy - TEST
         WRITE(6,*)
         WRITE(6,*) '   	FINAL REPLICA DISTRIBUTION'
         do i=1, REPLICAS
-        write(6,5005) i,ATREP(i),EREPLICAS(i),SWAPS(i)
+        write(6,5005) i,ATREP(i),EREPLICA(i),SWAPS(i)
         enddo
-5005    format('   replica #',I4,'   T =', f6.2,'  E =',f8.1, I10)
+5005    format(' replica #',I4,' T =', f6.2,' E =',f8.1, I10)
 
         STOP
         END
 
 c	END OF THE MAIN PROGRAM
+c
+c     *****************************************************************
 
-c	***************************************************************		
+        function energy(ibegin, iend)
 
-        FUNCTION LOOK(jj,kk)
+        implicit integer(i - z)
 
-        IMPLICIT INTEGER(I-Z)
-        LOGICAL LOOK,LOOKL
-
-        PARAMETER(NDIM=500)
         PARAMETER(NMOLS=10)
 
-        COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
-        COMMON /LENGHTS/ PROD(800,800)
-        COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
-        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
-     &  al2,al4,al5,al19,length(nmols)
+        common /lenfs/ mols, imol, itemp, lenf, lenf1, lenf2, lenf3,
+     &  al2, al4, al5, al19,length(nmols)
 
-c	CHECKS Ca-Ca, Ca-Cb and Cb-Cb distances and overlaps
+        energy = einternal(ibegin, iend) + einteraction(ibegin, iend)
 
-        DO k=jj,kk
+        return
+        end
 
-        px=x(k)
-        py=y(k)
-        pz=z(k)
-        if(SEQ(imol,k).NE.0) THEN
-        nv1=ica(k-1)
-        nv2=ica(k)
-        bx=CBX(nv1,nv2)+px
-        by=CBY(nv1,nv2)+py
-        bz=CBZ(nv1,nv2)+pz
-        ENDIF
+c     *****************************************************************
 
-        istart=k-2
-        if(istart.gt.1) THEN
-        do i=2,istart
-        irx=(px-x(i))**2
-        if(irx.lt.120) then
-        iry=(py-y(i))**2
-        if(iry.lt.120) then
-        ir=irx+iry+(pz-z(i))**2
-        if(ir.lt.120) then
+        function einteraction(ibegin, iend)
 
-c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
+        implicit integer(i - z)
 
-        if(ir.lt.36) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-
-        if(SEQ(imol,k).NE.0) THEN
-        ar=(bx-x(i))**2+(by-y(i))**2+(bz-z(i))**2
-        if(ar.lt.43.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        IF(SEQ(imol,i).NE.0) THEN
-        icai=ICA(i-1)
-        icaj=ICA(i)
-        ax= CBX(icai,icaj)+x(i)
-        ay= CBY(icai,icaj)+y(i)
-        az= CBZ(icai,icaj)+z(i)
-
-        IF(SEQ(imol,k).NE.0) THEN
-        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
-        if(ar.lt.36.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
-        if(ar.lt.43.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        endif
-        endif
-        endif
-        enddo
-        ENDIF
-
-        iend=max(k+2,kk+1)
-        if(iend.lt.lenf) THEN
-        do i=iend,lenf1
-        irx=(px-x(i))**2
-        if(irx.lt.120) then
-        iry=(py-y(i))**2
-        if(iry.lt.120) then
-        ir=irx+iry+(pz-z(i))**2
-        if(ir.lt.120) then
-
-c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
-
-        if(ir.lt.36) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-
-        if(SEQ(imol,k).NE.0) THEN
-        ar=(bx-x(i))**2+(by-y(i))**2+(bz-z(i))**2
-        if(ar.lt.43.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        if(SEQ(imol,i).NE.0) THEN
-        icai=ICA(i-1)
-        icaj=ICA(i)
-        ax= CBX(icai,icaj)+x(i)
-        ay= CBY(icai,icaj)+y(i)
-        az= CBZ(icai,icaj)+z(i)
-
-        IF(SEQ(imol,k).NE.0) THEN
-        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
-        if(ar.lt.36.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
-        if(ar.lt.43.0) then
-        LOOK=.FALSE.
-        RETURN
-        endif
-
-        endif
-        endif
-        ENDIF
-
-        endif
-        enddo
-        ENDIF
-
-        ENDDO
-
-c	NO HARD CORE OVERLAPPS DETECTED
-
-        LOOK=LOOKL(jj,kk)
-        
-        RETURN
-        END
-c	***************************************************************
-
-        FUNCTION LOOKL(jj,kk)
-        IMPLICIT INTEGER(I-Z)
-        LOGICAL LOOKL
-
-        PARAMETER(NDIM=500)
-        PARAMETER(NREPS=10)
         PARAMETER(NMOLS=10)
 
-        COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
-        COMMON /LENGHTS/ PROD(800,800)
-        COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
-        common /reps/   xreps(ndim,NREPS,nmols),
-     &                  yreps(ndim,NREPS,nmols),
-     &                  zreps(ndim,NREPS,nmols)
-        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
-     &  al2,al4,al5,al19,length(nmols)
-        common /vec/ vector(-7:7,-7:7,-7:7)
+        common /lenfs/ mols, imol, itemp, lenf, lenf1, lenf2, lenf3,
+     &  al2, al4, al5, al19,length(nmols)
 
-c	CHECKS Ca-Ca, Ca-Cb and Cb-Cb distances and overlaps
-
-        DO k=jj,kk
-
-        px=x(k)
-        py=y(k)
-        pz=z(k)
-        if(SEQ(imol,k).NE.0) THEN
-        nv1=ica(k-1)
-        nv2=ica(k)
-        bx=CBX(nv1,nv2)+px
-        by=CBY(nv1,nv2)+py
-        bz=CBZ(nv1,nv2)+pz
-        ENDIF
-
-        do 1983 kmol=1,mols
-
-        if(kmol.eq.imol) goto 1983
-
-        do i=2,length(kmol)-1
-        irx=(px-xreps(i,itemp,kmol))**2
-        if(irx.lt.120) then
-        iry=(py-yreps(i,itemp,kmol))**2
-        if(iry.lt.120) then
-        ir=irx+iry+(pz-zreps(i,itemp,kmol))**2
-        if(ir.lt.120) then
-        
-c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
-
-        if(ir.lt.36) then
-        LOOKL=.FALSE.
-        RETURN
-        endif
-
-        if(SEQ(imol,k).NE.0) THEN
-        ar=(bx-xreps(i,itemp,kmol))**2+(by-yreps(i,itemp,kmol))**2
-     &  +(bz-zreps(i,itemp,kmol))**2
-        if(ar.lt.43.0) then
-        LOOKL=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        IF(SEQ(kmol,i).NE.0) THEN
-        wx=xreps(i,itemp,kmol)-xreps(i-1,itemp,kmol)
-        wy=yreps(i,itemp,kmol)-yreps(i-1,itemp,kmol)
-        wz=zreps(i,itemp,kmol)-zreps(i-1,itemp,kmol)
-        icai=vector(wx,wy,wz)
-        wx=xreps(i+1,itemp,kmol)-xreps(i,itemp,kmol)
-        wy=yreps(i+1,itemp,kmol)-yreps(i,itemp,kmol)
-        wz=zreps(i+1,itemp,kmol)-zreps(i,itemp,kmol)
-        icaj=vector(wx,wy,wz)
-        ax=CBX(icai,icaj)+xreps(i,itemp,kmol)
-        ay=CBY(icai,icaj)+yreps(i,itemp,kmol)
-        az=CBZ(icai,icaj)+zreps(i,itemp,kmol)
-
-        IF(SEQ(imol,k).NE.0) THEN
-        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
-        if(ar.lt.36.0) then
-        LOOKL=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
-        if(ar.lt.43.0) then
-        LOOKL=.FALSE.
-        RETURN
-        endif
-        ENDIF
-
-        endif
-        endif
-        endif
+        einteraction = 0.0
+        do i = 1, mols
+         if (i.ne.imol) then
+          einteraction = einteraction + epair(ibegin, iend, i)
+         endif
         enddo
 
-1983    continue
+        return
+        end
 
-        ENDDO
+c     *****************************************************************
 
-c	NO HARD CORE OVERLAPPS DETECTED
+        function epair(ibegin, iend, kmol)
 
-        LOOKL=.TRUE.
+        implicit integer(i - z)
 
-        RETURN
-        END
+        PARAMETER(NMOLS=10)
 
-c	***************************************************************	
+        common /lenfs/ mols, imol, itemp, lenf, lenf1, lenf2, lenf3,
+     &                 al2, al4, al5, al19,length(nmols)
+
+        epair = ehl(ibegin, iend, kmol) + ecross(ibegin, iend, kmol)
+
+        return
+        end
+
+c     *****************************************************************
+
+        function einternal(ibegin, iend)
+
+        implicit integer(i - z)
+
+        PARAMETER(NMOLS=10)
+
+        common /lenfs/ mols, imol, itemp, lenf, lenf1, lenf2, lenf3,
+     &                 al2, al4, al5, al19,length(nmols)
+
+        einternal = eshort(ibegin, iend) + ehb(ibegin, iend)
+     &            + erestr(ibegin, iend)
+
+        return
+        end
+
+
+c     *****************************************************************
 c	A random number generator by AK - tested
+
         FUNCTION arand(ise)
-        common/arandom/a,b,c,d
+        common/arandom/ a, b, c, d
         g=(a+b+c)*d
         g=g-aint(g)
         a=b
@@ -2273,9 +2026,6 @@ c	A random number generator by AK - tested
         arand=g
         return
         end
-
-C	***************************************************************	
-
         FUNCTION EHB(jjjj,kkkk)
 
         IMPLICIT INTEGER(I-Z)
@@ -2286,12 +2036,12 @@ C	***************************************************************
         COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
         COMMON /LENGHTS/ PROD(800,800)
         COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
         COMMON /BISEC/   CAX(800,800),CAY(800,800),CAZ(800,800)
         COMMON /HB/      HBX(800,800),HBY(800,800),HBZ(800,800)
 
-        COMMON /ENERGY/  EHBOND,ESC,EREP,BAT,
-     &  EHBIJ(nmols,nmols,ndim,ndim)
+        COMMON /EPARAMS/ EHBOND,ESC,EREP,BAT,
+     &                   EHBIJ(nmols,nmols,ndim,ndim)
+
         COMMON /pair/   apa(nmols,nmols,ndim,ndim,2,2),
      &                  app(nmols,nmols,ndim,ndim,2,2),
      &                  apm(nmols,nmols,ndim,ndim,2,2)
@@ -2301,7 +2051,6 @@ C	***************************************************************
      &                  alp(2,0:19,0:19,2,2)
         
         COMMON /KBB/    kbin(800,800)
-        COMMON /one/    acrit(nmols),eoinp(0:19,0:100)
         COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
         common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
      &  al2,al4,al5,al19,length(nmols)
@@ -2705,9 +2454,9 @@ c		COOPERATIVITY
         RETURN
         END
 
-C       ***************************************************************
+c       ***************************************************************
 
-        FUNCTION EHL(jjjj,kkkk)
+        FUNCTION EHL(jjjj,kkkk, kmol)
 
         IMPLICIT INTEGER(I-Z)
 
@@ -2718,12 +2467,11 @@ C       ***************************************************************
         COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
         COMMON /LENGHTS/ PROD(800,800)
         COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
         COMMON /BISEC/   CAX(800,800),CAY(800,800),CAZ(800,800)
         COMMON /HB/      HBX(800,800),HBY(800,800),HBZ(800,800)
 
-        COMMON /ENERGY/  EHBOND,ESC,EREP,BAT,
-     &  EHBIJ(nmols,nmols,ndim,ndim)
+        COMMON /EPARAMS/ EHBOND,ESC,EREP,BAT,
+     &                   EHBIJ(nmols,nmols,ndim,ndim)
         COMMON /pair/   apa(nmols,nmols,ndim,ndim,2,2),
      &                  app(nmols,nmols,ndim,ndim,2,2),
      &                  apm(nmols,nmols,ndim,ndim,2,2)
@@ -2733,7 +2481,6 @@ C       ***************************************************************
      &                  alp(2,0:19,0:19,2,2)
         
         COMMON /KBB/    kbin(800,800)
-        COMMON /one/    acrit(nmols),eoinp(0:19,0:100)
         common /vec/ vector(-7:7,-7:7,-7:7)
         COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
         common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
@@ -2764,10 +2511,6 @@ C       ***************************************************************
         agz=pz+GZ(nv1,nv2,im)
 
         kb= kbin(nv1,nv2)
-
-        do 1004 kmol=1,mols
-
-        if(kmol.eq.imol) goto 1004
 
         do 1003 i=2,length(kmol)-1
 
@@ -2946,17 +2689,111 @@ c       geometry
         endif
 1003    CONTINUE
 
-1004    continue
         ENDDO
 
         RETURN
         END
+        FUNCTION erestr(ibegin, iend)
 
-C       ***************************************************************
+        implicit integer (i - z)
 
-        FUNCTION ERESTR(iiii,jjjj)
+        PARAMETER(NDIM=500)
+        PARAMETER(NMOLS=10)
+        PARAMETER(MAXRES=500)
 
-        IMPLICIT INTEGER(I-Z)
+        COMMON /CHAINS/ ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
+        COMMON /SEQE/   SEQ(nmols,ndim),SEC(nmols,ndim)
+        COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
+
+        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
+     &  al2,al4,al5,al19,length(nmols)
+
+        common /RCA/ nRCA, eRCA, RCAcount(ndim, nmols, nmols),
+     &  distRCA(ndim, nmols, nmols, maxres),
+     &  forceRCA(ndim, nmols, nmols, maxres),
+     &  otherRCA(ndim, nmols, nmols, maxres)
+
+        common /RSG/ nRSG, eRSG, RSGcount(ndim, nmols, nmols),
+     &  distRSG(ndim, nmols, nmols, maxres),
+     &  forceRSG(ndim, nmols, nmols, maxres),
+     &  otherRSG(ndim, nmols, nmols, maxres)
+
+        e1 = 0.0
+        e2 = 0.0
+
+        do i = ibegin, iend
+
+         xi = x(i)
+         yi = y(i)
+         zi = z(i)
+
+c	CA-CA restraints within one chain
+
+         num = RCAcount(i, imol, imol)
+         if (num .gt. 0) then
+
+          do k = 1, num
+           j = otherRCA(i, imol, imol, k)
+
+           if (j .lt. i .or. j .gt. iend) then
+            xj = x(j)
+            yj = y(j)
+            zj = z(j)
+            ir = (xi - xj) ** 2 + (yi - yj) ** 2 + (zi - zj) ** 2
+            dr = abs( sqrt( float(ir) ) - distRCA(i, imol, imol, k) )
+
+            if (dr .gt. 1.0) then
+             e1 = e1 + eRCA * dr * forceRCA(i, imol, imol, k)
+            endif
+           endif
+          enddo
+         endif
+
+c	SG-SG restraints within one chain
+
+         num = RSGcount(i, imol, imol)
+         if (num .gt. 0) then
+          nv1 = ica(i-1)
+          nv2 = ica(i)
+          seqi = SEQ(imol, i)
+          gxi = xi + GX(nv1, nv2, seqi)
+          gyi = yi + GY(nv1, nv2, seqi)
+          gzi = zi + GZ(nv1, nv2, seqi)
+
+          do k = 1, num
+           j = otherRSG(i, imol, imol, k)
+
+           if (j .lt. i .or. j .gt. iend) then
+            xj = x(j)
+            yj = y(j)
+            zj = z(j)
+            ica1 = ica(j-1)
+            ica2 = ica(j)
+            seqj = SEQ(imol, j)
+            gxj = xj + GX(ica1, ica2, seqj)
+            gyj = yj + GY(ica1, ica2, seqj)
+            gzj = zj + GZ(ica1, ica2, seqj)
+            ir = (gxi - gxj) ** 2 + (gyi - gyj) ** 2 + (gzi - gzj) ** 2
+            dr = sqrt( float(ir) ) - distRSG(i, imol, imol, k)
+
+            if (dr .gt. 0.0) then
+             e2 = e2 + eRSG * dr * forceRSG(i, imol, imol, k)
+            endif
+           endif
+          enddo
+         endif
+        enddo
+
+        erestr = e1 + e2
+
+        return
+        end
+
+c     *****************************************************************
+
+        function ecross(ibegin, iend, kmol)
+
+        implicit integer(i - z)
 
         PARAMETER(NDIM=500)
         PARAMETER(NREPS=10)
@@ -2965,223 +2802,110 @@ C       ***************************************************************
 
         COMMON /CHAINS/ ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
         COMMON /SEQE/   SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /RCN/    ERESTA,NRESTA
-        common /RRCA/   MRESA(nmols,ndim),KRESA(nmols,ndim,maxres),
-     &  arca(nmols,ndim,maxres),awrca(nmols,ndim,maxres)
-
-        common /RSGm/ nRSG,eRSG
-        common /RSG/  RSGcount(nmols,ndim),RSGind(nmols,ndim,maxres),
-     &  distRSG(nmols,ndim,maxres),forceRSG(nmols,ndim,maxres)
-
         COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
-        common /reps/   xreps(ndim,NREPS,nmols),
-     &                  yreps(ndim,NREPS,nmols),
-     &                  zreps(ndim,NREPS,nmols)
-        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
-     &  al2,al4,al5,al19,length(nmols)
-
-        ERESTR=0.0
-        energyRSG=0.0
-
-        DO i=iiii,jjjj
-
-        MM=MRESA(imol,i)
-        if(MM.GT.0) THEN
-        ix=x(i)
-        iy=y(i)
-        iz=z(i)
-        do kkk=1,MM
-        j=kresa(imol,i,kkk)
-        if(j.lt.i.OR.j.gt.jjjj) then
-        ir=(ix-x(j))**2+(iy-y(j))**2+(iz-z(j))**2
-        ar=sqrt(float(ir))
-        arc=arca(imol,i,kkk)
-        ar=abs(ar-arc)
-        if(ar.gt.1.0) erestr=erestr+eresta*ar*awrca(imol,i,kkk)
-        endif
-        enddo
-        endif
-
-        ile=RSGcount(imol,i)
-        if(ile.gt.0) then
-        xi=x(i)
-        yi=y(i)
-        zi=z(i)
-        nv1=ica(i-1)
-        nv2=ica(i)
-        im=SEQ(imol,i)
-        agx=xi+GX(nv1,nv2,im)
-        agy=yi+GY(nv1,nv2,im)
-        agz=zi+GZ(nv1,nv2,im)
-        do k=1,ile
-        j=RSGind(imol,i,k)
-        if(j.lt.i.OR.j.gt.jjjj) then
-        xj=x(j)
-        yj=y(j)
-        zj=z(j)
-        ica1=ica(j-1)
-        ica2=ica(j)
-        in=SEQ(imol,j)
-        bgx=xj+GX(ica1,ica2,in)
-        bgy=yj+GY(ica1,ica2,in)
-        bgz=zj+GZ(ica1,ica2,in)
-        ir=(agx-bgx)**2+(agy-bgy)**2+(agz-bgz)**2
-        ar=sqrt(float(ir))
-        arc=distRSG(imol,i,k)
-
-c       ar=abs(ar-arc)
-c       if(ar.gt.1.0) energyRSG=energyRSG+eRSG*ar*forceRSG(imol,i,k)
-
-        if(ar.gt.arc) then
-        energyRSG=energyRSG+eRSG*(ar-arc)*forceRSG(imol,i,k)
-        endif
-
-        endif
-        enddo
-        endif
-
-        ENDDO
-
-        ERESTR=ERESTR+energyRSG
-
-        return
-        end
-
-C       ***************************************************************
-
-        FUNCTION ECROSS(iiii,jjjj)
-
-        IMPLICIT INTEGER(I-Z)
-
-        PARAMETER(NDIM=500)
-        PARAMETER(NREPS=10)
-        PARAMETER(NMOLS=10)
-        PARAMETER(MAXRES=500)
-
         common /vec/ vector(-7:7,-7:7,-7:7)
-        COMMON /SEQE/ SEQ(nmols,ndim),SEC(nmols,ndim)
-        COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
-
-        COMMON /CHAINS/ ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
-        COMMON /RCN/    ERESTA,NRESTA
-        common /cross/  mresax(nmols,ndim),kresax(nmols,ndim,maxres),
-     &  nresax(nmols,ndim,maxres),arcax(nmols,ndim,maxres),
-     &  awrcax(nmols,ndim,maxres)
-
-        common /RSGm/ nRSG,eRSG
-        common /RSGX/ RSGXcount(nmols,ndim),RSGXind(nmols,ndim,maxres),
-     &  RSGXmol(nmols,ndim,maxres),distRSGX(nmols,ndim,maxres),
-     &  forceRSGX(nmols,ndim,maxres)
-
-        common /reps/   xreps(ndim,NREPS,nmols),
-     &                  yreps(ndim,NREPS,nmols),
-     &                  zreps(ndim,NREPS,nmols)
         common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
      &  al2,al4,al5,al19,length(nmols)
 
-        ECROSS=0.0
-        energyRSG=0
+        common /RCA/ nRCA, eRCA, RCAcount(ndim, nmols, nmols),
+     &  distRCA(ndim, nmols, nmols, maxres),
+     &  forceRCA(ndim, nmols, nmols, maxres),
+     &  otherRCA(ndim, nmols, nmols, maxres)
 
-        DO i=iiii,jjjj
+        common /RSG/ nRSG, eRSG, RSGcount(ndim, nmols, nmols),
+     &  distRSG(ndim, nmols, nmols, maxres),
+     &  forceRSG(ndim, nmols, nmols, maxres),
+     &  otherRSG(ndim, nmols, nmols, maxres)
 
-        MM=MRESAX(imol,i)
+        common /reps/   xreps(ndim, nreps, nmols),
+     &                  yreps(ndim, nreps, nmols),
+     &                  zreps(ndim, nreps, nmols)
 
-        if(MM.GT.0) THEN
-        ix=x(i)
-        iy=y(i)
-        iz=z(i)
+        e1 = 0.0
+        e2 = 0.0
 
-        do kkk=1,MM
-        j=kresax(imol,i,kkk)
-        kmol=nresax(imol,i,kkk)
-        ir=(ix-xreps(j,itemp,kmol))**2+(iy-yreps(j,itemp,kmol))**2
-     &  +(iz-zreps(j,itemp,kmol))**2
-        ar=sqrt(float(ir))
-        arc=arcax(imol,i,kkk)
-        ar=abs(ar-arc)
-        if(ar.gt.1.0) ecross=ecross+eresta*ar*awrcax(imol,i,kkk)
+        do i = ibegin, iend
+
+         xi = x(i)
+         yi = y(i)
+         zi = z(i)
+
+c	CA-CA restraints between chains
+
+         num = RCAcount(i, imol, kmol)
+         if (num .gt. 0) then
+
+          do k = 1, num
+           j = otherRCA(i, imol, kmol, k)
+           xj = xreps(j, itemp, kmol)
+           yj = yreps(j, itemp, kmol)
+           zj = zreps(j, itemp, kmol)
+           ir = (xi - xj) ** 2 + (yi - yj) ** 2 + (zi - zj) ** 2
+           dr = abs( sqrt( float(ir) ) - distRCA(i, imol, kmol, k) )
+
+           if (dr .gt. 1.0) then
+            e1 = e1 + eRCA * dr * forceRCA(i, imol, kmol, k)
+           endif
+          enddo
+         endif
+
+c	SG-SG restraints between chains
+
+         num = RSGcount(i, imol, kmol)
+         if (num .gt. 0) then
+
+          nv1 = ica(i-1)
+          nv2 = ica(i)
+          seqi = SEQ(imol, i)
+          gxi = xi + GX(nv1, nv2, seqi)
+          gyi = yi + GY(nv1, nv2, seqi)
+          gzi = zi + GZ(nv1, nv2, seqi)
+
+          do k = 1, num
+           j = otherRSG(i, imol, kmol, k)
+           xj = xreps(j, itemp, kmol)
+           yj = yreps(j, itemp, kmol)
+           zj = zreps(j, itemp, kmol)
+           wx1 = xj - xreps(j - 1, itemp, kmol)
+           wy1 = yj - yreps(j - 1, itemp, kmol)
+           wz1 = zj - zreps(j - 1, itemp, kmol)
+           wx2 = xreps(j + 1, itemp, kmol) - xj
+           wy2 = yreps(j + 1, itemp, kmol) - yj
+           wz2 = zreps(j + 1, itemp, kmol) - zj
+           ica1 = vector(wx1, wy1, wz1)
+           ica2 = vector(wx2, wy2, wz2)
+           seqj = SEQ(kmol, j)
+           gxj = xj + GX(ica1, ica2, seqj)
+           gyj = yj + GY(ica1, ica2, seqj)
+           gzj = zj + GZ(ica1, ica2, seqj)
+           ir = (gxi - gxj) ** 2 + (gyi - gyj) ** 2 + (gzi - gzj) ** 2
+           dr = sqrt( float(ir) ) - distRSG(i, imol, kmol, k)
+
+           if (dr .gt. 0.0) then
+            e2 = e2 + eRSG * dr * forceRSG(i, imol, kmol, k)
+           endif
+          enddo
+         endif
         enddo
-        endif
 
-        ile=RSGXcount(imol,i)
-
-        if(ile.gt.0) then
-
-        xi=x(i)
-        yi=y(i)
-        zi=z(i)
-        nv1=ica(i-1)
-        nv2=ica(i)
-        im=SEQ(imol,i)
-        agx=xi+GX(nv1,nv2,im)
-        agy=yi+GY(nv1,nv2,im)
-        agz=zi+GZ(nv1,nv2,im)
-
-        do k=1,ile
-        j=RSGXind(imol,i,k)
-        jmol=RSGXmol(imol,i,k)
-
-        xj=xreps(j,itemp,jmol)
-        yj=yreps(j,itemp,jmol)
-        zj=zreps(j,itemp,jmol)
-
-        wx1=xj-xreps(j-1,itemp,jmol)
-        wy1=yj-yreps(j-1,itemp,jmol)
-        wz1=zj-zreps(j-1,itemp,jmol)
-
-        wx2=xreps(j+1,itemp,jmol)-xj
-        wy2=yreps(j+1,itemp,jmol)-yj
-        wz2=zreps(j+1,itemp,jmol)-zj
-
-        ica1=vector(wx1,wy1,wz1)
-        ica2=vector(wx2,wy2,wz2)
-
-        in=SEQ(jmol,j)
-        bgx=xj+GX(ica1,ica2,in)
-        bgy=yj+GY(ica1,ica2,in)
-        bgz=zj+GZ(ica1,ica2,in)
-        ir=(agx-bgx)**2+(agy-bgy)**2+(agz-bgz)**2
-        ar=sqrt(float(ir))
-        arc=distRSGX(imol,i,k)
-
-c       ar=abs(ar-arc)
-c       if(ar.gt.1.0) energyRSG=energyRSG+eRSG*ar*forceRSG(imol,i,k)
-
-        if(ar.gt.arc) then
-        energyRSG=energyRSG+eRSG*(ar-arc)*forceRSGX(imol,i,k)
-        endif
-
-        enddo
-        endif
-
-        ENDDO
-
-        ecross=ecross+energyRSG
+        ecross = e1 + e2
 
         return
         end
-
-C       ***************************************************************
-
         FUNCTION ESHORT(iiii,jjjj)
 
         IMPLICIT INTEGER(I-Z)
 
         PARAMETER(NDIM=500)
-        PARAMETER(NREPS=10)
         PARAMETER(NMOLS=10)
 
         COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
-        COMMON /LENGHTS/ PROD(800,800)
         COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
         COMMON /VECTORS/ vx(800),vy(800),vz(800)
-        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
         COMMON /BISEC/   CAX(800,800),CAY(800,800),CAZ(800,800)
-        COMMON /HB/      HBX(800,800),HBY(800,800),HBZ(800,800)
 
-        common /arandom/ aarand,abrand,acrand,adrand
-        COMMON /ENERGY/  EHBOND,ESC,EREP,BAT,
-     &  EHBIJ(nmols,nmols,ndim,ndim)
+        COMMON /EPARAMS/ EHBOND,ESC,EREP,BAT,
+     &                   EHBIJ(nmols,nmols,ndim,ndim)
         COMMON /short/  IBIN(-500:500),asr(nmols,ndim,-12:12)
         COMMON /short1/ JBIN(800),bsr(nmols,ndim,16)
         COMMON /short0/ SBIN(200),csr(nmols,ndim,8)
@@ -3189,17 +2913,11 @@ C       ***************************************************************
         COMMON /one/    acrit(nmols),eoinp(0:19,0:100)
         common /onecm/  icmx(nmols),icmy(nmols),icmz(nmols)
         COMMON /FR/     FRG(nmols,ndim,ndim)
-        
-        COMMON /SG/ GX(800,800,0:19),GY(800,800,0:19),GZ(800,800,0:19)
-        common /reps/   xreps(ndim,NREPS,nmols),
-     &                  yreps(ndim,NREPS,nmols),
-     &                  zreps(ndim,NREPS,nmols)
+
         common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
      &  al2,al4,al5,al19,length(nmols)
 
         COMMON /THREE/   ICONF(800,800)
-        COMMON /size/   arla(2,0:19,0:19,2,2),arlm(2,0:19,0:19,2,2),
-     &                  arlp(2,0:19,0:19,2,2)
 
         ESHORT=0.0
         ESC2= ESC/2.0
@@ -3425,4 +3143,254 @@ c       bias to predicted secondary structure geometry
 
         RETURN
         END
-C       ***************************************************************
+        FUNCTION LOOK(jj,kk)
+
+        IMPLICIT INTEGER(I-Z)
+        LOGICAL LOOK,LOOKL
+
+        PARAMETER(NDIM=500)
+        PARAMETER(NMOLS=10)
+
+        COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
+        COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
+        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
+        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
+     &  al2,al4,al5,al19,length(nmols)
+
+c	CHECKS Ca-Ca, Ca-Cb and Cb-Cb distances and overlaps
+
+        DO k=jj,kk
+
+        px=x(k)
+        py=y(k)
+        pz=z(k)
+        if(SEQ(imol,k).NE.0) THEN
+        nv1=ica(k-1)
+        nv2=ica(k)
+        bx=CBX(nv1,nv2)+px
+        by=CBY(nv1,nv2)+py
+        bz=CBZ(nv1,nv2)+pz
+        ENDIF
+
+        istart=k-2
+        if(istart.gt.1) THEN
+        do i=2,istart
+        irx=(px-x(i))**2
+        if(irx.lt.120) then
+        iry=(py-y(i))**2
+        if(iry.lt.120) then
+        ir=irx+iry+(pz-z(i))**2
+        if(ir.lt.120) then
+
+c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
+
+        if(ir.lt.36) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+
+        if(SEQ(imol,k).NE.0) THEN
+        ar=(bx-x(i))**2+(by-y(i))**2+(bz-z(i))**2
+        if(ar.lt.43.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        IF(SEQ(imol,i).NE.0) THEN
+        icai=ICA(i-1)
+        icaj=ICA(i)
+        ax= CBX(icai,icaj)+x(i)
+        ay= CBY(icai,icaj)+y(i)
+        az= CBZ(icai,icaj)+z(i)
+
+        IF(SEQ(imol,k).NE.0) THEN
+        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
+        if(ar.lt.36.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
+        if(ar.lt.43.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        endif
+        endif
+        endif
+        enddo
+        ENDIF
+
+        iend=max(k+2,kk+1)
+        if(iend.lt.lenf) THEN
+        do i=iend,lenf1
+        irx=(px-x(i))**2
+        if(irx.lt.120) then
+        iry=(py-y(i))**2
+        if(iry.lt.120) then
+        ir=irx+iry+(pz-z(i))**2
+        if(ir.lt.120) then
+
+c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
+
+        if(ir.lt.36) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+
+        if(SEQ(imol,k).NE.0) THEN
+        ar=(bx-x(i))**2+(by-y(i))**2+(bz-z(i))**2
+        if(ar.lt.43.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        if(SEQ(imol,i).NE.0) THEN
+        icai=ICA(i-1)
+        icaj=ICA(i)
+        ax= CBX(icai,icaj)+x(i)
+        ay= CBY(icai,icaj)+y(i)
+        az= CBZ(icai,icaj)+z(i)
+
+        IF(SEQ(imol,k).NE.0) THEN
+        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
+        if(ar.lt.36.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
+        if(ar.lt.43.0) then
+        LOOK=.FALSE.
+        RETURN
+        endif
+
+        endif
+        endif
+        ENDIF
+
+        endif
+        enddo
+        ENDIF
+
+        ENDDO
+
+c	NO HARD CORE OVERLAPPS DETECTED
+
+        LOOK=LOOKL(jj,kk)
+        
+        RETURN
+        END
+
+c     *****************************************************************
+
+        FUNCTION LOOKL(jj,kk)
+        IMPLICIT INTEGER(I-Z)
+        LOGICAL LOOKL
+
+        PARAMETER(NDIM=500)
+        PARAMETER(NREPS=10)
+        PARAMETER(NMOLS=10)
+
+        COMMON /CHAINS/  ICA(NDIM),X(NDIM),Y(NDIM),Z(NDIM)
+        COMMON /SEQE/    SEQ(nmols,ndim),SEC(nmols,ndim)
+        COMMON /BETAS/   CBX(800,800),CBY(800,800),CBZ(800,800)
+        common /reps/   xreps(ndim,NREPS,nmols),
+     &                  yreps(ndim,NREPS,nmols),
+     &                  zreps(ndim,NREPS,nmols)
+        common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
+     &  al2,al4,al5,al19,length(nmols)
+        common /vec/ vector(-7:7,-7:7,-7:7)
+
+c	CHECKS Ca-Ca, Ca-Cb and Cb-Cb distances and overlaps
+
+        DO k=jj,kk
+
+        px=x(k)
+        py=y(k)
+        pz=z(k)
+        if(SEQ(imol,k).NE.0) THEN
+        nv1=ica(k-1)
+        nv2=ica(k)
+        bx=CBX(nv1,nv2)+px
+        by=CBY(nv1,nv2)+py
+        bz=CBZ(nv1,nv2)+pz
+        ENDIF
+
+        do 1983 kmol=1,mols
+
+        if(kmol.eq.imol) goto 1983
+
+        do i=2,length(kmol)-1
+        irx=(px-xreps(i,itemp,kmol))**2
+        if(irx.lt.120) then
+        iry=(py-yreps(i,itemp,kmol))**2
+        if(iry.lt.120) then
+        ir=irx+iry+(pz-zreps(i,itemp,kmol))**2
+        if(ir.lt.120) then
+        
+c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
+
+        if(ir.lt.36) then
+        LOOKL=.FALSE.
+        RETURN
+        endif
+
+        if(SEQ(imol,k).NE.0) THEN
+        ar=(bx-xreps(i,itemp,kmol))**2+(by-yreps(i,itemp,kmol))**2
+     &  +(bz-zreps(i,itemp,kmol))**2
+        if(ar.lt.43.0) then
+        LOOKL=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        IF(SEQ(kmol,i).NE.0) THEN
+        wx=xreps(i,itemp,kmol)-xreps(i-1,itemp,kmol)
+        wy=yreps(i,itemp,kmol)-yreps(i-1,itemp,kmol)
+        wz=zreps(i,itemp,kmol)-zreps(i-1,itemp,kmol)
+        icai=vector(wx,wy,wz)
+        wx=xreps(i+1,itemp,kmol)-xreps(i,itemp,kmol)
+        wy=yreps(i+1,itemp,kmol)-yreps(i,itemp,kmol)
+        wz=zreps(i+1,itemp,kmol)-zreps(i,itemp,kmol)
+        icaj=vector(wx,wy,wz)
+        ax=CBX(icai,icaj)+xreps(i,itemp,kmol)
+        ay=CBY(icai,icaj)+yreps(i,itemp,kmol)
+        az=CBZ(icai,icaj)+zreps(i,itemp,kmol)
+
+        IF(SEQ(imol,k).NE.0) THEN
+        ar=(ax-bx)**2+(ay-by)**2+(az-bz)**2
+        if(ar.lt.36.0) then
+        LOOKL=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
+        if(ar.lt.43.0) then
+        LOOKL=.FALSE.
+        RETURN
+        endif
+        ENDIF
+
+        endif
+        endif
+        endif
+        enddo
+
+1983    continue
+
+        ENDDO
+
+c	NO HARD CORE OVERLAPPS DETECTED
+
+        LOOKL=.TRUE.
+
+        RETURN
+        END
