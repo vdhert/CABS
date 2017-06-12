@@ -10,7 +10,7 @@ from time import sleep
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar, kmedoids
+from utils import ProgressBar, kmedoids, check_peptide_sequence
 from trajectory import Trajectory
 
 __all__ = ['Job']
@@ -21,6 +21,7 @@ class Config(dict):
     Smart dictionary that can append items with 'ligand' key instead of overwriting them.
     TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
     """
+
     def __init__(self, config):
         dict.__init__(self, config)
 
@@ -86,6 +87,8 @@ class Config(dict):
             elif type(val) is str:
                 self['ligand'].append((val,))
             del config['ligand']
+            # checks the input peptide sequence for non-standard amino acids.
+            [check_peptide_sequence(peptide[0]) for peptide in self['ligand']]
         self.update(config)
         return self
 
@@ -113,7 +116,6 @@ class Job:
         2. By providing location of the config file as in 'config=[path_to_file]'.
         3. All parameters can be overwritten by specifying parameter=[value].
         """
-
         defaults = {
             'work_dir': getcwd(),
             'replicas': 10,
@@ -128,10 +130,11 @@ class Job:
             'ca_restraints_strength': 1.0,
             'sg_restraints_strength': 1.0,
             'receptor_restraints': (4, 5.0, 15.0),  # sequence gap, min length, max length
-            'dssp_command': 'dssp',
-            'fortran_compiler': ('gfortran', '-O2'),    # build (command, flags)
+            'dssp_command': 'mkdssp',
+            'fortran_compiler': ('gfortran', '-O2'),  # build (command, flags)
             'filtering': 1000,  # number of models to filter
-            'clustering': (10, 100)  # number of clusters, iterations
+            'clustering': (10, 100),  # number of clusters, iterations
+            'native_pdb': None
         }
 
         self.config = Config(defaults)
@@ -154,16 +157,22 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-            # if ans != 'y':
-            #     exit(code=1)
+                # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
+                # if ans != 'y':
+                #     exit(code=1)
         else:
             mkdir(work_dir)
 
+    def run_job(self):
+        work_dir = self.config['work_dir']
+        print('CABS-docking job {0}'.format(self.config['receptor']))
         # prepare initial complex
+        # noinspection PyAttributeOutsideInit
+        print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-
+        print(' ... done.')
         # generate restraints
+        # noinspection PyAttributeOutsideInit
         self.restraints = \
             Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
         add_restraints = Restraints(self.config.get('ca_restraints'))
@@ -173,19 +182,41 @@ class Job:
         self.restraints += add_restraints.update_id(self.initial_complex.new_ids)
 
         # run cabs
+        print('CABS simulation starts.')
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
-        cabs_run.start()
-        bar = ProgressBar(100, msg='CABS is running:')
-        while cabs_run.is_alive():
-            bar.update(cabs_run.status())
-            sleep(0.1)
-        bar.done()
-        trajectory = cabs_run.get_trajectory()
-        trajectory.align_to(self.initial_complex.receptor)
-        trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        tra = trajectory.filter(self.config['filtering'])
+        cabs_run.run()
+        # bar = ProgressBar(100, msg='CABS is running:')
+        # while cabs_run.is_alive():
+        #     print('isAlive')
+        #     bar.update(cabs_run.status())
+        #     sleep(5)
+        # bar.done()
+        print('CABS simuation is DONE.')
+        if self.config['native_pdb']:
+            print('Calculating RMSD to the native structure...')
+            trajectory = cabs_run.get_trajectory()
+            print(
+                'The native complex loaded from {0} consists of receptor (chain(s) {1}) and peptide(s) (chains(s) {2}).'
+                .format(
+                    self.config['native_pdb'],
+                    self.config['native_receptor_chain'],
+                    self.config['native_peptide_chain']
+                )
+            )
+            trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
+                                      native_receptor_chain=self.config['native_receptor_chain'],
+                                      native_peptide_chain=self.config['native_peptide_chain'],
+                                      model_peptide_chain=self.config['model_peptide_chain'])
+            trajectory.align_to(self.initial_complex.receptor)
+            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+            tra = trajectory.filter(self.config['filtering'])
+        else:
+            trajectory = cabs_run.get_trajectory()
+            trajectory.align_to(self.initial_complex.receptor)
+            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+            tra = trajectory.filter(self.config['filtering'])
 
-        #  od tego miejsca poprawic
+        # od tego miejsca poprawic
         lig_chains = ','.join(self.initial_complex.ligand_chains)
         if lig_chains:
             ligs = tra.select('chain %s' % lig_chains)
@@ -194,6 +225,7 @@ class Job:
         D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
         M, C = kmedoids(D, *self.config['clustering'])
         medoids = [tra.get_model(m) for m in M]
+        rmsds = [tra.headers[m].rmsd for m in M]
         for i, m in enumerate(medoids, 1):
             filename = join(work_dir, 'model_%d.pdb' % i)
             m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
@@ -202,7 +234,13 @@ class Job:
             filename = join(work_dir, 'replica_%d.pdb' % i)
             replica = Trajectory(trajectory.template, m, None).to_atoms()
             replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        rmsds_10k = [header.rmsd for header in trajectory.headers]
+        rmsds_1k = [header.rmsd for header in tra.headers]
+        rmsds_10 = rmsds
+        print('... done.')
+        return rmsds_10k, rmsds_1k, rmsds_10, work_dir
 
 
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=50,  mc_steps=1, replicas=10)
+    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
+    j.run_job()
