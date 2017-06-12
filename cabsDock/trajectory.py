@@ -5,6 +5,7 @@ import numpy as np
 from atom import Atom, Atoms
 from pdb import Pdb
 from utils import ranges, kabsch, ProgressBar
+import warnings
 
 __all__ = ['Trajectory', 'Header']
 
@@ -173,6 +174,11 @@ class Trajectory(object):
             coordinates.append(np.stack(replica_new))
         coordinates = np.stack(coordinates)
         self.coordinates.reshape(shape)
+        if len(self.coordinates) == 0:
+            warnings.warn(
+                "The selection \"{0}\" results in an empty trajectory.".format(
+                    selection), UserWarning
+                )
         return Trajectory(template, coordinates, self.headers)
 
     def to_atoms(self):
@@ -263,21 +269,19 @@ class Trajectory(object):
 
     def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
         """
-        Calculates a list of rmsd to native (argument 'native' is a trajectory)
-        with no fitting for all models in trajectory.
+        Calculates a list of ligand - rmsd of the models to the native structure (argument 'native' is either
+        a PDB code (to be downloaded) or a local PDB file).
         :return: np.array
         """
-        model_length = len(self.template)
 
         def rmsd(m1, m2, length):
-            return (np.sqrt(np.sum((m1 - m2).T * (m1 - m2)) / length))
+            return np.sqrt(np.sum(m1 - m2)**2 / length)
 
         target_selection = 'name CA and not HETERO'
         target_selection += ' and chain ' + ','.join(native_receptor_chain)
         pdb = Pdb(pdb_code=native_pdb[:4])
         native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
         shape = self.coordinates.shape
-        #number_of_models = len(models)
         self.align_to(native, target_selection)
         models_peptide_traj = self.select("chain " + model_peptide_chain)
         peptide_length = len(models_peptide_traj.template)
@@ -291,7 +295,6 @@ class Trajectory(object):
         for i, h in zip(range(len(models_peptide)), self.headers):
             result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
             h.rmsd = result[i]
-
         self.coordinates.reshape(shape)
         print('... done.')
         return result
@@ -308,10 +311,12 @@ class Trajectory(object):
         self.coordinates.reshape(shape)
         return m
 
-# if __name__ == '__main__':
-#     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
-#     from pdb import Pdb
-#     target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
-#     tra.align_to(target, 'chain A, B')
+if __name__ == '__main__':
+    tra = Trajectory.read_trajectory('.CABS/TRAF', '.CABS/SEQ')
+    tra.rmsd_matrix()
+    #tra.rmsd_to_native(native_pdb='1jbu', native_receptor_chain='H', native_peptide_chain ='X', model_peptide_chain='C')
+    # from pdb import Pdb
+    # target = Pdb(pdb_code='1jbu').atoms.select('name CA and chain H')
+    # tra.align_to(target, 'chain H')
 #     traf = tra.select('chain B, D')
 #     traf.to_atoms().save_to_pdb('dupa.pdb')
