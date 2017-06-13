@@ -681,7 +681,7 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
-
+# MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
 def kmedoids(D, k, tmax=100):
     # determine dimensions of distance matrix D
     m, n = D.shape

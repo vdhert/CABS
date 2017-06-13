@@ -12,6 +12,7 @@ from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar, kmedoids, check_peptide_sequence
 from trajectory import Trajectory
+from filter import Filter
 
 __all__ = ['Job']
 
@@ -195,6 +196,7 @@ class Job:
         if self.config['native_pdb']:
             print('Calculating RMSD to the native structure...')
             trajectory = cabs_run.get_trajectory()
+            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
             print(
                 'The native complex loaded from {0} consists of receptor (chain(s) {1}) and peptide(s) (chains(s) {2}).'
                 .format(
@@ -206,17 +208,16 @@ class Job:
             trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
                                       native_receptor_chain=self.config['native_receptor_chain'],
                                       native_peptide_chain=self.config['native_peptide_chain'],
-                                      model_peptide_chain=self.config['model_peptide_chain'])
+                                      model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
-            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra = trajectory.filter(self.config['filtering'])
+            tra = Filter(trajectory).filter()
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra = trajectory.filter(self.config['filtering'])
+            tra = Filter(trajectory).filter()
 
-        # od tego miejsca poprawic
+        # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
         lig_chains = ','.join(self.initial_complex.ligand_chains)
         if lig_chains:
             ligs = tra.select('chain %s' % lig_chains)
@@ -226,6 +227,8 @@ class Job:
         M, C = kmedoids(D, *self.config['clustering'])
         medoids = [tra.get_model(m) for m in M]
         rmsds = [tra.headers[m].rmsd for m in M]
+
+
         for i, m in enumerate(medoids, 1):
             filename = join(work_dir, 'model_%d.pdb' % i)
             m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
@@ -234,13 +237,28 @@ class Job:
             filename = join(work_dir, 'replica_%d.pdb' % i)
             replica = Trajectory(trajectory.template, m, None).to_atoms()
             replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-        rmsds_10k = [header.rmsd for header in trajectory.headers]
-        rmsds_1k = [header.rmsd for header in tra.headers]
-        rmsds_10 = rmsds
+
+
+        # dictionary holding results to be returned for use in the Benchmark class
+        results = {}
+        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        results['rmsds_1k'] = [header.rmsd for header in trajectory.headers]
+        results['rmsds_10'] = rmsds
+        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        # rmsds_10k = [header.rmsd for header in trajectory.headers]
+        # rmsds_1k = [header.rmsd for header in tra.headers]
+        # rmsds_10 = rmsds
         print('... done.')
-        return rmsds_10k, rmsds_1k, rmsds_10, work_dir
+        return results
+        # return rmsds_10k, rmsds_1k, rmsds_10, work_dir
 
 
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
-    j.run_job()
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=1, mc_steps=1, replicas=2, native_pdb='1jbu',
+                               native_receptor_chain='H',
+                               native_peptide_chain='X')
+    print j.run_job()
+    # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
+    # j.run_job()

@@ -5,9 +5,13 @@ from os.path import join
 import copy_reg
 import types
 
+
 def _reduce_method(meth):
-    return (getattr,(meth.__self__,meth.__func__.__name__))
-copy_reg.pickle(types.MethodType,_reduce_method)
+    return (getattr, (meth.__self__, meth.__func__.__name__))
+
+
+copy_reg.pickle(types.MethodType, _reduce_method)
+
 
 class Benchmark(object):
     """ docstring for Benchmark """
@@ -47,7 +51,8 @@ class Benchmark(object):
             pass
         else:
             for element in self.cases:
-                element.run_case()
+                if element.is_valid:
+                    element.run_case()
 
     def bench_analyze(self):
         self.benchmark_rmsds_10k = []
@@ -71,25 +76,21 @@ class Benchmark(object):
             self.benchmark_lowest_rmsds_1k.append(lowest_rmsd[1])
             self.benchmark_lowest_rmsds_10.append(lowest_rmsd[2])
         # print the performance statistics on this benchmark
-        number_of_cases = float(len(self.cases))
-        # print(len([rms for rms in self.benchmark_rmsds[0] if rms < 3.0]))
-        # print(len([rms for rms in self.benchmark_rmsds[0] if 3.0 <= rms <=
-        #                                             5.5]))
-        # print(len([rms for rms in self.benchmark_rmsds[0] if rms > 5.5]))
+        number_of_cases = float(len([True for case in self.cases if case.is_valid]))
         high_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if rms < 3.0])
         med_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if 3.0 <= rms <=
-                   5.5])
+                               5.5])
         low_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if rms > 5.5])
 
         print("1k")
         high_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if rms < 3.0])
         med_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if 3.0 <= rms <=
-                   5.5])
+                              5.5])
         low_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if rms > 5.5])
         print("top10")
         high_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if rms < 3.0])
         med_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if 3.0 <= rms <=
-                   5.5])
+                              5.5])
         low_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if rms > 5.5])
         # pyplot.hist(self.benchmark_rmsds_10k)
         # pyplot.hist(self.benchmark_rmsds_1k)
@@ -109,72 +110,95 @@ class Benchmark(object):
         print(
             'Statistics for 1k\nhigh quality: {0} ({1}%) \nmedium quality: {2} ({3}%) \nlow quality: {4} ({5}%)'.format(
                 high_quality_1k,
-                high_quality_1k/number_of_cases,
+                high_quality_1k / number_of_cases,
                 med_quality_1k,
-                med_quality_1k/number_of_cases,
+                med_quality_1k / number_of_cases,
                 low_quality_1k,
-                low_quality_1k/number_of_cases
+                low_quality_1k / number_of_cases
             )
         )
         print(
             'Statistics for 10\nhigh quality: {0} ({1}%) \nmedium quality: {2} ({3}%) \nlow quality: {4} ({5}%)'.format(
                 high_quality_10,
-                high_quality_10/number_of_cases,
+                high_quality_10 / number_of_cases,
                 med_quality_10,
-                med_quality_10/number_of_cases,
+                med_quality_10 / number_of_cases,
                 low_quality_10,
-                low_quality_10/number_of_cases
+                low_quality_10 / number_of_cases
             )
         )
+
     def multi_run(self):
         import multiprocessing
         import sys
         import os
 
         sys.path.append(os.getcwd())
-        print('initiating pool, cpu count is {0}'.format(multiprocessing.cpu_count()))
+        print('Initiating pool. Cpu count is {0}'.format(multiprocessing.cpu_count()))
         pool = multiprocessing.Pool()
-        results = {}
+        output = {}
         for element in self.cases:
-            results[element.bound_pdb_code] = pool.apply_async(element.run_case)
+            output[element.bound_pdb_code] = pool.apply_async(element.run_case)
         pool.close()
         pool.join()
-        print results['1awr'].get()
         self.benchmark_rmsds_10k = []
         self.benchmark_rmsds_1k = []
         self.benchmark_rmsds_10 = []
         self.benchmark_lowest_rmsds_10k = []
         self.benchmark_lowest_rmsds_1k = []
         self.benchmark_lowest_rmsds_10 = []
-        for bialko in results.keys():
-            rmsds, lowest_rmsd = results[bialko].get()
+        for bialko in output.keys():
+            results = output[bialko].get()
             # pyplot.hist(rmsds[0])
             # pyplot.hist(rmsds[1])
             # pyplot.hist(rmsds[2])
             # pyplot.savefig(str(element.bound_pdb_code)+'.png')
             # pyplot.clf()
-            self.benchmark_rmsds_10k += rmsds[0]
-            self.benchmark_rmsds_1k += rmsds[1]
-            self.benchmark_rmsds_10 += rmsds[2]
-            self.benchmark_lowest_rmsds_10k.append(lowest_rmsd[0])
-            self.benchmark_lowest_rmsds_1k.append(lowest_rmsd[1])
-            self.benchmark_lowest_rmsds_10.append(lowest_rmsd[2])
+            self.benchmark_rmsds_10k += results['rmsds_10k']
+            self.benchmark_rmsds_1k += results['rmsds_1k']
+            self.benchmark_rmsds_10 += results['rmsds_10']
+            self.benchmark_lowest_rmsds_10k.append(results['lowest_10k'])
+            self.benchmark_lowest_rmsds_1k.append(results['lowest_1k'])
+            self.benchmark_lowest_rmsds_10.append(results['lowest_10'])
+            np.save(join(work_dir, 'rmsds'), rmsds)
+            f = open(join(work_dir, 'best_rmsd.txt'), 'w')
+            f.write(
+                '{0} {1} {2} \n'.format(results['lowest_10k'], results['lowest_1k'], results['lowest_10'])
+            )
+            f.close()
 
-        number_of_cases = float(len(self.cases))
-        high_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if rms < 3.0])
-        med_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if 3.0 <= rms <=
-                               5.5])
-        low_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if rms > 5.5])
+        number_of_cases = float(
+            len(self.cases)
+        )
+        high_quality_10k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10k if rms < 3.0]
+        )
+        med_quality_10k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10k if 3.0 <= rms <= 5.5]
+        )
+        low_quality_10k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10k if rms > 5.5]
+        )
 
-        high_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if rms < 3.0])
-        med_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if 3.0 <= rms <=
-                              5.5])
-        low_quality_1k = len([rms for rms in self.benchmark_lowest_rmsds_1k if rms > 5.5])
+        high_quality_1k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_1k if rms < 3.0]
+        )
+        med_quality_1k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_1k if 3.0 <= rms <= 5.5]
+        )
+        low_quality_1k = len(
+            [rms for rms in self.benchmark_lowest_rmsds_1k if rms > 5.5]
+        )
 
-        high_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if rms < 3.0])
-        med_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if 3.0 <= rms <=
-                              5.5])
-        low_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if rms > 5.5])
+        high_quality_10 = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10 if rms < 3.0]
+        )
+        med_quality_10 = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10 if 3.0 <= rms <= 5.5]
+        )
+        low_quality_10 = len(
+            [rms for rms in self.benchmark_lowest_rmsds_10 if rms > 5.5]
+        )
         # pyplot.hist(self.benchmark_rmsds_10k)
         # pyplot.hist(self.benchmark_rmsds_1k)
         # pyplot.hist(self.benchmark_rmsds_10)
@@ -208,9 +232,8 @@ class Benchmark(object):
                 100 * (med_quality_10 / number_of_cases),
                 low_quality_10,
                 100 * (low_quality_10 / number_of_cases)
-                )
             )
-
+        )
 
 
 class Case(object):
@@ -236,10 +259,9 @@ class Case(object):
         self.unbound_pdb_code = unbound_pdb_code
         self.unbound_receptor_chain_id = unbound_receptor_chain_id
         self.unbound_peptide_chain_id = unbound_peptide_chain_id
-        # rmsds = [ [rmsd_10k], [rmsd_1k], [rmsd_10] ]
         self.rmsds = []
-        # lowest_rmsd = [ lowest_rmsd_10k, lowest_rmsd_1k, lowset_rmsd_10 ]
         self.lowest_rmsd = []
+        self.is_valid = False
 
     def setup_case(self, test=True):
         print('Processing job {0}'.format(self.bound_pdb_code))
@@ -254,7 +276,6 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               model_peptide_chain=next_letter(self.bound_receptor_chain_id)
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -266,7 +287,6 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               model_peptide_chain=next_letter(self.bound_receptor_chain_id)
                                )
         except Exception as errr:
             print(
@@ -274,13 +294,17 @@ class Case(object):
                     .format(self.bound_pdb_code, errr.message)
             )
         else:
+            self.is_valid = True
             print('... done.')
 
     def run_case(self):
-        rmsds_10k, rmsds_1k, rmsds_10, self.work_dir = self.job.run_job()
-        self.rmsds = [rmsds_10k, rmsds_1k, rmsds_10]
+        if not self.is_valid:
+            raise Exception('The {0} job is not valid for run.'.format(self.bound_pdb_code))
+        results = self.job.run_job()
+        self.rmsds = [results['rmsds_10k'], results['rmsds_1k'], results['rmsds_10']]
+        self.work_dir = self.job.config['work_dir']
         self.lowest_rmsd = [sorted(self.rmsds[0])[0], sorted(self.rmsds[1])[0], sorted(self.rmsds[2])[0]]
-        return self.rmsds, self.lowest_rmsd
+        return self.rmsds, self.lowest_rmsd, self.work_dir
 
     def get_rmsds(self):
         return self.rmsds
@@ -296,7 +320,6 @@ class Case(object):
             '{0} {1} {2} \n'.format(self.lowest_rmsd[0], self.lowest_rmsd[1], self.lowest_rmsd[2])
         )
         f.close()
-
 
 # bench = Benchmark(benchmark_file="/Users/maciek/Desktop/lista_kompl.txt")
 # bench.cases = bench.cases[0:1]

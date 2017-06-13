@@ -1,4 +1,3 @@
-import numpy as np
 from copy import deepcopy
 
 import numpy as np
@@ -27,7 +26,8 @@ class Header:
         header = line.split()
         self.model = int(header[0])
         self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[3, -2], float)
+        self.energy = np.matrix(header[2 : -2], float)
+        #self.energy = np.array(header[2:-2]).reshape(len(header)-4)
         self.temperature = float(header[-2])
         self.replica = int(header[-1])
         self.rmsd = 0
@@ -54,6 +54,11 @@ class Header:
                 h.length += other.length
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
+
+    def get_energy(self):
+        """ Returns the total energy of the system. """
+        return np.sum(np.tril(self.energy))
+
 
 
 class Trajectory(object):
@@ -210,6 +215,8 @@ class Trajectory(object):
             q = np.subtract(query, q_com)
             np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
         self.coordinates.reshape(shape)
+
+    # MC: Functionality moved to a separate class cabsDock.filter.Filter (IN PROGRESS)
 
     def filter(self, number):
         """
