@@ -12,18 +12,20 @@ class Clustering(object):
     Returns clusters as a list of Trajectory objects with additional 'cluster_quality' as an atribute.
 
     """
+
     def __init__(self, trajectory, selection):
         super(Clustering, self).__init__()
         if selection:
             self.trajectory = trajectory.select(selection)
         else:
             self.trajectory = trajectory
+        self.distance_matrix = None
 
     def calculate_distance_matrix(self):
         self.distance_matrix = self.trajectory.rmsd_matrix()
         return self.distance_matrix
 
-    def k_medoids(self, k, tmax = 100 ):
+    def k_medoids(self, k, tmax=100):
         """
         Performs k-medoid clustering. Retruns medoid indices and a cluster indices  dictionary.
 
@@ -32,13 +34,13 @@ class Clustering(object):
         :return: medoid_ndx (list of medoid indices), clusters (dictionary of indeces of cluster elements)
         """
         distance_matrix = self.distance_matrix
-        m,n = distance_matrix.shape
-        if k>n:
+        m, n = distance_matrix.shape
+        if k > n:
             raise Exception(
                 'The number of medoids {0} exceeds the number of structures to be clustered{1}'.format(
                     k, n
-                    )
                 )
+            )
         medoid_ndx = numpy.arange(n)
         numpy.random.shuffle(medoid_ndx)
         medoid_ndx = numpy.sort(medoid_ndx[:k])
@@ -49,7 +51,7 @@ class Clustering(object):
             for _k in range(k):
                 clusters[_k] = numpy.where(j == _k)[0]
             for _k in range(k):
-                j = numpy.mean(distance_matrix[np.ix_(clusters[_k], clusters[_k])], axis=1)
+                j = numpy.mean(distance_matrix[numpy.ix_(clusters[_k], clusters[_k])], axis=1)
                 j_min = numpy.argmin(j)
                 medoid_ndx_new[_k] = clusters[_k][j_min]
                 numpy.sort(medoid_ndx_new)
@@ -80,14 +82,34 @@ class Clustering(object):
             self.trajectory.template,
             numpy.array([models[medoid_ndx, :, :]]),
             [self.trajectory.headers[i] for i in medoid_ndx]
-            )
-        clusters_as_trajectories = []
+        )
+        clusters_as_clusters = []
         for cluster in clusters.keys():
-            this_cluster = Trajectory(
-                    self.trajectory.template,
-                    numpy.array([models[clusters[cluster], :, :]]),
-                    [self.trajectory.headers[i] for i in clusters[cluster]]
-                    )
-            this_cluster.cluster_quality = len(clusters[cluster])/numpy.amax(this_cluster.rmsd_matrix())
-            clusters_as_trajectories.append(this_cluster)
+            this_cluster = Cluster(
+                self.trajectory.template,
+                numpy.array([models[clusters[cluster], :, :]]),
+                [self.trajectory.headers[i] for i in clusters[cluster]]
+            )
+            clusters_as_clusters.append(this_cluster)
+        sorting_ndx =  (sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse = True))
+        medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :],
+        medoids.headers = [medoids.headers[i] for i in sorting_ndx]
+        clusters_as_clusters = [clusters_as_clusters[i] for i in sorting_ndx]
+        # print([cluster.score for cluster in clusters_as_clusters])
         return medoids, clusters
+
+
+class Cluster(Trajectory):
+    """ docstring for Cluster """
+
+    def __init__(self, template, coordinates, headers):
+        super(Cluster, self).__init__(template, coordinates, headers)
+        self.score = self.get_score()
+
+    def get_score(self):
+        # standard CABSdock cluster scoring based on the cluster density.
+        if self.coordinates.shape[1]>1:
+            score = self.coordinates.shape[1] / numpy.max(self.rmsd_matrix())
+        else:
+            score = 0 # One-element clusters are assigned 0 score.
+        return score

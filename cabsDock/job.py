@@ -7,6 +7,7 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
+from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
@@ -216,47 +217,37 @@ class Job:
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
             tra = Filter(trajectory).filter()
-
         # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
-        lig_chains = ','.join(self.initial_complex.ligand_chains)
-        if lig_chains:
-            ligs = tra.select('chain %s' % lig_chains)
-        else:
-            ligs = tra
-        D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
-        M, C = kmedoids(D, *self.config['clustering'])
-        medoids = [tra.get_model(m) for m in M]
-        rmsds = [tra.headers[m].rmsd for m in M]
+        medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
-
-        for i, m in enumerate(medoids, 1):
-            filename = join(work_dir, 'model_%d.pdb' % i)
-            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-
-        for i, m in enumerate(trajectory.coordinates, 1):
-            filename = join(work_dir, 'replica_%d.pdb' % i)
-            replica = Trajectory(trajectory.template, m, None).to_atoms()
-            replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-
+        #Saving the models to PDB
+        # for i, medoid in enumerate(medoids.coordinates[0]):
+        #     filename = join(work_dir, 'model_%d.pdb' % i)
+        #
+        #
+        #
+        #
+        #     m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        #
+        # for i, m in enumerate(trajectory.coordinates, 1):
+        #     filename = join(work_dir, 'replica_%d.pdb' % i)
+        #     replica = Trajectory(trajectory.template, m, None).to_atoms()
+        #     replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
         # dictionary holding results to be returned for use in the Benchmark class
+        rmsds = [header.rmsd for header in medoids.headers ]
         results = {}
         results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-        results['rmsds_1k'] = [header.rmsd for header in trajectory.headers]
+        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
         results['rmsds_10'] = rmsds
         results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
         results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
         results['lowest_10'] = sorted(results['rmsds_10'])[0]
-        # rmsds_10k = [header.rmsd for header in trajectory.headers]
-        # rmsds_1k = [header.rmsd for header in tra.headers]
-        # rmsds_10 = rmsds
         print('... done.')
         return results
-        # return rmsds_10k, rmsds_1k, rmsds_10, work_dir
-
 
 if __name__ == '__main__':
-    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=1, mc_steps=1, replicas=2, native_pdb='1jbu',
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
                                native_receptor_chain='H',
                                native_peptide_chain='X')
     print j.run_job()
