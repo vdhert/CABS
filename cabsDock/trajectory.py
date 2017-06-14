@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import numpy
 import numpy as np
 
 from atom import Atom, Atoms
@@ -282,7 +283,7 @@ class Trajectory(object):
         """
 
         def rmsd(m1, m2, length):
-            return np.sqrt(np.sum(m1 - m2)**2 / length)
+            return np.sqrt(np.sum((m1 - m2)**2) / length)
 
         target_selection = 'name CA and not HETERO'
         target_selection += ' and chain ' + ','.join(native_receptor_chain)
@@ -293,9 +294,11 @@ class Trajectory(object):
         models_peptide_traj = self.select("chain " + model_peptide_chain)
         peptide_length = len(models_peptide_traj.template)
         models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
-        native_peptide = pdb.atoms.remove_alternative_locations().select(
+        # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
+        # should return numpy.array instead.
+        native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
             "name CA and not HETERO and chain " + native_peptide_chain
-        ).models()[0].to_matrix()
+        ).models()[0].to_matrix())
         result = np.zeros(
             (len(models_peptide))
         )
