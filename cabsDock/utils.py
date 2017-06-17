@@ -47,28 +47,62 @@ AA_NAMES = {
 }
 
 
-def aa_to_long(seq):
-    """Converts short amino acid name to long."""
-    s = seq.upper()
-    if s in AA_NAMES:
-        return AA_NAMES[s]
-    else:
-        raise InvalidAAName(seq, 1)
+class SCModeler(object):
 
+    """Side Chain Modeler.
 
-def aa_to_short(seq):
-    """Converts long amino acid name to short."""
-    s = seq.upper()
-    for short, full in AA_NAMES.items():
-        if full == s:
-            return short
-    else:
-        raise InvalidAAName(seq, 3)
+    Rebuilds side chains in CABS representation on C-alpha trace vector.
+    """
 
+    def __init__(self, nms):
+        """Side Chain Modeler initialization.
 
-def next_letter(taken_letters):
-    """Returns next available letter for new protein chain."""
-    return re.sub('[' + taken_letters + ']', '', ascii_uppercase)[0]
+        Argument:
+        nms -- sequence of cabsDock.Atom representing subsequent mers.
+        """
+        self.nms = nms
+
+    def execute(self, vec):
+        """Takes vector of C alpha coords and residue names and returns vector of C beta coords."""
+        vec = np.insert(vec, 0, vec[0] - (vec[2] - vec[1]), axis=0)
+        vec = np.append(vec, np.array([vec[-1] + (vec[-2] - vec[-3])]), axis=0)
+
+        nvec = np.zeros((len(vec) - 2, 3))
+        for i in xrange(len(vec) - 2):
+            c1, c2, c3 = vec[i: i + 3]
+
+            rdif = c3 - c1
+            rsum = (c3 - c2) + (c1 - c2)
+            z = -1 * rsum / np.linalg.norm(rsum)
+            x = rdif / np.linalg.norm(rdif)
+            y = np.cross(z, x)
+
+            w = np.cross(np.array([0, 0, 1]), z)
+            w = w / np.linalg.norm(w)
+
+            ph_t = np.array([1, 0, 0]), w
+            cph = np.dot(*ph_t)
+            cpht = np.cross(*ph_t)
+            sph = np.linalg.norm(cpht) * np.sign(np.dot(cpht, np.array((0, 0, 1))))
+
+            cps = np.dot(w, x)
+            cwx = np.cross(w, x)
+            sps = np.linalg.norm(cwx) * np.sign(np.dot(cwx, z))
+
+            th_t = np.array([0, 0, 1]), z
+            cth = np.dot(*th_t)
+            sth = np.linalg.norm(np.cross(*th_t))
+
+            rot = np.matrix( [  [cps * cph - sps * cth * sph, cps * sph + sps * cth * cph, sps * sth],
+                                [-sps * cph - cps * cth * sph, -sps * sph + cps * cth * cph, cps * sth],
+                                [sth * sph, -sth * cph, cth]])
+
+            #~ comp = np.array(SIDECNT[nms[i].resname][:3])
+            comp = np.array(SIDECNT[self.nms[i].resname][:3])
+            #~ scat = np.array(SIDECNT[nms[i].resname][4:])
+            nvec[i] = comp.dot(rot).A1 + c2
+
+        return nvec
 
 
 class InvalidAAName(Exception):
@@ -122,6 +156,30 @@ class ProgressBar:
             t = gmtime(time() - self.start_time)
             self.stream.write('Done in %s\n' % strftime('%H:%M:%S', t))
         self.stream.flush()
+
+
+def aa_to_long(seq):
+    """Converts short amino acid name to long."""
+    s = seq.upper()
+    if s in AA_NAMES:
+        return AA_NAMES[s]
+    else:
+        raise InvalidAAName(seq, 1)
+
+
+def aa_to_short(seq):
+    """Converts long amino acid name to short."""
+    s = seq.upper()
+    for short, full in AA_NAMES.items():
+        if full == s:
+            return short
+    else:
+        raise InvalidAAName(seq, 3)
+
+
+def next_letter(taken_letters):
+    """Returns next available letter for new protein chain."""
+    return re.sub('[' + taken_letters + ']', '', ascii_uppercase)[0]
 
 
 def line_count(filename):
@@ -221,44 +279,3 @@ def kmedoids(D, k, tmax=100):
     # return results
     return M, C
 
-def rebuildCb(vec, nms):
-    """Takes vector of C alpha coords and residue names and returns vector of C beta coords."""
-    vec = np.insert(vec, 0, vec[0] - (vec[2] - vec[1]), axis=0)
-    vec = np.append(vec, np.array([vec[-1] + (vec[-2] - vec[-3])]), axis=0)
-
-    nvec = np.zeros((len(vec) - 2, 3))
-    for i in xrange(len(vec) - 2):
-        c1, c2, c3 = vec[i: i + 3]
-
-        rdif = c3 - c1
-        r2_1 = c1 - c2
-        r2_3 = c3 - c2
-        rsum = r2_3 + r2_1
-        z = -1 * rsum / np.linalg.norm(rsum)
-        x = rdif / np.linalg.norm(rdif)
-        y = np.cross(x, z)
-
-        w = np.cross(z, np.array([0, 0, 1]))
-
-        ph_t = np.array([1, 0, 0]), w
-        cph = np.dot(*ph_t)
-        sph = np.linalg.norm(np.cross(*ph_t))
-
-        cps = np.dot(w, x)
-        sps = np.linalg.norm(np.cross(w, x))
-
-        th_t = (np.array([0, 0, 1]), z)
-        cth = np.dot(*th_t)
-        sth = np.linalg.norm(np.cross(*th_t))
-
-        rot = np.matrix( [  [cps * cph - sps * cth * sph, cps * sph + sph * cth * cph, sps * sth],
-                            [-sps * cph - cps * cth * sph, -sps * sph + cps * cth * cph, cps * sth],
-                            [sth * sph, -sth * cph, cth]])
-
-        cb = np.dot(np.array(SIDECNT['ALA'][:3]), rot)
-
-        nvec[i] = cb + c2
-
-    import imp
-    pdbx = imp.load_source('pdbx', '/usr/lib/python2.7/pdb.py')
-    pdbx.set_trace()
