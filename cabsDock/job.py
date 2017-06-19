@@ -220,12 +220,10 @@ class Job:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra = Filter(trajectory).filter()
-        # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
-        medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-            ligs = tra
-        D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
-        M, C = kmedoids(D, *self.config['clustering'])
+            tra, ndxs = Filter(trajectory).filter()
+
+        medoids, C = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
+
         #clustering ma zwrocic dict C (TODO)
 
         #TO-start: cmap factory init; cmaps for replicas
@@ -247,14 +245,6 @@ class Job:
                 ccmap = cmf.mk_cmap(tra.coordinates, 6.5, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
         #TO-end
-
-        if 'dbg' in kwargs:     #ROR
-            with open("test_clusters.pck", "w") as f:
-                pickle.dump(C, f)
-        medoids = [tra.get_model(m) for m in M]
-        for i, m in enumerate(medoids, 1):
-            filename = join(work_dir, 'model_%d.pdb' % i)
-            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
         #Saving the models to PDB
         # for i, medoid in enumerate(medoids.coordinates[0]):
