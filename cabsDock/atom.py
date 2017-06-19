@@ -41,7 +41,11 @@ class Atom:
             self.chid = line[21]
             self.resnum = int(line[22:26])
             self.icode = line[26]
-            self.coord = Vector3d(line[27:54])
+            self.coord = Vector3d(
+                line[30:38],
+                line[38:46],
+                line[46:54]
+            )
             self.occ = float(line[54:60])
             self.bfac = float(line[60:66])
             self.tail = line[66:].replace('\n', '')
