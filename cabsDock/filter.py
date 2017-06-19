@@ -16,9 +16,6 @@ class Filter(object):
         models = self.trajectory.coordinates.reshape(-1, model_length, 3)
         model_energies = [header.get_energy() for header in self.trajectory.headers]
         low_energy_ndxs = numpy.argsort(model_energies)
-        filtered_ndx = []
-        print(filtered_ndx)
-        print(low_energy_ndxs)
         if len(models) <= self.N:
             filtered_ndx = low_energy_ndxs
         else:
