@@ -61,8 +61,7 @@ class Benchmark(object):
             pass
         else:
             for element in self.cases:
-                if element.is_valid:
-                    element.run_case()
+                element.run_case()
 
     def bench_analyze(self, histograms=False):
         self.benchmark_lowest_rmsds_10k = []
@@ -146,8 +145,7 @@ class Benchmark(object):
         pool = multiprocessing.Pool()
         output = {}
         for element in self.cases:
-            if element.is_valid:
-                output[element.bound_pdb_code] = pool.apply_async(element.run_case)
+            output[element.bound_pdb_code] = pool.apply_async(element.run_case)
         pool.close()
         pool.join()
         self.benchmark_rmsds_10k = []

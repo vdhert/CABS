@@ -13,8 +13,8 @@ sys.path.append(os.getcwd())
 bench = Benchmark(benchmark_file="./lista_cut.txt")
 bench.bench_set()
 print([case.bound_pdb_code for case in bench.cases])
-bench.cases = bench.cases[1:4]
-#bench.bench_run()
-#bench.bench_analyze()
+bench.cases = bench.cases[1:2]
+# bench.bench_run()
+# bench.bench_analyze()
 bench.multi_run()
 bench.bench_analyze()

@@ -211,7 +211,7 @@ class Job:
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
-            tra = Filter(trajectory).filter()
+            tra, ndxs = Filter(trajectory).filter()
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
