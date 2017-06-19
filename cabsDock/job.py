@@ -3,9 +3,12 @@ Module for running cabsDock jobs.
 """
 
 import re
+import operator
 from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
+
+import pickle
 
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
@@ -14,6 +17,8 @@ from cabs import CabsRun
 from utils import ProgressBar, kmedoids, check_peptide_sequence
 from trajectory import Trajectory
 from filter import Filter
+from cabsDock.cmap import ContactMapFactory
+from cabsDock.cmap import ContactMap
 
 __all__ = ['Job']
 
@@ -23,7 +28,6 @@ class Config(dict):
     Smart dictionary that can append items with 'ligand' key instead of overwriting them.
     TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
     """
-
     def __init__(self, config):
         dict.__init__(self, config)
 
@@ -118,6 +122,7 @@ class Job:
         2. By providing location of the config file as in 'config=[path_to_file]'.
         3. All parameters can be overwritten by specifying parameter=[value].
         """
+
         defaults = {
             'work_dir': getcwd(),
             'replicas': 10,
@@ -159,9 +164,9 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-                # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-                # if ans != 'y':
-                #     exit(code=1)
+            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
+            # if ans != 'y':
+            #     exit(code=1)
         else:
             mkdir(work_dir)
 
@@ -174,7 +179,6 @@ class Job:
         self.initial_complex = ProteinComplex(self.config)
         print(' ... done.')
         # generate restraints
-        # noinspection PyAttributeOutsideInit
         self.restraints = \
             Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
         add_restraints = Restraints(self.config.get('ca_restraints'))
@@ -219,6 +223,38 @@ class Job:
             tra = Filter(trajectory).filter()
         # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
         medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
+            ligs = tra
+        D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
+        M, C = kmedoids(D, *self.config['clustering'])
+        #clustering ma zwrocic dict C (TODO)
+
+        #TO-start: cmap factory init; cmaps for replicas
+        cmapdir = self.config['work_dir'] + '/contact_maps'
+        try:
+            mkdir(cmapdir)
+        except OSError:
+            pass
+        cmfs = {lig: ContactMapFactory(self.initial_complex.receptor_chains, lig, trajectory.template) for lig in self.initial_complex.ligand_chains}
+        for lig, cmf in cmfs.items():
+            cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
+            for n, cmap in enumerate(cmaps):
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+            cmap10k = reduce(operator.add, cmaps)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
+            cmap1k = cmf.mk_cmap(tra.coordinates, 6.5)[0]
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            for cn, clust in C.items():
+                ccmap = cmf.mk_cmap(tra.coordinates, 6.5, frames=clust)[0]
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+        #TO-end
+
+        if 'dbg' in kwargs:     #ROR
+            with open("test_clusters.pck", "w") as f:
+                pickle.dump(C, f)
+        medoids = [tra.get_model(m) for m in M]
+        for i, m in enumerate(medoids, 1):
+            filename = join(work_dir, 'model_%d.pdb' % i)
+            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
         #Saving the models to PDB
         # for i, medoid in enumerate(medoids.coordinates[0]):
@@ -247,9 +283,4 @@ class Job:
         return results
 
 if __name__ == '__main__':
-    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
-                               native_receptor_chain='H',
-                               native_peptide_chain='X')
-    print j.run_job()
-    # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
-    # j.run_job()
+    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=50,  mc_steps=1, replicas=10)

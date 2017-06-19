@@ -163,27 +163,8 @@ class Trajectory(object):
 
     def select(self, selection):
         template = self.template.select(selection)
-        pieces = ranges([self.template.atoms.index(a) for a in template])
-        shape = self.coordinates.shape
-        self.coordinates.reshape(-1, len(self.template), 3)
-        coordinates = []
-        for replica in self.coordinates:
-            replica_new = []
-            for model in replica:
-                replica_new.append(np.concatenate(
-                    [
-                        model[piece[0]:piece[1]] for piece in pieces
-                    ]
-                ))
-            coordinates.append(np.stack(replica_new))
-        coordinates = np.stack(coordinates)
-        self.coordinates.reshape(shape)
-        if len(self.coordinates) == 0:
-            warnings.warn(
-                "The selection \"{0}\" results in an empty trajectory.".format(
-                    selection), UserWarning
-            )
-        return Trajectory(template, coordinates, self.headers)
+        inds = [self.template.atoms.index(a) for a in template]
+        return Trajectory(template, self.coordinates[:, :, inds, :], self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -220,15 +201,14 @@ class Trajectory(object):
         Calculates rmsd matrix with no fitting for all pairs od models in trajectory.
         :return: np.array
         """
+
+        def rmsd(m1, m2, ml):
+            return np.sqrt(np.sum((m1 - m2) ** 2) / ml)
+
         model_length = len(self.template)
-
-        def rmsd(m1, m2):
-            return np.sqrt(np.sum((m1 - m2) ** 2) / model_length)
-
-        shape = self.coordinates.shape
         models = self.coordinates.reshape(-1, model_length, 3)
         dim = len(models)
-        result = np.zeros(dim * dim).reshape(dim, dim)
+        result = np.zeros((dim, dim))
         if msg:
             bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
@@ -237,10 +217,9 @@ class Trajectory(object):
             for j in range(i + 1, dim):
                 if bar:
                     bar.update()
-                result[i, j] = result[j, i] = rmsd(models[i], models[j])
+                result[i, j] = result[j, i] = rmsd(models[i], models[j], model_length)
         if bar:
             bar.done(True)
-        self.coordinates.reshape(shape)
         return result
 
     def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
@@ -291,5 +270,9 @@ class Trajectory(object):
 
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('.CABS/TRAF', '.CABS/SEQ')
-    tra.rmsd_matrix()
+    tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
+    from pdb import Pdb
+    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
+    tra.align_to(target, 'chain A, B')
+    traf = tra.select('chain B, D')
+    traf.to_atoms().save_to_pdb('dupa.pdb')
