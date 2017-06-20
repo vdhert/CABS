@@ -24,4 +24,4 @@ class Filter(object):
         else:
             filtered_ndx = low_energy_ndxs[:self.N]
         traj = Trajectory(self.trajectory.template, numpy.array([models[filtered_ndx, :, :]]), [self.trajectory.headers[i] for i in filtered_ndx])
-        return traj
+        return traj, filtered_ndx

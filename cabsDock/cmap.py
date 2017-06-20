@@ -50,10 +50,10 @@ class ContactMapFactory(object):
             fstf = frames.pop(0)
         resl = []
         for rep in traj[replicas,]:
-            cmtx = self.mk_cmtx(self.mk_dmtx(self.mth(rep[fstf])), thr)
+            cmtx = self.mk_cmtx(self.mk_dmtx(rep[fstf]), thr)
             nframes = 1
             for fra in rep[frames,]:
-                ncmtx = self.mk_cmtx(self.mk_dmtx(self.mth(fra)), thr)
+                ncmtx = self.mk_cmtx(self.mk_dmtx(fra), thr)
                 cmtx += ncmtx
                 nframes += 1
             resl.append(ContactMap(cmtx, self.ats1, self.ats2, nframes))
