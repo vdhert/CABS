@@ -1,8 +1,12 @@
-import numpy as np
 from copy import deepcopy
 
-from cabsDock.atom import Atom, Atoms
-from cabsDock.utils import ranges, kabsch, ProgressBar
+import numpy
+import numpy as np
+
+from atom import Atom, Atoms
+from pdb import Pdb
+from utils import ranges, kabsch, ProgressBar
+import warnings
 
 __all__ = ['Trajectory', 'Header']
 
@@ -23,9 +27,11 @@ class Header:
         header = line.split()
         self.model = int(header[0])
         self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[4:1:-1], float)
-        self.temperature = float(header[5])
-        self.replica = int(header[6])
+        self.energy = np.matrix(header[2 : -2], float)
+        #self.energy = np.array(header[2:-2]).reshape(len(header)-4)
+        self.temperature = float(header[-2])
+        self.replica = int(header[-1])
+        self.rmsd = 0
 
     def __repr__(self):
         return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
@@ -42,17 +48,21 @@ class Header:
             raise Header.CannotMerge(self, other)
         else:
             dt = self.temperature - other.temperature
-            de = self.energy[0, 0] - other.energy[0, 0]
-            if dt ** 2 > 1e-6 or de ** 2 > 1e-6:
-                raise Exception("Cannot merge headers with different T or E!!!")
+            if dt ** 2 > 1e-6:
+                raise Exception("Cannot merge headers with different T!!!")
             else:
                 h = deepcopy(self)
                 h.length += other.length
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
 
+    def get_energy(self):
+        """ Returns the total energy of the system. """
+        return np.sum(np.tril(self.energy))
 
-class Trajectory:
+
+
+class Trajectory(object):
     """
     Class holding compressed trajectory.
     """
@@ -62,6 +72,7 @@ class Trajectory:
         self.template = template
         self.coordinates = coordinates
         self.headers = headers
+        self.rmsd_native = None
 
     @staticmethod
     def read_seq(filename):
@@ -141,7 +152,7 @@ class Trajectory:
         sum_length = sum(length)
 
         if sum_length != len(template):
-            # check if number of atoms in SEQ matches that in trajectory head.ers
+            # check if number of atoms in SEQ matches that in trajectory headers
             raise Exception('Different number of atoms in %s and %s!!!' % (traf, seq))
 
         # final test if information from headers agrees with number of coordinates
@@ -186,6 +197,8 @@ class Trajectory:
             q = np.subtract(query, q_com)
             np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
         self.coordinates.reshape(shape)
+
+    # MC: Functionality moved to a separate class cabsDock.filter.Filter (IN PROGRESS)
 
     def filter(self, number):
         """
@@ -241,6 +254,40 @@ class Trajectory:
             bar.done(True)
         return result
 
+    def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
+        """
+        Calculates a list of ligand - rmsd of the models to the native structure (argument 'native' is either
+        a PDB code (to be downloaded) or a local PDB file).
+        :return: np.array
+        """
+
+        def rmsd(m1, m2, length):
+            return np.sqrt(np.sum((m1 - m2)**2) / length)
+
+        target_selection = 'name CA and not HETERO'
+        target_selection += ' and chain ' + ','.join(native_receptor_chain)
+        pdb = Pdb(pdb_code=native_pdb[:4])
+        native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
+        shape = self.coordinates.shape
+        self.align_to(native, target_selection)
+        models_peptide_traj = self.select("chain " + model_peptide_chain)
+        peptide_length = len(models_peptide_traj.template)
+        models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
+        # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
+        # should return numpy.array instead.
+        native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
+            "name CA and not HETERO and chain " + native_peptide_chain
+        ).models()[0].to_matrix())
+        result = np.zeros(
+            (len(models_peptide))
+        )
+        for i, h in zip(range(len(models_peptide)), self.headers):
+            result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
+            h.rmsd = result[i]
+        self.coordinates.reshape(shape)
+        print('... done.')
+        return result
+
     def get_model(self, model):
         """
         Do poprawy 
@@ -253,11 +300,12 @@ class Trajectory:
         self.coordinates.reshape(shape)
         return m
 
-
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
-    from pdb import Pdb
-    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
-    tra.align_to(target, 'chain A, B')
-    traf = tra.select('chain B, D')
-    traf.to_atoms().save_to_pdb('dupa.pdb')
+    tra = Trajectory.read_trajectory('.CABS/TRAF', '.CABS/SEQ')
+    tra.rmsd_matrix()
+    #tra.rmsd_to_native(native_pdb='1jbu', native_receptor_chain='H', native_peptide_chain ='X', model_peptide_chain='C')
+    # from pdb import Pdb
+    # target = Pdb(pdb_code='1jbu').atoms.select('name CA and chain H')
+    # tra.align_to(target, 'chain H')
+#     traf = tra.select('chain B, D')
+#     traf.to_atoms().save_to_pdb('dupa.pdb')

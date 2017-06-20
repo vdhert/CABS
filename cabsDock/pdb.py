@@ -71,7 +71,7 @@ class Pdb:
     def __repr__(self):
         return ''.join(self.lines)
 
-    def dssp(self, dssp_command='dssp'):
+    def dssp(self, dssp_command='mkdssp'):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
         try:
             proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)

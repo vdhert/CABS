@@ -3,26 +3,27 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
-from os.path import exists, join
 from copy import deepcopy
+from os.path import exists, join, isfile
 from random import randint
 
-from vector3d import Vector3d
 from atom import Atoms
 from pdb import Pdb, InvalidPdbCode
-from utils import RANDOM_LIGAND_LIBRARY, next_letter
+from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue
+from vector3d import Vector3d
 
 
 class Receptor(Atoms):
     """
     Class for the protein receptor molecule. Initialized with job's config dictionary.
     """
+
     def __init__(self, config):
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        if exists(name):
+        if isfile(name):
             pdb = Pdb(pdb_file=name)
-        elif exists(join(config['work_dir'], name)):
+        elif isfile(join(config['work_dir'], name)):
             pdb = Pdb(pdb_file=join(config['work_dir'], name))
         else:
             pdb = Pdb(pdb_code=name[:4])
@@ -53,12 +54,18 @@ class Receptor(Atoms):
         else:
             atoms.set_bfac(1)
 
-        self.old_ids = atoms.update_sec(pdb.dssp()).fix_broken_chains()
+        self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
         # self.new_ids = {v: k for k, v in self.old_ids.items()}
         Atoms.__init__(self, atoms)
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
+        self.check_residue_modifications()
+
+    def check_residue_modifications(self):
+        for atom in self:
+            atom.resname = fix_residue(atom.resname)
+        return self
 
     def convert_patch(self, location):
         if location not in self.patches:
@@ -122,6 +129,7 @@ class Ligand(Atoms):
     """
     Class for the peptides.
     """
+
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         selection = 'name CA and not HETERO'
@@ -162,6 +170,7 @@ class ProteinComplex(Atoms):
     """
     Class that assembles the initial complex.
     """
+
     def __init__(self, config):
         Atoms.__init__(self)
         self.separation = config['initial_separation']
@@ -181,6 +190,7 @@ class ProteinComplex(Atoms):
                     l.change_chid(l[0].chid, next_letter(taken_chains))
                 taken_chains += l[0].chid
                 self.ligand_chains += l[0].chid
+                print(ligand)
                 ligands.append(l)
                 self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())
@@ -218,7 +228,6 @@ class ProteinComplex(Atoms):
             ligand.random_conformation()
 
         ligand.move_to(location)
-
 
 if __name__ == '__main__':
     pass
