@@ -178,7 +178,6 @@ class Job:
         # noinspection PyAttributeOutsideInit
         print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-<<<<<<< Temporary merge branch 1
         print(' ... done.')
         # generate restraints
         # noinspection PyAttributeOutsideInit
@@ -226,40 +225,29 @@ class Job:
         # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
         medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
+        self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
+
         #Saving the models to PDB
-        # for i, medoid in enumerate(medoids.coordinates[0]):
-        #     filename = join(work_dir, 'model_%d.pdb' % i)
-        #
-        #
-        #
-        #
-        #     m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-        #
-        # for i, m in enumerate(trajectory.coordinates, 1):
-        #     filename = join(work_dir, 'replica_%d.pdb' % i)
-        #     replica = Trajectory(trajectory.template, m, None).to_atoms()
-        #     replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-
-        # dictionary holding results to be returned for use in the Benchmark class
-        rmsds = [header.rmsd for header in medoids.headers ]
-        results = {}
-        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-        results['rmsds_10'] = rmsds
-        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-        results['lowest_10'] = sorted(results['rmsds_10'])[0]
-        print('... done.')
-        for i, m in enumerate(medoids, 1):
+        for i, medoid in enumerate(medoids.coordinates[0]):
             filename = join(work_dir, 'model_%d.pdb' % i)
-            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-
+        #    m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        #
         for i, m in enumerate(trajectory.coordinates, 1):
             filename = join(work_dir, 'replica_%d.pdb' % i)
             replica = Trajectory(trajectory.template, m, None).to_atoms()
             replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
-        return results
+        # dictionary holding results to be returned for use in the Benchmark class
+        #~ rmsds = [header.rmsd for header in medoids.headers ]
+        #~ results = {}
+        #~ results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        #~ results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+        #~ results['rmsds_10'] = rmsds
+        #~ results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        #~ results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        #~ results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        #~ print('... done.')
+        #~ return results
 
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
         scmodeler = SCModeler(self.initial_complex)
