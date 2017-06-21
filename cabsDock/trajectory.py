@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import StringIO
 import numpy
 import numpy as np
 
@@ -267,6 +268,21 @@ class Trajectory(object):
         m = atoms.from_matrix(coordinates)
         self.coordinates.reshape(shape)
         return m
+
+    def to_pdb(self, mode='models'):
+        """
+        Method for transforming a trajectory instance into a PDB file-like object.
+        :param mode:    'models' -- the method returns a list of StringIO objects, each representing one model from the trajectory;
+                        'replicas' -- the method returns a list of StringIO objects, each representing one replica from the trajectory.
+        :return: StringIO object
+        """
+        execution_mode = {'models': self.coordinates[0], 'replicas': self.coordinates}
+        return [
+            StringIO.StringIO().write(
+                    Trajectory(self.template, m, None).to_atoms().make_pdb()
+                    )
+            for m in execution_mode[mode]
+            ]
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
