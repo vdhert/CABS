@@ -164,7 +164,7 @@ class Trajectory(object):
     def select(self, selection):
         template = self.template.select(selection)
         inds = [self.template.atoms.index(a) for a in template]
-        return Trajectory(template, self.coordinates[:, :, inds, :], self.headers)
+        return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -267,7 +267,6 @@ class Trajectory(object):
         m = atoms.from_matrix(coordinates)
         self.coordinates.reshape(shape)
         return m
-
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')

@@ -584,12 +584,14 @@ class SCModeler(object):
         """
         self.nms = nms
 
-    def execute(self, vec):
+    def rebuild_one(self, vec, sc=True):
         """Takes vector of C alpha coords and residue names and returns vector of C beta coords."""
         vec = np.insert(vec, 0, vec[0] - (vec[2] - vec[1]), axis=0)
         vec = np.append(vec, np.array([vec[-1] + (vec[-2] - vec[-3])]), axis=0)
 
         nvec = np.zeros((len(vec) - 2, 3))
+        nms = (lambda x: self.nms[x].resname) if sc else (lambda x: 'ALA')
+
         for i in xrange(len(vec) - 2):
             c1, c2, c3 = vec[i: i + 3]
 
@@ -620,11 +622,20 @@ class SCModeler(object):
                                 [sth * sph, -sth * cph, cth]])
 
             #~ comp = np.array(SIDECNT[nms[i].resname][:3])
-            comp = np.array(SIDECNT[self.nms[i].resname][:3])
+            comp = np.array(SIDECNT[nms(i)][:3])
             #~ scat = np.array(SIDECNT[nms[i].resname][4:])
             nvec[i] = comp.dot(rot).A1 + c2
 
         return nvec
+
+    def _calculate_traj(self, traj, sc=False):
+        return np.array([np.array([self.rebuild_one(j, sc) for j in i]) for i in traj])
+
+    def calculate_cb_traj(self, traj):
+        return self._calculate_traj(traj, False)
+
+    def calculate_sc_traj(self, traj):
+        return self._calculate_traj(traj, True)
 
 
 class InvalidAAName(Exception):
@@ -802,9 +813,6 @@ def kmedoids(D, k, tmax=100):
     # return results
     return M, C
 
-
-
-
 def check_peptide_sequence(sequence):
     standard_one_letter_residues = AA_NAMES.keys()
     for residue in sequence:
@@ -828,3 +836,4 @@ def fix_residue(residue):
         return modified
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
+

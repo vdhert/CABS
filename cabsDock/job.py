@@ -8,17 +8,18 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
-import pickle
-
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar, kmedoids, check_peptide_sequence
+from utils import ProgressBar
+from utils import kmedoids
+from utils import SCModeler
+from utils import check_peptide_sequence
 from trajectory import Trajectory
-from filter import Filter
 from cabsDock.cmap import ContactMapFactory
 from cabsDock.cmap import ContactMap
+from filter import Filter
 
 __all__ = ['Job']
 
@@ -179,6 +180,7 @@ class Job:
         self.initial_complex = ProteinComplex(self.config)
         print(' ... done.')
         # generate restraints
+        # noinspection PyAttributeOutsideInit
         self.restraints = \
             Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
         add_restraints = Restraints(self.config.get('ca_restraints'))
@@ -215,36 +217,13 @@ class Job:
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
-            tra, ndxs = Filter(trajectory).filter()
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra, ndxs = Filter(trajectory).filter()
-
-        medoids, C = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-
-        #clustering ma zwrocic dict C (TODO)
-
-        #TO-start: cmap factory init; cmaps for replicas
-        cmapdir = self.config['work_dir'] + '/contact_maps'
-        try:
-            mkdir(cmapdir)
-        except OSError:
-            pass
-        cmfs = {lig: ContactMapFactory(self.initial_complex.receptor_chains, lig, trajectory.template) for lig in self.initial_complex.ligand_chains}
-        for lig, cmf in cmfs.items():
-            cmaps = cmf.mk_cmap(trajectory.coordinates, 6.5)
-            for n, cmap in enumerate(cmaps):
-                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
-            cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
-            cmap1k = cmf.mk_cmap(tra.coordinates, 6.5)[0]
-            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
-            for cn, clust in C.items():
-                ccmap = cmf.mk_cmap(tra.coordinates, 6.5, frames=clust)[0]
-                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
-        #TO-end
+        tra, flt_inds = Filter(trajectory).filter()
+        # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
+        medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
         self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
 
@@ -270,5 +249,37 @@ class Job:
         #~ print('... done.')
         #~ return results
 
+    def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
+        scmodeler = SCModeler(self.initial_complex)
+        sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
+
+        #~ import imp
+        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+        #~ pdbx.set_trace()
+
+        cmapdir = self.config['work_dir'] + '/contact_maps'
+        try: mkdir(cmapdir)
+        except OSError: pass
+        rchs = self.initial_complex.receptor_chains
+        lchs = self.initial_complex.ligand_chains
+        cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        for lig, cmf in cmfs.items():
+            cmaps = cmf.mk_cmap(sc_traj_full, thr)
+            for n, cmap in enumerate(cmaps):
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+            cmap10k = reduce(operator.add, cmaps)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
+            sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+            cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            for cn, clust in clusts.items():
+                ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=50,  mc_steps=1, replicas=10)
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
+                               native_receptor_chain='H',
+                               native_peptide_chain='X')
+    print j.run_job()
+    # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
+    # j.run_job()
