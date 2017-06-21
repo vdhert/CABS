@@ -1,49 +1,64 @@
 import argparse
 
+intro="""
+cabsDock - protein peptide docking tool
+"""
+
+goodbye="""
+visit biocomp.chem.uw.edu.pl/CABSDock
+"""
+
 
 def run_job():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument(
-        '-r', '--receptor',
-        help='Load receptor structure.\n'
-             '[receptor] must be a pdb file or a pdb_code\n'
-             '(optionally with chain id(s) i.e. 1rjk:AC)',
-        required=True
+    parser = argparse.ArgumentParser(
+        prog='cabsDock',
+        description=intro,
+        epilog=goodbye,
+        formatter_class=argparse.RawTextHelpFormatter,
+        version=0.99
     )
+
     parser.add_argument(
-        '-p', '--add_peptide',
-        nargs=3,
+        'receptor',
+        metavar = 'RECEPTOR',
+        help="""Load receptor structure.
+%(metavar)s must be a pdb file or a pdb_code
+(optionally with chain id(s) i.e. 1rjk:AC)
+"""
+    )
+    
+    parser.add_argument(
+        '-p', '--add-peptide',
+        nargs='+',
         action='append',
         dest='ligand',
-        metavar=(
-            'PEPTIDE',
-            'CONFORMATION',
-            'LOCATION'
-        ),
-        help='Add peptide to the complex.\n'
-             'This option can be used multiple times to add multiple peptides.\n'
-             'PEPTIDE must be either:\n'
-             '1.\tSEQUENCE in one letter code\n'
-             '\t(optionally with SECONDARY STRUCTURE\n'
-             '\tC - coil, H - helix, E - sheet, T - turn\n'
-             '\ti.e. LAHCIM:CHHTEC)\n'
-             '2.\tpdb file\n'
-             '3.\tpdb_code (optionally with chain id i.e 1rjk:C)\n'
-             '\nCONFORMATION sets initial conformation of the peptide.\n'
-             'Must be either:\n'
-             '1.\trandom - conformation is randomized\n'
-             '2.\tkeep - preserve conformation from file.\n'
-             '\tThis has no effect if PEPTIDE=SEQUENCE\n'
-             '\nLOCATION sets initial location for the peptide.\n'
-             'Must be either:\n'
-             '1.\trandom - peptide is placed in random location\n'
-             '\tat 20A(default value, can be changed) from the receptor\'s surface\n'
-             '2.\tkeep - preserve location from file.\n'
-             '\tThis has no effect if PEPTIDE=SEQUENCE\n'
-             '3.\tpatch - where patch is a list of receptor residues joined with \'+\'\n'
-             '\tspecifying where to put the peptide (i.e 123:A+125:A+17:B)\n'
-             '\tWARNING: residues in patch should be on the surface\n'
-             '\tof the receptor and close to each other.\n'
+        metavar=('PEPTIDE', 'CONFORMATION LOCATION'),
+        help="""
+Add peptide to the complex.
+This option can be used multiple times to add multiple peptides.
+
+SEQUENCE must be either:
+    1. SEQUENCE in one letter code (optionally with SECONDARY STRUCTURE
+       C - coil, H - helix, E - sheet, T - turn, i.e. LAHCIM:CHHTEC)
+    2. pdb file (may be gzipped)
+    3. pdb code (optionally with chain id i.e 1rjk:C)
+
+CONFORMATION sets initial conformation of the peptide. Must be either:
+    1. random - conformation is randomized
+    2. keep - preserve conformation from file.
+    This has no effect if PEPTIDE=SEQUENCE
+    
+LOCATION sets initial location for the peptide. Must be either:
+    1. random - peptide is placed in a random location
+       at 20A(default value, can be changed)
+       from the receptor's surface
+    2. keep - preserve location from file.
+    This has no effect if PEPTIDE=SEQUENCE
+    3. patch - where patch is a list of receptor residues
+       joined with + specifying where to put the peptide (i.e 123:A+125:A+17:B)
+    WARNING: residues in patch should be on the surface
+    of the receptor and close to each other.
+"""
     )
     parser.add_argument(
         '-d', '--dir',
@@ -87,10 +102,11 @@ def run_job():
     )
 
     args = parser.parse_args()
-    job_args = {k: v for k, v in vars(args).items() if v}
-    from job import Job
-    j = Job(**job_args)
-    j.run_job()
+    print args
+    #job_args = {k: v for k, v in vars(args).items() if v}
+    #from job import Job
+    #j = Job(**job_args)
+    #j.run_job()
 
 if __name__ == '__main__':
     run_job()
