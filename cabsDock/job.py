@@ -29,7 +29,6 @@ class Config(dict):
     Smart dictionary that can append items with 'ligand' key instead of overwriting them.
     TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
     """
-
     def __init__(self, config):
         dict.__init__(self, config)
 
@@ -124,6 +123,7 @@ class Job:
         2. By providing location of the config file as in 'config=[path_to_file]'.
         3. All parameters can be overwritten by specifying parameter=[value].
         """
+
         defaults = {
             'work_dir': getcwd(),
             'replicas': 10,
@@ -165,9 +165,9 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-                # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-                # if ans != 'y':
-                #     exit(code=1)
+            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
+            # if ans != 'y':
+            #     exit(code=1)
         else:
             mkdir(work_dir)
 
@@ -178,7 +178,7 @@ class Job:
         # noinspection PyAttributeOutsideInit
         print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-
+<<<<<<< Temporary merge branch 1
         print(' ... done.')
         # generate restraints
         # noinspection PyAttributeOutsideInit
@@ -226,16 +226,6 @@ class Job:
         # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
         medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
-        #~ import pickle
-        #~ with open("traj.pck", "w") as f:
-            #~ pickle.dump(trajectory, f)
-        #~ with open("clst.pck", "w") as f:
-            #~ pickle.dump(clusters, f)
-        #~ with open("flti.pck", "w") as f:
-            #~ pickle.dump(flt_inds, f)
-
-        self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
-
         #Saving the models to PDB
         # for i, medoid in enumerate(medoids.coordinates[0]):
         #     filename = join(work_dir, 'model_%d.pdb' % i)
@@ -260,6 +250,15 @@ class Job:
         results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
         results['lowest_10'] = sorted(results['rmsds_10'])[0]
         print('... done.')
+        for i, m in enumerate(medoids, 1):
+            filename = join(work_dir, 'model_%d.pdb' % i)
+            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+
+        for i, m in enumerate(trajectory.coordinates, 1):
+            filename = join(work_dir, 'replica_%d.pdb' % i)
+            replica = Trajectory(trajectory.template, m, None).to_atoms()
+            replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+
         return results
 
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):

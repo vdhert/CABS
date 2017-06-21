@@ -27,8 +27,7 @@ class Header:
         header = line.split()
         self.model = int(header[0])
         self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[2 : -2], float)
-        #self.energy = np.array(header[2:-2]).reshape(len(header)-4)
+        self.energy = np.matrix(header[2: -2], float)
         self.temperature = float(header[-2])
         self.replica = int(header[-1])
         self.rmsd = 0
@@ -59,7 +58,6 @@ class Header:
     def get_energy(self):
         """ Returns the total energy of the system. """
         return np.sum(np.tril(self.energy))
-
 
 
 class Trajectory(object):
@@ -198,36 +196,6 @@ class Trajectory(object):
             np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
         self.coordinates.reshape(shape)
 
-    # MC: Functionality moved to a separate class cabsDock.filter.Filter (IN PROGRESS)
-
-    def filter(self, number):
-        """
-        Temporary filtering - top N from each replica by total energy
-        """
-        replicas = len(self.coordinates)
-        models = len(self.coordinates[0])
-        if 0 < replicas * models <= number:
-            return self
-        else:
-            headers = []
-            coordinates = []
-            from_replica = int(number / replicas)
-            remains = number - replicas * from_replica
-            for replica in range(replicas):
-                current = [h for h in self.headers if h.replica == replica + 1]
-                by_energy = sorted(current, key=lambda x: np.sum(x.energy[:, 1:2]))
-                top = from_replica + (replica < remains)
-                current = sorted(sorted(by_energy[:top], key=lambda x: x.model), key=lambda x: x.replica)
-                headers.extend(current)
-                mdls = []
-                for h in current:
-                    mdls.append(h.model - 1)
-                rngs = ranges(mdls)
-                for r in rngs:
-                    c = self.coordinates[replica][r[0]: r[1]]
-                    coordinates.append(c)
-            return Trajectory(self.template, np.array([np.concatenate(coordinates)]), headers)
-
     def rmsd_matrix(self, msg=''):
         """
         Calculates rmsd matrix with no fitting for all pairs od models in trajectory.
@@ -262,7 +230,7 @@ class Trajectory(object):
         """
 
         def rmsd(m1, m2, length):
-            return np.sqrt(np.sum((m1 - m2)**2) / length)
+            return np.sqrt(np.sum((m1 - m2) ** 2) / length)
 
         target_selection = 'name CA and not HETERO'
         target_selection += ' and chain ' + ','.join(native_receptor_chain)
@@ -301,11 +269,9 @@ class Trajectory(object):
         return m
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('.CABS/TRAF', '.CABS/SEQ')
-    tra.rmsd_matrix()
-    #tra.rmsd_to_native(native_pdb='1jbu', native_receptor_chain='H', native_peptide_chain ='X', model_peptide_chain='C')
-    # from pdb import Pdb
-    # target = Pdb(pdb_code='1jbu').atoms.select('name CA and chain H')
-    # tra.align_to(target, 'chain H')
-#     traf = tra.select('chain B, D')
-#     traf.to_atoms().save_to_pdb('dupa.pdb')
+    tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
+    from pdb import Pdb
+    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
+    tra.align_to(target, 'chain A, B')
+    traf = tra.select('chain B, D')
+    traf.to_atoms().save_to_pdb('dupa.pdb')

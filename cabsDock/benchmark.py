@@ -1,5 +1,5 @@
 from cabsDock.job import Job
-from utils import next_letter
+from matplotlib import pyplot
 import numpy as np
 from os.path import join
 import copy_reg
@@ -7,17 +7,27 @@ import types
 
 
 def _reduce_method(meth):
-    return (getattr, (meth.__self__, meth.__func__.__name__))
+    return getattr, (meth.__self__, meth.__func__.__name__)
 
 
 copy_reg.pickle(types.MethodType, _reduce_method)
 
 
 class Benchmark(object):
-    """ docstring for Benchmark """
+    """
+    Class for testing the performance against a reference set of structures (-> cases)
+    """
 
     def __init__(self, benchmark_file=None):
+        """
+
+        :param benchmark_file: text file with lines in format: bound_pdb_code, bound_receptor_chain_id,
+        bound_peptide_chain_id, peptide_sequence, peptide_secondary_structure,
+        """
         super(Benchmark, self).__init__()
+        self.benchmark_rmsds_10 = []
+        self.benchmark_rmsds_1k = []
+        self.benchmark_rmsds_10k = []
         self.cases = []
 
         self.benchmark_file = benchmark_file
@@ -51,30 +61,26 @@ class Benchmark(object):
             pass
         else:
             for element in self.cases:
-                if element.is_valid:
-                    element.run_case()
+                element.run_case()
 
-    def bench_analyze(self):
-        self.benchmark_rmsds_10k = []
-        self.benchmark_rmsds_1k = []
-        self.benchmark_rmsds_10 = []
+    def bench_analyze(self, histograms=False):
         self.benchmark_lowest_rmsds_10k = []
         self.benchmark_lowest_rmsds_1k = []
         self.benchmark_lowest_rmsds_10 = []
         for element in self.cases:
-            rmsds = element.get_rmsds()
-            lowest_rmsd = element.get_lowest_rmsd()
-            # pyplot.hist(rmsds[0])
-            # pyplot.hist(rmsds[1])
-            # pyplot.hist(rmsds[2])
-            # pyplot.savefig(str(element.bound_pdb_code)+'.png')
-            # pyplot.clf()
+            rmsds = element.rmsds
+            if histograms:
+                pyplot.hist(rmsds[0])
+                pyplot.hist(rmsds[1])
+                pyplot.hist(rmsds[2])
+                pyplot.savefig(str(element.bound_pdb_code) + '.png')
+                pyplot.clf()
             self.benchmark_rmsds_10k += rmsds[0]
             self.benchmark_rmsds_1k += rmsds[1]
             self.benchmark_rmsds_10 += rmsds[2]
-            self.benchmark_lowest_rmsds_10k.append(lowest_rmsd[0])
-            self.benchmark_lowest_rmsds_1k.append(lowest_rmsd[1])
-            self.benchmark_lowest_rmsds_10.append(lowest_rmsd[2])
+            self.benchmark_lowest_rmsds_10k.append(rmsds[3])
+            self.benchmark_lowest_rmsds_1k.append(rmsds[4])
+            self.benchmark_lowest_rmsds_10.append(rmsds[5])
         # print the performance statistics on this benchmark
         number_of_cases = float(len([True for case in self.cases if case.is_valid]))
         high_quality_10k = len([rms for rms in self.benchmark_lowest_rmsds_10k if rms < 3.0])
@@ -92,11 +98,12 @@ class Benchmark(object):
         med_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if 3.0 <= rms <=
                               5.5])
         low_quality_10 = len([rms for rms in self.benchmark_lowest_rmsds_10 if rms > 5.5])
-        # pyplot.hist(self.benchmark_rmsds_10k)
-        # pyplot.hist(self.benchmark_rmsds_1k)
-        # pyplot.hist(self.benchmark_rmsds_10)
-        # pyplot.savefig('benchmark.png')
-        # pyplot.clf()
+        if histograms:
+            pyplot.hist(self.benchmark_rmsds_10k)
+            pyplot.hist(self.benchmark_rmsds_1k)
+            pyplot.hist(self.benchmark_rmsds_10)
+            pyplot.savefig('benchmark.png')
+            pyplot.clf()
         print(
             'Statistics for 10k\nhigh quality: {0} ({1}%) \nmedium quality: {2} ({3}%) \nlow quality: {4} ({5}%)'.format(
                 high_quality_10k,
@@ -128,7 +135,7 @@ class Benchmark(object):
             )
         )
 
-    def multi_run(self):
+    def multi_run(self, histograms=False):
         import multiprocessing
         import sys
         import os
@@ -148,22 +155,23 @@ class Benchmark(object):
         self.benchmark_lowest_rmsds_1k = []
         self.benchmark_lowest_rmsds_10 = []
         for bialko in output.keys():
-            results = output[bialko].get()
-            # pyplot.hist(rmsds[0])
-            # pyplot.hist(rmsds[1])
-            # pyplot.hist(rmsds[2])
-            # pyplot.savefig(str(element.bound_pdb_code)+'.png')
-            # pyplot.clf()
-            self.benchmark_rmsds_10k += results['rmsds_10k']
-            self.benchmark_rmsds_1k += results['rmsds_1k']
-            self.benchmark_rmsds_10 += results['rmsds_10']
-            self.benchmark_lowest_rmsds_10k.append(results['lowest_10k'])
-            self.benchmark_lowest_rmsds_1k.append(results['lowest_1k'])
-            self.benchmark_lowest_rmsds_10.append(results['lowest_10'])
+            rmsds, work_dir = output[bialko].get()
+            if histograms:
+                pyplot.hist(rmsds[0])
+                pyplot.hist(rmsds[1])
+                pyplot.hist(rmsds[2])
+                pyplot.savefig(str(bialko) + '.png')
+                pyplot.clf()
+            self.benchmark_rmsds_10k += rmsds[0]
+            self.benchmark_rmsds_1k += rmsds[1]
+            self.benchmark_rmsds_10 += rmsds[2]
+            self.benchmark_lowest_rmsds_10k.append(rmsds[3])
+            self.benchmark_lowest_rmsds_1k.append(rmsds[4])
+            self.benchmark_lowest_rmsds_10.append(rmsds[5])
             np.save(join(work_dir, 'rmsds'), rmsds)
             f = open(join(work_dir, 'best_rmsd.txt'), 'w')
             f.write(
-                '{0} {1} {2} \n'.format(results['lowest_10k'], results['lowest_1k'], results['lowest_10'])
+                '{0} {1} {2} \n'.format(rmsds[3], rmsds[4], rmsds[5])
             )
             f.close()
 
@@ -199,11 +207,12 @@ class Benchmark(object):
         low_quality_10 = len(
             [rms for rms in self.benchmark_lowest_rmsds_10 if rms > 5.5]
         )
-        # pyplot.hist(self.benchmark_rmsds_10k)
-        # pyplot.hist(self.benchmark_rmsds_1k)
-        # pyplot.hist(self.benchmark_rmsds_10)
-        # pyplot.savefig('benchmark.png')
-        # pyplot.clf()
+        if histograms:
+            pyplot.hist(self.benchmark_rmsds_10k)
+            pyplot.hist(self.benchmark_rmsds_1k)
+            pyplot.hist(self.benchmark_rmsds_10)
+            pyplot.savefig('benchmark.png')
+            pyplot.clf()
         print(
             'Statistics for 10k\nhigh quality: {0} ({1}%) \nmedium quality: {2} ({3}%) \nlow quality: {4} ({5}%)'.format(
                 high_quality_10k,
@@ -237,7 +246,9 @@ class Benchmark(object):
 
 
 class Case(object):
-    """ docstring for Case """
+    """
+    Case represents a run and the reference structure it should be compared to.
+    """
 
     def __init__(
             self,
@@ -260,10 +271,9 @@ class Case(object):
         self.unbound_receptor_chain_id = unbound_receptor_chain_id
         self.unbound_peptide_chain_id = unbound_peptide_chain_id
         self.rmsds = []
-        self.lowest_rmsd = []
         self.is_valid = False
 
-    def setup_case(self, test=True):
+    def setup_case(self, test):
         print('Processing job {0}'.format(self.bound_pdb_code))
         try:
             if test:
@@ -301,29 +311,15 @@ class Case(object):
         if not self.is_valid:
             raise Exception('The {0} job is not valid for run.'.format(self.bound_pdb_code))
         results = self.job.run_job()
-        self.rmsds = [results['rmsds_10k'], results['rmsds_1k'], results['rmsds_10']]
+        self.rmsds = [
+            results['rmsds_10k'],
+            results['rmsds_1k'],
+            results['rmsds_10'],
+            results['lowest_10k'],
+            results['lowest_1k'],
+            results['lowest_10']
+        ]
         self.work_dir = self.job.config['work_dir']
-        self.lowest_rmsd = [sorted(self.rmsds[0])[0], sorted(self.rmsds[1])[0], sorted(self.rmsds[2])[0]]
-        return self.rmsds, self.lowest_rmsd, self.work_dir
+        print(self.bound_pdb_code, self.rmsds[5])
+        return self.rmsds, self.work_dir
 
-    def get_rmsds(self):
-        return self.rmsds
-
-    def get_lowest_rmsd(self):
-        self.lowest_rmsd = [sorted(self.rmsds[0])[0], sorted(self.rmsds[1])[0], sorted(self.rmsds[2])[0]]
-        return self.lowest_rmsd
-
-    def save_log(self):
-        np.save(join(self.work_dir, 'rmsds'), self.rmsds)
-        f = open(join(self.work_dir, 'best_rmsd.txt'), 'w')
-        f.write(
-            '{0} {1} {2} \n'.format(self.lowest_rmsd[0], self.lowest_rmsd[1], self.lowest_rmsd[2])
-        )
-        f.close()
-
-# bench = Benchmark(benchmark_file="/Users/maciek/Desktop/lista_kompl.txt")
-# bench.cases = bench.cases[0:1]
-# print([case.bound_pdb_code for case in bench.cases])
-# bench.bench_set()
-# bench.bench_run()
-# bench.bench_analyze()
