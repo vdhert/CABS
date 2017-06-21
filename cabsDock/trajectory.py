@@ -278,11 +278,10 @@ class Trajectory(object):
         """
         execution_mode = {'models': self.coordinates[0], 'replicas': self.coordinates}
         return [
-            StringIO.StringIO().write(
-                    Trajectory(self.template, m, None).to_atoms().make_pdb()
-                    )
-            for m in execution_mode[mode]
-            ]
+            StringIO.StringIO(
+                Trajectory(self.template, m, None).to_atoms().make_pdb()
+                )
+            for m in execution_mode[mode]]
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')

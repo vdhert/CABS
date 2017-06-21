@@ -15,14 +15,12 @@ class Clustering(object):
 
     def __init__(self, trajectory, selection):
         super(Clustering, self).__init__()
-        if selection:
-            self.trajectory = trajectory.select(selection)
-        else:
-            self.trajectory = trajectory
+        self.trajectory = trajectory
+        self.selection = selection
         self.distance_matrix = None
 
     def calculate_distance_matrix(self):
-        self.distance_matrix = self.trajectory.rmsd_matrix()
+        self.distance_matrix = self.trajectory.select(self.selection).rmsd_matrix()
         return self.distance_matrix
 
     def k_medoids(self, k, tmax=100):
