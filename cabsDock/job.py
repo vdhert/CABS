@@ -246,31 +246,29 @@ class Job:
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
         #TO-end
 
+        self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
+
         #Saving the models to PDB
-        # for i, medoid in enumerate(medoids.coordinates[0]):
-        #     filename = join(work_dir, 'model_%d.pdb' % i)
+        for i, medoid in enumerate(medoids.coordinates[0]):
+            filename = join(work_dir, 'model_%d.pdb' % i)
+        #    m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
         #
-        #
-        #
-        #
-        #     m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-        #
-        # for i, m in enumerate(trajectory.coordinates, 1):
-        #     filename = join(work_dir, 'replica_%d.pdb' % i)
-        #     replica = Trajectory(trajectory.template, m, None).to_atoms()
-        #     replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        for i, m in enumerate(trajectory.coordinates, 1):
+            filename = join(work_dir, 'replica_%d.pdb' % i)
+            replica = Trajectory(trajectory.template, m, None).to_atoms()
+            replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
 
         # dictionary holding results to be returned for use in the Benchmark class
-        rmsds = [header.rmsd for header in medoids.headers ]
-        results = {}
-        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-        results['rmsds_10'] = rmsds
-        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-        results['lowest_10'] = sorted(results['rmsds_10'])[0]
-        print('... done.')
-        return results
+        #~ rmsds = [header.rmsd for header in medoids.headers ]
+        #~ results = {}
+        #~ results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        #~ results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+        #~ results['rmsds_10'] = rmsds
+        #~ results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        #~ results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        #~ results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        #~ print('... done.')
+        #~ return results
 
 if __name__ == '__main__':
     j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=50,  mc_steps=1, replicas=10)
