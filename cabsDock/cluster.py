@@ -94,7 +94,7 @@ class Clustering(object):
         medoids.headers = [medoids.headers[i] for i in sorting_ndx]
         clusters_as_clusters = [clusters_as_clusters[i] for i in sorting_ndx]
         # print([cluster.score for cluster in clusters_as_clusters])
-        return medoids, clusters
+        return medoids, clusters, clusters_as_clusters
 
 
 class Cluster(Trajectory):

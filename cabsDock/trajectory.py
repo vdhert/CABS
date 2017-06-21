@@ -269,19 +269,32 @@ class Trajectory(object):
         self.coordinates.reshape(shape)
         return m
 
-    def to_pdb(self, mode='models'):
+    def to_pdb(self, name = None, mode='models', to_dir = None):
         """
         Method for transforming a trajectory instance into a PDB file-like object.
         :param mode:    'models' -- the method returns a list of StringIO objects, each representing one model from the trajectory;
                         'replicas' -- the method returns a list of StringIO objects, each representing one replica from the trajectory.
         :return: StringIO object
         """
-        execution_mode = {'models': self.coordinates[0], 'replicas': self.coordinates}
-        return [
-            StringIO.StringIO(
-                Trajectory(self.template, m, None).to_atoms().make_pdb()
-                )
-            for m in execution_mode[mode]]
+        execution_mode = {'models': (self.coordinates[0], 'model'), 'replicas': (self.coordinates, 'replica')}
+        if to_dir:
+            for i, m in enumerate(execution_mode[mode][0]):
+                Trajectory(self.template, m, None).to_atoms().save_to_pdb(
+                    (execution_mode[mode][1] if name is None else name)
+                    +
+                    ('' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i))
+                    +
+                    '.pdb'
+                    )
+            out = True
+        else:
+            out =  [
+                StringIO.StringIO(
+                    Trajectory(self.template, m, None).to_atoms().make_pdb()
+                    )
+                for m in execution_mode[mode][0]
+                ]
+        return out
 
 if __name__ == '__main__':
     tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
