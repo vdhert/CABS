@@ -8,6 +8,45 @@ goodbye="""
 visit biocomp.chem.uw.edu.pl/CABSDock
 """
 
+add_peptide_help="""
+Add peptide to the complex.
+This option can be used multiple times to add multiple peptides.
+
+PEPTIDE must be either:
+
+    1. SEQUENCE in one-letter code
+       optionally followed by :SECONDARY_STRUCTURE (i.e. LAHCIM:CHHTEC)
+       where C - coil, H - helix, E - sheet, T - turn
+
+    2. pdb file (may be gzipped)
+
+    3. pdb code (optionally with chain id i.e 1abc:D)
+
+CONFORMATION sets initial conformation of the peptide. Must be either:
+
+    1. random - conformation is randomized [default]
+
+    2. keep - preserve conformation from file
+       This has no effect if PEPTIDE=SEQUENCE.
+    
+LOCATION sets initial location for the peptide. Must be either:
+
+    1. random - peptide is placed in a random location on the surface
+       of a sphere centered at the receptor's geometrical center
+       at distance defined by the '-s, --separation' option
+       from the surface of the receptor.
+       
+    2. keep - preserve location from file.
+       This has no effect if PEPTIDE=SEQUENCE
+
+    3. patch - list of receptor's residues (i.e 123:A+125:A+17:B)
+       Peptide will be placed above the geometrical center of listed
+       residues at distance defined by the '-s, --separation' option
+       from the surface of the receptor.
+       WARNING: residues listed in path should be on the surface
+       of the receptor and close to each other.
+"""
+
 
 def run_job():
     parser = argparse.ArgumentParser(
@@ -19,11 +58,13 @@ def run_job():
     )
 
     parser.add_argument(
-        'receptor',
+        '-r', '--receptor',
         metavar = 'RECEPTOR',
+        dest='receptor',
+        required=True,
         help="""Load receptor structure.
 %(metavar)s must be a pdb file or a pdb_code
-(optionally with chain id(s) i.e. 1rjk:AC)
+(optionally with chain id(s) i.e. 1abc:DE)
 """
     )
     
@@ -33,40 +74,18 @@ def run_job():
         action='append',
         dest='ligand',
         metavar=('PEPTIDE', 'CONFORMATION LOCATION'),
-        help="""
-Add peptide to the complex.
-This option can be used multiple times to add multiple peptides.
-
-SEQUENCE must be either:
-    1. SEQUENCE in one letter code (optionally with SECONDARY STRUCTURE
-       C - coil, H - helix, E - sheet, T - turn, i.e. LAHCIM:CHHTEC)
-    2. pdb file (may be gzipped)
-    3. pdb code (optionally with chain id i.e 1rjk:C)
-
-CONFORMATION sets initial conformation of the peptide. Must be either:
-    1. random - conformation is randomized
-    2. keep - preserve conformation from file.
-    This has no effect if PEPTIDE=SEQUENCE
-    
-LOCATION sets initial location for the peptide. Must be either:
-    1. random - peptide is placed in a random location
-       at 20A(default value, can be changed)
-       from the receptor's surface
-    2. keep - preserve location from file.
-    This has no effect if PEPTIDE=SEQUENCE
-    3. patch - where patch is a list of receptor residues
-       joined with + specifying where to put the peptide (i.e 123:A+125:A+17:B)
-    WARNING: residues in patch should be on the surface
-    of the receptor and close to each other.
-"""
+        help=add_peptide_help
     )
     parser.add_argument(
         '-d', '--dir',
         dest='work_dir',
+        metavar='DIR',
         help='Set working directory to WORK_DIR. Default is current dir.'
     )
     parser.add_argument(
         '-c', '--config',
+        dest='config',
+        metavar='CONFIG',
         help='read options from CONFIG file'
     )
     parser.add_argument(
