@@ -1,6 +1,6 @@
-import numpy as np
 from copy import deepcopy
 
+import numpy
 import numpy as np
 
 from atom import Atom, Atoms
@@ -27,7 +27,7 @@ class Header:
         header = line.split()
         self.model = int(header[0])
         self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[3, -2], float)
+        self.energy = np.matrix(header[2: -2], float)
         self.temperature = float(header[-2])
         self.replica = int(header[-1])
         self.rmsd = 0
@@ -54,6 +54,10 @@ class Header:
                 h.length += other.length
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
+
+    def get_energy(self):
+        """ Returns the total energy of the system. """
+        return np.sum(np.tril(self.energy))
 
 
 class Trajectory(object):
@@ -159,27 +163,8 @@ class Trajectory(object):
 
     def select(self, selection):
         template = self.template.select(selection)
-        pieces = ranges([self.template.atoms.index(a) for a in template])
-        shape = self.coordinates.shape
-        self.coordinates.reshape(-1, len(self.template), 3)
-        coordinates = []
-        for replica in self.coordinates:
-            replica_new = []
-            for model in replica:
-                replica_new.append(np.concatenate(
-                    [
-                        model[piece[0]:piece[1]] for piece in pieces
-                    ]
-                ))
-            coordinates.append(np.stack(replica_new))
-        coordinates = np.stack(coordinates)
-        self.coordinates.reshape(shape)
-        if len(self.coordinates) == 0:
-            warnings.warn(
-                "The selection \"{0}\" results in an empty trajectory.".format(
-                    selection), UserWarning
-                )
-        return Trajectory(template, coordinates, self.headers)
+        inds = [self.template.atoms.index(a) for a in template]
+        return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -211,48 +196,19 @@ class Trajectory(object):
             np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
         self.coordinates.reshape(shape)
 
-    def filter(self, number):
-        """
-        Temporary filtering - top N from each replica by total energy
-        """
-        replicas = len(self.coordinates)
-        models = len(self.coordinates[0])
-        if 0 < replicas * models <= number:
-            return self
-        else:
-            headers = []
-            coordinates = []
-            from_replica = int(number / replicas)
-            remains = number - replicas * from_replica
-            for replica in range(replicas):
-                current = [h for h in self.headers if h.replica == replica + 1]
-                by_energy = sorted(current, key=lambda x: np.sum(x.energy[:, 1:2]))
-                top = from_replica + (replica < remains)
-                current = sorted(sorted(by_energy[:top], key=lambda x: x.model), key=lambda x: x.replica)
-                headers.extend(current)
-                mdls = []
-                for h in current:
-                    mdls.append(h.model - 1)
-                rngs = ranges(mdls)
-                for r in rngs:
-                    c = self.coordinates[replica][r[0]: r[1]]
-                    coordinates.append(c)
-            return Trajectory(self.template, np.concatenate(coordinates), headers)
-
     def rmsd_matrix(self, msg=''):
         """
         Calculates rmsd matrix with no fitting for all pairs od models in trajectory.
         :return: np.array
         """
+
+        def rmsd(m1, m2, ml):
+            return np.sqrt(np.sum((m1 - m2) ** 2) / ml)
+
         model_length = len(self.template)
-
-        def rmsd(m1, m2):
-            return np.sqrt(np.sum((m1 - m2) ** 2) / model_length)
-
-        shape = self.coordinates.shape
         models = self.coordinates.reshape(-1, model_length, 3)
         dim = len(models)
-        result = np.zeros(dim * dim).reshape(dim, dim)
+        result = np.zeros((dim, dim))
         if msg:
             bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
@@ -261,10 +217,9 @@ class Trajectory(object):
             for j in range(i + 1, dim):
                 if bar:
                     bar.update()
-                result[i, j] = result[j, i] = rmsd(models[i], models[j])
+                result[i, j] = result[j, i] = rmsd(models[i], models[j], model_length)
         if bar:
             bar.done(True)
-        self.coordinates.reshape(shape)
         return result
 
     def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
@@ -275,7 +230,7 @@ class Trajectory(object):
         """
 
         def rmsd(m1, m2, length):
-            return np.sqrt(np.sum(m1 - m2)**2 / length)
+            return np.sqrt(np.sum((m1 - m2) ** 2) / length)
 
         target_selection = 'name CA and not HETERO'
         target_selection += ' and chain ' + ','.join(native_receptor_chain)
@@ -286,9 +241,11 @@ class Trajectory(object):
         models_peptide_traj = self.select("chain " + model_peptide_chain)
         peptide_length = len(models_peptide_traj.template)
         models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
-        native_peptide = pdb.atoms.remove_alternative_locations().select(
+        # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
+        # should return numpy.array instead.
+        native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
             "name CA and not HETERO and chain " + native_peptide_chain
-        ).models()[0].to_matrix()
+        ).models()[0].to_matrix())
         result = np.zeros(
             (len(models_peptide))
         )
@@ -312,11 +269,9 @@ class Trajectory(object):
         return m
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('.CABS/TRAF', '.CABS/SEQ')
-    tra.rmsd_matrix()
-    #tra.rmsd_to_native(native_pdb='1jbu', native_receptor_chain='H', native_peptide_chain ='X', model_peptide_chain='C')
-    # from pdb import Pdb
-    # target = Pdb(pdb_code='1jbu').atoms.select('name CA and chain H')
-    # tra.align_to(target, 'chain H')
-#     traf = tra.select('chain B, D')
-#     traf.to_atoms().save_to_pdb('dupa.pdb')
+    tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
+    from pdb import Pdb
+    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
+    tra.align_to(target, 'chain A, B')
+    traf = tra.select('chain B, D')
+    traf.to_atoms().save_to_pdb('dupa.pdb')

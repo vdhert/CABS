@@ -9,6 +9,28 @@ import warnings
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
 
+#sidechains relative coords
+SIDECNT = { 'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
+            'GLN': (-0.095, -1.674, 2.612, 0.047, -0.886, 2.991),
+            'ILE': (0.094, -1.416, 1.836, -0.105, -0.659, 2.219),
+            'SER': (0.121, -1.476, 1.186, 0.223, -1.042, 1.571),
+            'VAL': (0.264, -1.194, 1.531, 0.077, -0.631, 1.854),
+            'MET': (-0.04, -1.446, 2.587, 0.072, -0.81, 2.883),
+            'PRO': (-0.751, -1.643, 0.467, -1.016, -1.228, 0.977),
+            'LYS': (0.032, -1.835, 2.989, 0.002, -0.882, 3.405),
+            'THR': (0.075, -1.341, 1.398, 0.051, -0.909, 1.712),
+            'PHE': (0.151, -1.256, 3.161, -0.448, -0.791, 3.286),
+            'ALA': (0.253, -1.133, 0.985, 0.119, -0.763, 1.312),
+            'HIS': (-0.301, -1.405, 2.801, -0.207, -0.879, 3.019),
+            'GLY': (0.0, -0.111, -0.111, 0.0, -0.111, -0.111),
+            'ASP': (-0.287, -1.451, 1.989, 0.396, -0.798, 2.313),
+            'GLU': (-0.028, -1.774, 2.546, 0.096, -0.923, 3.016),
+            'LEU': (-0.069, -1.247, 2.292, 0.002, -0.462, 2.579),
+            'ARG': (-0.057, -2.522, 3.639, -0.057, -1.21, 3.986),
+            'TRP': (0.558, -1.694, 3.433, -0.06, -0.574, 3.834),
+            'ASN': (-0.402, -1.237, 2.111, 0.132, -0.863, 2.328),
+            'TYR': (0.308, -1.387, 3.492, -0.618, -0.799, 3.634)}
+
 # Library of 1000 random peptides with up to 50 amino acids each
 RANDOM_LIGAND_LIBRARY = np.reshape(
     np.fromfile(resource_filename('cabsDock', 'data/data2.dat'), sep=' '), (1000, 50, 3)
@@ -547,28 +569,73 @@ modified_residue_substitute = {
     'YOF': 'TYR'}  ##  YOF TYR  3-FLUOROTYROSINE
 
 
-def aa_to_long(seq):
-    """Converts short amino acid name to long."""
-    s = seq.upper()
-    if s in AA_NAMES:
-        return AA_NAMES[s]
-    else:
-        raise InvalidAAName(seq, 1)
+class SCModeler(object):
 
+    """Side Chain Modeler.
 
-def aa_to_short(seq):
-    """Converts long amino acid name to short."""
-    s = seq.upper()
-    for short, full in AA_NAMES.items():
-        if full == s:
-            return short
-    else:
-        raise InvalidAAName(seq, 3)
+    Rebuilds side chains in CABS representation on C-alpha trace vector.
+    """
 
+    def __init__(self, nms):
+        """Side Chain Modeler initialization.
 
-def next_letter(taken_letters):
-    """Returns next available letter for new protein chain."""
-    return re.sub('[' + taken_letters + ']', '', ascii_uppercase)[0]
+        Argument:
+        nms -- sequence of cabsDock.Atom representing subsequent mers.
+        """
+        self.nms = nms
+
+    def rebuild_one(self, vec, sc=True):
+        """Takes vector of C alpha coords and residue names and returns vector of C beta coords."""
+        vec = np.insert(vec, 0, vec[0] - (vec[2] - vec[1]), axis=0)
+        vec = np.append(vec, np.array([vec[-1] + (vec[-2] - vec[-3])]), axis=0)
+
+        nvec = np.zeros((len(vec) - 2, 3))
+        nms = (lambda x: self.nms[x].resname) if sc else (lambda x: 'ALA')
+
+        for i in xrange(len(vec) - 2):
+            c1, c2, c3 = vec[i: i + 3]
+
+            rdif = c3 - c1
+            rsum = (c3 - c2) + (c1 - c2)
+            z = -1 * rsum / np.linalg.norm(rsum)
+            x = rdif / np.linalg.norm(rdif)
+            y = np.cross(z, x)
+
+            w = np.cross(np.array([0, 0, 1]), z)
+            w = w / np.linalg.norm(w)
+
+            ph_t = np.array([1, 0, 0]), w
+            cph = np.dot(*ph_t)
+            cpht = np.cross(*ph_t)
+            sph = np.linalg.norm(cpht) * np.sign(np.dot(cpht, np.array((0, 0, 1))))
+
+            cps = np.dot(w, x)
+            cwx = np.cross(w, x)
+            sps = np.linalg.norm(cwx) * np.sign(np.dot(cwx, z))
+
+            th_t = np.array([0, 0, 1]), z
+            cth = np.dot(*th_t)
+            sth = np.linalg.norm(np.cross(*th_t))
+
+            rot = np.matrix( [  [cps * cph - sps * cth * sph, cps * sph + sps * cth * cph, sps * sth],
+                                [-sps * cph - cps * cth * sph, -sps * sph + cps * cth * cph, cps * sth],
+                                [sth * sph, -sth * cph, cth]])
+
+            #~ comp = np.array(SIDECNT[nms[i].resname][:3])
+            comp = np.array(SIDECNT[nms(i)][:3])
+            #~ scat = np.array(SIDECNT[nms[i].resname][4:])
+            nvec[i] = comp.dot(rot).A1 + c2
+
+        return nvec
+
+    def _calculate_traj(self, traj, sc=False):
+        return np.array([np.array([self.rebuild_one(j, sc) for j in i]) for i in traj])
+
+    def calculate_cb_traj(self, traj):
+        return self._calculate_traj(traj, False)
+
+    def calculate_sc_traj(self, traj):
+        return self._calculate_traj(traj, True)
 
 
 class InvalidAAName(Exception):
@@ -623,6 +690,30 @@ class ProgressBar:
             t = gmtime(time() - self.start_time)
             self.stream.write('Done in %s\n' % strftime('%H:%M:%S', t))
         self.stream.flush()
+
+
+def aa_to_long(seq):
+    """Converts short amino acid name to long."""
+    s = seq.upper()
+    if s in AA_NAMES:
+        return AA_NAMES[s]
+    else:
+        raise InvalidAAName(seq, 1)
+
+
+def aa_to_short(seq):
+    """Converts long amino acid name to short."""
+    s = seq.upper()
+    for short, full in AA_NAMES.items():
+        if full == s:
+            return short
+    else:
+        raise InvalidAAName(seq, 3)
+
+
+def next_letter(taken_letters):
+    """Returns next available letter for new protein chain."""
+    return re.sub('[' + taken_letters + ']', '', ascii_uppercase)[0]
 
 
 def line_count(filename):
@@ -681,7 +772,7 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
-
+# MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
 def kmedoids(D, k, tmax=100):
     # determine dimensions of distance matrix D
     m, n = D.shape
@@ -722,7 +813,6 @@ def kmedoids(D, k, tmax=100):
     # return results
     return M, C
 
-
 def check_peptide_sequence(sequence):
     standard_one_letter_residues = AA_NAMES.keys()
     for residue in sequence:
@@ -746,3 +836,4 @@ def fix_residue(residue):
         return modified
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
+

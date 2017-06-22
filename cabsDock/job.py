@@ -3,15 +3,23 @@ Module for running cabsDock jobs.
 """
 
 import re
+import operator
 from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
+from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar, kmedoids, check_peptide_sequence
+from utils import ProgressBar
+from utils import kmedoids
+from utils import SCModeler
+from utils import check_peptide_sequence
 from trajectory import Trajectory
+from cabsDock.cmap import ContactMapFactory
+from cabsDock.cmap import ContactMap
+from filter import Filter
 
 __all__ = ['Job']
 
@@ -21,7 +29,6 @@ class Config(dict):
     Smart dictionary that can append items with 'ligand' key instead of overwriting them.
     TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
     """
-
     def __init__(self, config):
         dict.__init__(self, config)
 
@@ -116,6 +123,7 @@ class Job:
         2. By providing location of the config file as in 'config=[path_to_file]'.
         3. All parameters can be overwritten by specifying parameter=[value].
         """
+
         defaults = {
             'work_dir': getcwd(),
             'replicas': 10,
@@ -157,9 +165,9 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-                # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-                # if ans != 'y':
-                #     exit(code=1)
+            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
+            # if ans != 'y':
+            #     exit(code=1)
         else:
             mkdir(work_dir)
 
@@ -195,6 +203,7 @@ class Job:
         if self.config['native_pdb']:
             print('Calculating RMSD to the native structure...')
             trajectory = cabs_run.get_trajectory()
+            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
             print(
                 'The native complex loaded from {0} consists of receptor (chain(s) {1}) and peptide(s) (chains(s) {2}).'
                 .format(
@@ -206,41 +215,71 @@ class Job:
             trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
                                       native_receptor_chain=self.config['native_receptor_chain'],
                                       native_peptide_chain=self.config['native_peptide_chain'],
-                                      model_peptide_chain=self.config['model_peptide_chain'])
+                                      model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
-            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra = trajectory.filter(self.config['filtering'])
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-            tra = trajectory.filter(self.config['filtering'])
+        tra, flt_inds = Filter(trajectory).filter()
+        # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
+        medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
-        # od tego miejsca poprawic
-        lig_chains = ','.join(self.initial_complex.ligand_chains)
-        if lig_chains:
-            ligs = tra.select('chain %s' % lig_chains)
-        else:
-            ligs = tra
-        D = ligs.rmsd_matrix(msg='Calculating rmsd matrix')
-        M, C = kmedoids(D, *self.config['clustering'])
-        medoids = [tra.get_model(m) for m in M]
-        rmsds = [tra.headers[m].rmsd for m in M]
-        for i, m in enumerate(medoids, 1):
+        self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
+
+        #Saving the models to PDB
+        for i, medoid in enumerate(medoids.coordinates[0]):
             filename = join(work_dir, 'model_%d.pdb' % i)
-            m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-
+        #    m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        #
         for i, m in enumerate(trajectory.coordinates, 1):
             filename = join(work_dir, 'replica_%d.pdb' % i)
             replica = Trajectory(trajectory.template, m, None).to_atoms()
             replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-        rmsds_10k = [header.rmsd for header in trajectory.headers]
-        rmsds_1k = [header.rmsd for header in tra.headers]
-        rmsds_10 = rmsds
-        print('... done.')
-        return rmsds_10k, rmsds_1k, rmsds_10, work_dir
 
+        # dictionary holding results to be returned for use in the Benchmark class
+        #~ rmsds = [header.rmsd for header in medoids.headers ]
+        #~ results = {}
+        #~ results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        #~ results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+        #~ results['rmsds_10'] = rmsds
+        #~ results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        #~ results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        #~ results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        #~ print('... done.')
+        #~ return results
+
+    def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
+        scmodeler = SCModeler(self.initial_complex)
+        sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
+
+        #~ import imp
+        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+        #~ pdbx.set_trace()
+
+        cmapdir = self.config['work_dir'] + '/contact_maps'
+        try: mkdir(cmapdir)
+        except OSError: pass
+        rchs = self.initial_complex.receptor_chains
+        lchs = self.initial_complex.ligand_chains
+        cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        for lig, cmf in cmfs.items():
+            cmaps = cmf.mk_cmap(sc_traj_full, thr)
+            for n, cmap in enumerate(cmaps):
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+            cmap10k = reduce(operator.add, cmaps)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
+            sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+            cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            for cn, clust in clusts.items():
+                ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
 
 if __name__ == '__main__':
-    j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
-    j.run_job()
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
+                               native_receptor_chain='H',
+                               native_peptide_chain='X')
+    print j.run_job()
+    # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
+    # j.run_job()
