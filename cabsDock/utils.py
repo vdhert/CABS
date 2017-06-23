@@ -623,8 +623,8 @@ class SCModeler(object):
                                 [sth * sph, -sth * cph, cth]])
 
             coef = 1 if rdnorm < 5.3 else 0 if rdnorm > 6.4 else (rdnorm - 5.3) * -.91 + 1
-            comp = np.array(SIDECNT[nms(i).resname][:3]) * coef
-            scat = np.array(SIDECNT[nms(i).resname][3:]) * (1 - coef)
+            comp = np.array(SIDECNT[nms(i)][:3]) * coef
+            scat = np.array(SIDECNT[nms(i)][3:]) * (1 - coef)
             rbld = np.array((comp + scat) / 2)
             nvec[i] = rbld.dot(rot).A1 + c2
 
