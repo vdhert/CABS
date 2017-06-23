@@ -596,9 +596,10 @@ class SCModeler(object):
             c1, c2, c3 = vec[i: i + 3]
 
             rdif = c3 - c1
+            rdnorm = np.linalg.norm(rdif)
             rsum = (c3 - c2) + (c1 - c2)
             z = -1 * rsum / np.linalg.norm(rsum)
-            x = rdif / np.linalg.norm(rdif)
+            x = rdif / rdnorm
             y = np.cross(z, x)
 
             w = np.cross(np.array([0, 0, 1]), z)
@@ -621,10 +622,11 @@ class SCModeler(object):
                                 [-sps * cph - cps * cth * sph, -sps * sph + cps * cth * cph, cps * sth],
                                 [sth * sph, -sth * cph, cth]])
 
-            #~ comp = np.array(SIDECNT[nms[i].resname][:3])
-            comp = np.array(SIDECNT[nms(i)][:3])
-            #~ scat = np.array(SIDECNT[nms[i].resname][4:])
-            nvec[i] = comp.dot(rot).A1 + c2
+            coef = 1 if rdnorm < 5.3 else 0 if rdnorm > 6.4 else (rdnorm - 5.3) * -.91 + 1
+            comp = np.array(SIDECNT[nms(i).resname][:3]) * coef
+            scat = np.array(SIDECNT[nms(i).resname][3:]) * (1 - coef)
+            rbld = np.array((comp + scat) / 2)
+            nvec[i] = rbld.dot(rot).A1 + c2
 
         return nvec
 
