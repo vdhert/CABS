@@ -225,6 +225,14 @@ class Job:
         # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
         medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
+        import pickle
+        with open('traj.pck', 'w') as f:
+            pickle.dump(trajectory, f)
+        with open('flti.pck', 'w') as f:
+            pickle.dump(flt_inds, f)
+        with open('clst.pck', 'w') as f:
+            pickle.dump(clusters, f)
+
         self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
 
         #Saving the models to PDB
@@ -269,6 +277,7 @@ class Job:
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
+            cmap10k.save_histo(self.config['work_dir'] + '/all_contacts_histo_%s' % lig)
             sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
