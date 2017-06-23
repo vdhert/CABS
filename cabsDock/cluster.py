@@ -90,10 +90,9 @@ class Clustering(object):
             )
             clusters_as_clusters.append(this_cluster)
         sorting_ndx =  (sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse = True))
-        medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :],
+        medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :]
         medoids.headers = [medoids.headers[i] for i in sorting_ndx]
         clusters_as_clusters = [clusters_as_clusters[i] for i in sorting_ndx]
-        # print([cluster.score for cluster in clusters_as_clusters])
         return medoids, clusters, clusters_as_clusters
 
 

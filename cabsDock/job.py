@@ -226,7 +226,6 @@ class Job:
         tra, flt_inds = Filter(trajectory).filter()
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-
         self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
 
         #Saving the trajectory to PDBs:
@@ -237,7 +236,6 @@ class Job:
         pdb_medoids = medoids.to_pdb()
         for i, file in enumerate(pdb_medoids):
             ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
-
 
         # dictionary holding results to be returned for use in the Benchmark class
         #~ rmsds = [header.rmsd for header in medoids.headers ]
