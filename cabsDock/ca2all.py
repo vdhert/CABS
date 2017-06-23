@@ -3,7 +3,7 @@ import argparse
 
 from tempfile import mkstemp
 from os.path import basename
-
+from contextlib import closing
 from modeller import *
 from modeller.automodel import *
 
@@ -38,8 +38,17 @@ def ca2all(filename, output=None, iterations=1, verbose=False):
     pattern = re.compile('ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*')
 
     try:
-
-        with open(filename, 'r') as f, open(pdb, 'w') as tmp:
+        # MC: Fixed support for StringIO in context manager.
+        # with open(filename, 'r') as f, open(pdb, 'w') as tmp:
+        #     for line in f:
+        #         if line.startswith('ENDMDL'):
+        #             break
+        #         else:
+        #             match = re.match(pattern, line)
+        #             if match:
+        #                 atoms.append(match.groups())
+        #                 tmp.write(line)
+        with closing(filename) as f, open(pdb, 'w') as tmp:
             for line in f:
                 if line.startswith('ENDMDL'):
                     break
