@@ -15,14 +15,12 @@ class Clustering(object):
 
     def __init__(self, trajectory, selection):
         super(Clustering, self).__init__()
-        if selection:
-            self.trajectory = trajectory.select(selection)
-        else:
-            self.trajectory = trajectory
+        self.trajectory = trajectory
+        self.selection = selection
         self.distance_matrix = None
 
     def calculate_distance_matrix(self):
-        self.distance_matrix = self.trajectory.rmsd_matrix()
+        self.distance_matrix = self.trajectory.select(self.selection).rmsd_matrix()
         return self.distance_matrix
 
     def k_medoids(self, k, tmax=100):
@@ -92,11 +90,10 @@ class Clustering(object):
             )
             clusters_as_clusters.append(this_cluster)
         sorting_ndx =  (sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse = True))
-        medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :],
+        medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :]
         medoids.headers = [medoids.headers[i] for i in sorting_ndx]
         clusters_as_clusters = [clusters_as_clusters[i] for i in sorting_ndx]
-        # print([cluster.score for cluster in clusters_as_clusters])
-        return medoids, clusters
+        return medoids, clusters, clusters_as_clusters
 
 
 class Cluster(Trajectory):

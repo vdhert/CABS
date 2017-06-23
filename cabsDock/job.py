@@ -8,6 +8,8 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
+#from cabsDock.ca2all import ca2all
+from cabsDock.ca2all import ca2all
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
@@ -222,20 +224,18 @@ class Job:
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         tra, flt_inds = Filter(trajectory).filter()
-        # MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
-        medoids, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
-        self.mk_cmaps(trajectory, clusters, flt_inds, 4.5)
+        medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
+        self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
 
-        #Saving the models to PDB
-        for i, medoid in enumerate(medoids.coordinates[0]):
-            filename = join(work_dir, 'model_%d.pdb' % i)
-        #    m.save_to_pdb(filename, bar_msg='Saving %s' % filename)
-        #
-        for i, m in enumerate(trajectory.coordinates, 1):
-            filename = join(work_dir, 'replica_%d.pdb' % i)
-            replica = Trajectory(trajectory.template, m, None).to_atoms()
-            replica.save_to_pdb(filename, bar_msg='Saving %s' % filename)
+        #Saving the trajectory to PDBs:
+        trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
+        #Saving top1000 models to PDB:
+        tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
+        #Saving top 10 models in AA representation:
+        pdb_medoids = medoids.to_pdb()
+        for i, file in enumerate(pdb_medoids):
+            ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
 
         # dictionary holding results to be returned for use in the Benchmark class
         #~ rmsds = [header.rmsd for header in medoids.headers ]
