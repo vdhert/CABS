@@ -15,10 +15,38 @@ class Filter(object):
         model_length = len(self.trajectory.template)
         models = self.trajectory.coordinates.reshape(-1, model_length, 3)
         model_energies = [header.get_energy() for header in self.trajectory.headers]
-        low_energy_ndxs = numpy.argsort(model_energies)
-        if len(models) <= self.N:
+        filtered_ndx = self.mdl_fltr(models, model_energies)
+        traj = Trajectory(self.trajectory.template, numpy.array([models[filtered_ndx, :, :]]),
+                          [self.trajectory.headers[i] for i in filtered_ndx])
+        return traj, filtered_ndx
+
+    @staticmethod
+    def mdl_fltr(mdls, enrgs, N):
+        low_energy_ndxs = numpy.argsort(enrgs)
+        if len(mdls) <= N:
             filtered_ndx = low_energy_ndxs
         else:
-            filtered_ndx = low_energy_ndxs[:self.N]
-        traj = Trajectory(self.trajectory.template, numpy.array([models[filtered_ndx, :, :]]), [self.trajectory.headers[i] for i in filtered_ndx])
-        return traj, filtered_ndx
+            filtered_ndx = low_energy_ndxs[:N]
+        return filtered_ndx
+
+    def cabs_filter(self):
+        n_replicas = self.trajectory.coordinates.shape[0]
+        n_models = self.trajectory.coordinates.shape[1]
+        fromeach = int(self.N / n_replicas)
+        filtered_models = []
+        filtered_headers = []
+        filtered_total_ndx = []
+        for i, replica in enumerate(self.trajectory.coordinates):
+            energies = [header.get_energy() for header in self.trajectory.headers if header.replica == i+1]
+            headers = [header for header in self.trajectory.headers if header.replica == i+1]
+            filtered_ndx = self.mdl_fltr(replica, energies, fromeach)
+            if len(filtered_models)==0:
+                filtered_models = replica[filtered_ndx, :, :]
+                filtered_headers += headers
+            else:
+                print(replica[filtered_ndx, :, :])
+                filtered_models = numpy.concatenate([filtered_models, replica[filtered_ndx, :, :]])
+                filtered_headers += headers
+            filtered_total_ndx.extend(numpy.array(filtered_ndx)+i*self.trajectory.coordinates.shape[1])
+        traj = Trajectory(self.trajectory.template, numpy.array([filtered_models]), filtered_headers)
+        return traj, filtered_total_ndx

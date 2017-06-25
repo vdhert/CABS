@@ -223,7 +223,7 @@ class Job:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        tra, flt_inds = Filter(trajectory).filter()
+        tra, flt_inds = Filter(trajectory).cabs_filter()
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
         self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
