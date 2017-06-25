@@ -44,7 +44,6 @@ class Filter(object):
                 filtered_models = replica[filtered_ndx, :, :]
                 filtered_headers += headers
             else:
-                print(replica[filtered_ndx, :, :])
                 filtered_models = numpy.concatenate([filtered_models, replica[filtered_ndx, :, :]])
                 filtered_headers += headers
             filtered_total_ndx.extend(numpy.array(filtered_ndx)+i*self.trajectory.coordinates.shape[1])
