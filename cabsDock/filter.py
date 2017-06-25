@@ -36,6 +36,7 @@ class Filter(object):
         filtered_models = []
         filtered_headers = []
         filtered_total_ndx = []
+        
         for i, replica in enumerate(self.trajectory.coordinates):
             energies = [header.get_energy() for header in self.trajectory.headers if header.replica == i+1]
             headers = [header for header in self.trajectory.headers if header.replica == i+1]
