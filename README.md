@@ -4,7 +4,7 @@ This is a repository for CABS-dock standalone application for protein-peptide mo
 
 ### General information on CABS-dock pipeline ###
 
-**CABS-dock** pipeline consist of the three following modules:
+CABS-dock pipeline consist of the three following modules:
 
 * **Simulation module** – performs docking simulations using peptide sequence, protein structure and set of parameters as an input. With default settings the module outputs a set of 10’000 of models (10 trajectories consisting of 1000 models) in C-alpha representation.
 
