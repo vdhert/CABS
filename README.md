@@ -6,7 +6,7 @@ This is a repository for CABS-dock standalone application for protein-peptide mo
 
 CABS-dock method was made available as a web server in 2015 (see [Nucleic Acids Research 43:W419-W424, 2015](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)) available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/). Since that, the CABS-dock has been described in: 
 
-* [Methods 93:72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207) - includes CABS-dock tutorial on visualization of docking results using VMD
+* [Methods 93:72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207) - includes CABS-dock web server tutorial on visualization of docking results using VMD
 * [Scientific Reports, 6:37532, 2016](https://www.nature.com/articles/srep37532) - describes modeling with large structural changes of protein receptor structure.
 * [Methods in Molecular Biology, 1561:69-94, 2017](https://link.springer.com/protocol/10.1007%2F978-1-4939-6798-8_6) - includes tutorial on contact maps
 
