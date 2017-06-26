@@ -1,4 +1,4 @@
-![cabsdock-logo.jpg](https://bitbucket.org/repo/Bgk4jed/images/898718971-cabsdock-logo.jpg)
+![cabsdock-logo.jpg](https://bitbucket.org/repo/Bgk4jed/images/2490074473-cabsdock-logo.jpg)
 # README #
 This is a repository for CABS-dock standalone application for protein-peptide molecular docking. CABS-dock enables protein-peptide docking with significant flexibility of protein receptor structure.
 
