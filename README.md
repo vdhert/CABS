@@ -4,6 +4,8 @@ This is a repository for CABS-dock standalone application for protein-peptide mo
 
 ### General information on CABS-dock method ###
 
+CABS-dock method was made available in 2015 as a web server (see [Nucleic Acids Research, 43(W1): W419-W424](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)) available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
+
 CABS-dock pipeline consist of the three following modules:
 
 * Simulation module – performs docking simulations using peptide sequence, protein structure and set of parameters as an input. With default settings the module outputs a set of 10’000 of models (10 trajectories consisting of 1000 models) in C-alpha representation.
