@@ -9,7 +9,7 @@ from os.path import exists, isdir, join, abspath
 from time import sleep
 
 #from cabsDock.ca2all import ca2all
-from cabsDock.ca2all import ca2all
+#~ from cabsDock.ca2all import ca2all
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
@@ -17,6 +17,8 @@ from cabs import CabsRun
 from utils import ProgressBar
 from utils import kmedoids
 from utils import SCModeler
+from utils import plot_E_rmsds
+from utils import plot_rmsd_N
 from utils import check_peptide_sequence
 from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
@@ -214,7 +216,7 @@ class Job:
                     self.config['native_peptide_chain']
                 )
             )
-            trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
+            rmslst = trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
                                       native_receptor_chain=self.config['native_receptor_chain'],
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
@@ -224,7 +226,17 @@ class Job:
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         tra, flt_inds = Filter(trajectory).filter()
-
+        if self.config['native_pdb']:
+            plot_E_rmsds(   [trajectory, tra],
+                            [rmslst, rmslst[flt_inds,]],
+                            ['energy1','energy2'],
+                            self.config['work_dir'] + '/Ermsd')
+            plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
+                            self.config['work_dir'] + '/RMSDn')
+            quit()
+        #~ import imp
+        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+        #~ pdbx.set_trace()
         #~ import pickle
         #~ with open('traj.pck', 'w') as f:
             #~ pickle.dump(trajectory, f)
@@ -242,8 +254,8 @@ class Job:
         tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
         #Saving top 10 models in AA representation:
         pdb_medoids = medoids.to_pdb()
-        for i, file in enumerate(pdb_medoids):
-            ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
+        #~ for i, file in enumerate(pdb_medoids):
+            #~ ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
 
         # dictionary holding results to be returned for use in the Benchmark class
         #~ rmsds = [header.rmsd for header in medoids.headers ]
@@ -260,10 +272,6 @@ class Job:
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
         scmodeler = SCModeler(self.initial_complex)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
-
-        #~ import imp
-        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
-        #~ pdbx.set_trace()
 
         cmapdir = self.config['work_dir'] + '/contact_maps'
         try: mkdir(cmapdir)
