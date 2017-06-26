@@ -8,7 +8,7 @@ CABS-dock method was made available as a web server in 2015 (see [Nucleic Acids 
 
 * [Methods 93:72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207) - includes CABS-dock web server tutorial on visualization of docking results using VMD
 * [Scientific Reports, 6:37532, 2016](https://www.nature.com/articles/srep37532) - describes modeling with large structural changes of protein receptor structure.
-* [Methods in Molecular Biology, 1561:69-94, 2017](https://link.springer.com/protocol/10.1007%2F978-1-4939-6798-8_6) - includes tutorial on contact maps
+* [Methods in Molecular Biology, 1561:69-94, 2017](https://link.springer.com/protocol/10.1007%2F978-1-4939-6798-8_6) - includes tutorial on contact maps using CABS-dock web server
 
 CABS-dock pipeline consist of the three following modules:
 
