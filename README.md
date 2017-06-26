@@ -2,7 +2,7 @@
 This is a repository for CABS-dock standalone application for protein-peptide molecular docking. CABS-dock enables protein-peptide docking with significant flexibility of protein receptor structure.
 
 
-### General information on CABS-dock method ###
+### Literature and general information on CABS-dock method ###
 
 CABS-dock method was made available as a web server in 2015 (see [Nucleic Acids Research 43:W419-W424, 2015](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)) available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/). Since that, the CABS-dock has been described in: 
 
