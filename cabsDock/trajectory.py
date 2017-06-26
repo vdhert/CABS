@@ -296,10 +296,13 @@ class Trajectory(object):
                 ]
         return out
 
+    def rmsf(self, chains = ''):
+        mdls = self.select('chain ' + ','.join(chains))
+        mdl_lth = len(mdls.template)
+        mdls_crds = numpy.stack(mdls.coordinates.reshape(-1, mdl_lth, 3), axis=1)
+        avg = [ numpy.mean(rsd, axis=0) for rsd in mdls_crds ]
+        return [numpy.mean([numpy.linalg.norm(avg[i] - case) for case in rsd]) for i, rsd in enumerate(mdls_crds)]
+
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('CABS/TRAF', 'CABS/SEQ')
-    from pdb import Pdb
-    target = Pdb(pdb_code='1rjk').atoms.select('name CA and chain A')
-    tra.align_to(target, 'chain A, B')
-    traf = tra.select('chain B, D')
-    traf.to_atoms().save_to_pdb('dupa.pdb')
+    tra = Trajectory.read_trajectory('./TRAF', './SEQ')
+    print tra.rmsf(chains='A')
