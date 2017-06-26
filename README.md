@@ -4,7 +4,10 @@ This is a repository for CABS-dock standalone application for protein-peptide mo
 
 ### General information on CABS-dock method ###
 
-CABS-dock method was made available as a web server in 2015 (see [Nucleic Acids Research paper](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)) available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/). Since that, the CABS-dock has been described in [Methods (including tutorial on visualization of docking results using VMD)](http://www.sciencedirect.com/science/article/pii/S1046202315300207), [Methods in Molecular Biology (including tutorial on contact maps)](https://link.springer.com/protocol/10.1007%2F978-1-4939-6798-8_6) and [Scientific Reports (modeling with large structural changes of protein receptor structure](https://www.nature.com/articles/srep37532).
+CABS-dock method was made available as a web server in 2015 (see [Nucleic Acids Research paper](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)) available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/). Since that, the CABS-dock has been described in 
+*[Methods (including tutorial on visualization of docking results using VMD)](http://www.sciencedirect.com/science/article/pii/S1046202315300207), 
+*[Methods in Molecular Biology (including tutorial on contact maps)](https://link.springer.com/protocol/10.1007%2F978-1-4939-6798-8_6) 
+*[Scientific Reports (modeling with large structural changes of protein receptor structure](https://www.nature.com/articles/srep37532).
 
 CABS-dock pipeline consist of the three following modules:
 
