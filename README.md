@@ -2,7 +2,7 @@
 This is a repository for CABS-dock standalone application for protein-peptide molecular docking. CABS-dock enables protein-peptide docking with significant flexibility of protein receptor structure.
 
 
-### General information on CABS-dock pipeline ###
+### General information on CABS-dock method ###
 
 CABS-dock pipeline consist of the three following modules:
 
