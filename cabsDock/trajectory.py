@@ -297,12 +297,21 @@ class Trajectory(object):
         return out
 
     def rmsf(self, chains = ''):
+        #fix align to self
         mdls = self.select('chain ' + ','.join(chains))
+        mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)
         mdls_crds = numpy.stack(mdls.coordinates.reshape(-1, mdl_lth, 3), axis=1)
         avg = [ numpy.mean(rsd, axis=0) for rsd in mdls_crds ]
         return [numpy.mean([numpy.linalg.norm(avg[i] - case) for case in rsd]) for i, rsd in enumerate(mdls_crds)]
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('./TRAF', './SEQ')
-    print tra.rmsf(chains='A')
+    tra = Trajectory.read_trajectory('/Users/maciek/Desktop/1dkx/TRAF', '/Users/maciek/Desktop/1dkx/SEQ')
+    tra.coordinates = tra.coordinates[0:1]
+    print(tra.coordinates.shape)
+    tra.to_pdb(name='blagh.pdb', mode='replicas', to_dir='/Users/maciek/Desktop')
+    rmsf=tra.rmsf(chains='A')
+    print numpy.mean(rmsf)
+    from matplotlib import pyplot
+    pyplot.plot(rmsf)
+    pyplot.show()
