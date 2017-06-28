@@ -52,9 +52,9 @@ class Benchmark(object):
     def __iter__(self):
         return self.cases.__iter__()
 
-    def bench_set(self):
+    def bench_set(self, test = False):
         for element in self.cases:
-            element.setup_case(test=True)
+            element.setup_case(test)
 
     def bench_run(self, parallel=False):
         if parallel:
@@ -286,6 +286,7 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
+                               benchmark=True
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -297,6 +298,7 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
+                               benchmark=True
                                )
         except Exception as errr:
             print(

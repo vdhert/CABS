@@ -146,7 +146,8 @@ class Job:
             'fortran_compiler': ('gfortran', '-O2'),  # build (command, flags)
             'filtering': 1000,  # number of models to filter
             'clustering': (10, 100),  # number of clusters, iterations
-            'native_pdb': None
+            'native_pdb': None,
+            'benchmark': False
         }
 
         self.config = Config(defaults)
@@ -225,6 +226,7 @@ class Job:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+
         tra, flt_inds = Filter(trajectory).filter()
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
@@ -254,20 +256,22 @@ class Job:
         tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
         #Saving top 10 models in AA representation:
         pdb_medoids = medoids.to_pdb()
-        #~ for i, file in enumerate(pdb_medoids):
-            #~ ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
 
-        # dictionary holding results to be returned for use in the Benchmark class
-        #~ rmsds = [header.rmsd for header in medoids.headers ]
-        #~ results = {}
-        #~ results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-        #~ results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-        #~ results['rmsds_10'] = rmsds
-        #~ results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-        #~ results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-        #~ results['lowest_10'] = sorted(results['rmsds_10'])[0]
-        #~ print('... done.')
-        #~ return results
+        for i, file in enumerate(pdb_medoids):
+            ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
+        # dictionary holding results to be returned for use in the Benchmark class.
+        # Not returned by deafault unless self.config['benchmark'] == True.
+        if self.config['benchmark']:
+            rmsds = [header.rmsd for header in medoids.headers ]
+            results = {}
+            results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+            results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+            results['rmsds_10'] = rmsds
+            results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+            results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+            results['lowest_10'] = sorted(results['rmsds_10'])[0]
+            print('... done.')
+            return results
 
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
         scmodeler = SCModeler(self.initial_complex)
