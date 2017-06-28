@@ -8,8 +8,7 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
-#from cabsDock.ca2all import ca2all
-#~ from cabsDock.ca2all import ca2all
+from cabsDock.ca2all import ca2all
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
@@ -235,7 +234,6 @@ class Job:
                             self.config['work_dir'] + '/Ermsd')
             plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
                             self.config['work_dir'] + '/RMSDn')
-            quit()
         #~ import imp
         #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
         #~ pdbx.set_trace()
