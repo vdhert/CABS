@@ -1,10 +1,8 @@
-from job import Job
+import argparse
 
 
 def run_job():
-    job_args = {}
-    j = Job(**job_args)
-    j.run_job()
+    print 'Zonk'
 
 if __name__ == '__main__':
     run_job()
