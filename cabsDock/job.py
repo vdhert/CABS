@@ -6,7 +6,7 @@ import re
 import operator
 from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
-from time import sleep
+from time import sleep, time
 
 #from cabsDock.ca2all import ca2all
 #~ from cabsDock.ca2all import ca2all
@@ -274,28 +274,43 @@ class Job:
             return results
 
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
+        stime = time()
         scmodeler = SCModeler(self.initial_complex)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+
+        print 'traj conversion and filtering', time() - stime
 
         cmapdir = self.config['work_dir'] + '/contact_maps'
         try: mkdir(cmapdir)
         except OSError: pass
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
+
+        targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        print 'cmfactory creation', time() - stime
+        cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
+        cmap10ktarg.save_all(cmapdir + '/target_all')
+
+        print 'target cmap', time() - stime
+
         for lig, cmf in cmfs.items():
+            print 'lig',lig
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
             cmap10k.save_histo(self.config['work_dir'] + '/all_contacts_histo_%s' % lig)
-            sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+            print 'all %s cmaps' % lig, time() - stime
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            print 'top %s cmaps' % lig, time() - stime
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+            print 'clusts %s cmaps' % lig, time() - stime
 
 if __name__ == '__main__':
     j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',

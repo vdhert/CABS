@@ -103,16 +103,13 @@ class ContactMap(object):
 
     def save_png(self, fname):
         fig, sfig = matplotlib.pyplot.subplots(1)
-        #~ fig = matplotlib.pyplot.figure(figsize=(20, 20))
-        #~ sfig = fig.add_subplot(111)
 
         sfig.matshow(
             self.cmtx.T,
             cmap=matplotlib.pyplot.cm.Oranges,
-            vmin=0.,
-            vmax=self.n
+            #~ vmin=0.,     #for normalization over n of frames -- uncommend
+            #~ vmax=self.n  #
             )
-        print numpy.max(self.cmtx), numpy.min(self.cmtx), numpy.max(self.cmtx/ float(self.n)), numpy.min(self.cmtx/ float(self.n))
         sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.tick_params(axis='both', which='major', labelsize=6)
