@@ -851,7 +851,7 @@ def plot_E_rmsds(trajectories, rmsds, labels, fname):
         sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
     fig.get_axes()[-1].set_xlabel('RMSD')
     matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname, dpi=1200)
+    matplotlib.pyplot.savefig(fname + '.svg', format='svg')
     matplotlib.pyplot.close(fig)
 
 def plot_rmsd_N(rmsds, fname):
@@ -862,5 +862,34 @@ def plot_rmsd_N(rmsds, fname):
         fig.get_axes()[0].set_xlabel('frame')
         fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '_replica_%i' % n, dpi=1200)
+        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.svg', format='svg')
         matplotlib.pyplot.close(fig)
+
+def _chunk_lst(lst, sl_len):
+    slists = []
+    while lst != []:
+        slists.append(lst[:sl_len])
+        lst = lst[sl_len:]
+    return slists
+
+def mk_histos_series(series, labels, fname, mpl_args={}):
+    """
+    Arguments:
+    series -- list of sequences of data to be plotted.
+    labels -- corresponding ticks labels.
+    """
+    fig, sfigarr = matplotlib.pyplot.subplots(len(series))
+
+    get_xloc = lambda x: [.5 * i for i in range(len(x))]
+
+    fig.set_figheight(len(series))
+
+    for n, (vls, ticks) in enumerate(zip(series, labels)):
+        xloc = get_xloc(ticks)
+        sfigarr[n].bar(xloc, vls, width=.45, color='orange')
+        sfigarr[n].set_xticks(xloc)
+        sfigarr[n].set_xticklabels(ticks)
+
+    matplotlib.pyplot.tight_layout()
+    matplotlib.pyplot.savefig(fname + '.svg', format='svg')
+    matplotlib.pyplot.close(fig)

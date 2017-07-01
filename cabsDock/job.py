@@ -20,6 +20,8 @@ from utils import SCModeler
 from utils import plot_E_rmsds
 from utils import plot_rmsd_N
 from utils import check_peptide_sequence
+from utils import _chunk_lst
+from utils import mk_histos_series
 from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
 from cabsDock.cmap import ContactMap
@@ -228,6 +230,9 @@ class Job:
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
 
         tra, flt_inds = Filter(trajectory).filter()
+        rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
+        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15)
+        mk_histos_series(rmsf_vals, lbls, 'RMSF_target')
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],

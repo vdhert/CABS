@@ -21,7 +21,9 @@ class Filter(object):
         return traj, filtered_ndx
 
     @staticmethod
-    def mdl_fltr(mdls, enrgs, N):
+    def mdl_fltr(mdls, enrgs, N=None):
+        if N is None:
+            N = len(mdls)
         low_energy_ndxs = numpy.argsort(enrgs)
         if len(mdls) <= N:
             filtered_ndx = low_energy_ndxs
