@@ -8,8 +8,7 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep, time
 
-#from cabsDock.ca2all import ca2all
-#~ from cabsDock.ca2all import ca2all
+from cabsDock.ca2all import ca2all
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
@@ -228,8 +227,10 @@ class Job:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        #energy fix
+        number_of_peptides = len(self.initial_complex.ligand_chains)
+        tra, flt_inds = Filter(trajectory).cabs_filter(npept=number_of_peptides)
 
-        tra, flt_inds = Filter(trajectory).filter()
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
         lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15)
         mk_histos_series(rmsf_vals, lbls, 'RMSF_target')
