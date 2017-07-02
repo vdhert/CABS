@@ -6,7 +6,10 @@ import numpy as np
 
 from atom import Atom, Atoms
 from pdb import Pdb
-from utils import ranges, kabsch, ProgressBar
+from utils import ranges
+from utils import kabsch
+from utils import ProgressBar
+from utils import aa_to_short
 import warnings
 
 __all__ = ['Trajectory', 'Header']
@@ -230,31 +233,45 @@ class Trajectory(object):
         :return: np.array
         """
 
+        target_selection = 'name CA and not HETERO and chain ' + ','.join(native_receptor_chain)
+        pdb = Pdb(pdb_code=native_pdb[:4])
+        native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
+        nat_pept = numpy.array(pdb.atoms.remove_alternative_locations().select("name CA and not HETERO and chain " + native_peptide_chain).models()[0].to_matrix())
+
+        return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
+
+        #~ self.align_to(native, target_selection)
+        #~ models_peptide_traj = self.select("chain " + model_peptide_chain)
+        #~ peptide_length = len(models_peptide_traj.template)
+        #~ models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
+        #~ # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
+        #~ # should return numpy.array instead.
+        #~ native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
+            #~ "name CA and not HETERO and chain " + native_peptide_chain
+        #~ ).models()[0].to_matrix())
+        #~ result = np.zeros(
+            #~ (len(models_peptide))
+        #~ )
+        #~ for i, h in zip(range(len(models_peptide)), self.headers):
+            #~ result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
+            #~ h.rmsd = result[i]
+        #~ self.coordinates.reshape(shape)
+        #~ print('... done.')
+        #~ return result
+
+    def rmsd_to_given(self, structure, peptide, pept_chain):
+
         def rmsd(m1, m2, length):
             return np.sqrt(np.sum((m1 - m2) ** 2) / length)
 
-        target_selection = 'name CA and not HETERO'
-        target_selection += ' and chain ' + ','.join(native_receptor_chain)
-        pdb = Pdb(pdb_code=native_pdb[:4])
-        native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
-        shape = self.coordinates.shape
-        self.align_to(native, target_selection)
-        models_peptide_traj = self.select("chain " + model_peptide_chain)
+        self.align_to(structure)
+        models_peptide_traj = self.select("chain " + pept_chain)
         peptide_length = len(models_peptide_traj.template)
         models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
-        # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
-        # should return numpy.array instead.
-        native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
-            "name CA and not HETERO and chain " + native_peptide_chain
-        ).models()[0].to_matrix())
-        result = np.zeros(
-            (len(models_peptide))
-        )
+        result = np.zeros(len(models_peptide))
         for i, h in zip(range(len(models_peptide)), self.headers):
-            result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
+            result[i] = rmsd(models_peptide[i], peptide, peptide_length)
             h.rmsd = result[i]
-        self.coordinates.reshape(shape)
-        print('... done.')
         return result
 
     def get_model(self, model):

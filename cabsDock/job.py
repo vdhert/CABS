@@ -8,7 +8,7 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep
 
-from cabsDock.ca2all import ca2all
+#~ from cabsDock.ca2all import ca2all
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
