@@ -311,7 +311,6 @@ class Trajectory(object):
         return out
 
     def rmsf(self, chains = ''):
-        #fix align to self
         mdls = self.select('chain ' + ','.join(chains))
         mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)
