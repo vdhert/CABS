@@ -5,6 +5,8 @@ from sys import stderr
 from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
+import matplotlib.pyplot
+from matplotlib.ticker import MaxNLocator
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
@@ -839,3 +841,26 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
+def plot_E_rmsds(trajectories, rmsds, labels, fname):
+    fig, sfigarr = matplotlib.pyplot.subplots(3)
+    for i, lab in zip((0, 1), labels):    #i is the energy mtx c and r and subplot ind at the same time
+        for traj, rmsd_list in zip(trajectories, rmsds):
+            sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
+        sfigarr[i].set_ylabel(lab)
+    for traj, rmsd_list in zip(trajectories, rmsds):
+        sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
+    fig.get_axes()[-1].set_xlabel('RMSD')
+    matplotlib.pyplot.tight_layout()
+    matplotlib.pyplot.savefig(fname, dpi=1200)
+    matplotlib.pyplot.close(fig)
+
+def plot_rmsd_N(rmsds, fname):
+    for n, rmsd_lst in enumerate(rmsds):
+        fig, sfig = matplotlib.pyplot.subplots(1)
+        sfig.scatter(range(len(rmsd_lst)), rmsd_lst)
+        fig.get_axes()[0].set_ylabel('RMSD')
+        fig.get_axes()[0].set_xlabel('frame')
+        fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
+        matplotlib.pyplot.tight_layout()
+        matplotlib.pyplot.savefig(fname + '_replica_%i' % n, dpi=1200)
+        matplotlib.pyplot.close(fig)

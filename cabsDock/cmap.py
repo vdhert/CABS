@@ -107,9 +107,12 @@ class ContactMap(object):
         #~ sfig = fig.add_subplot(111)
 
         sfig.matshow(
-            self.cmtx.T / float(self.n),
-            cmap=matplotlib.pyplot.cm.Oranges
+            self.cmtx.T,
+            cmap=matplotlib.pyplot.cm.Oranges,
+            vmin=0.,
+            vmax=self.n
             )
+        print numpy.max(self.cmtx), numpy.min(self.cmtx), numpy.max(self.cmtx/ float(self.n)), numpy.min(self.cmtx/ float(self.n))
         sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.tick_params(axis='both', which='major', labelsize=6)
