@@ -228,8 +228,9 @@ class Job:
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         #energy fix
-        number_of_peptides = len(self.initial_complex.ligand_chains)
-        tra, flt_inds = Filter(trajectory).cabs_filter(npept=number_of_peptides)
+        trajectory.number_of_peptides = len(self.initial_complex.ligand_chains)
+        tra, flt_inds = Filter(trajectory).cabs_filter()
+        tra.number_of_peptides = len(self.initial_complex.ligand_chains)
 
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
         lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15)
@@ -319,9 +320,11 @@ class Job:
             print 'clusts %s cmaps' % lig, time() - stime
 
 if __name__ == '__main__':
-    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=20, mc_steps=1, replicas=2, native_pdb='1jbu',
                                native_receptor_chain='H',
-                               native_peptide_chain='X')
+                               native_peptide_chain='X',
+            work_dir='1jbu:H'
+            )
     print j.run_job()
     # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
     # j.run_job()

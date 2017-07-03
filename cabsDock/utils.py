@@ -845,7 +845,7 @@ def plot_E_rmsds(trajectories, rmsds, labels, fname):
     fig, sfigarr = matplotlib.pyplot.subplots(3)
     for i, lab in zip((0, 1), labels):    #i is the energy mtx c and r and subplot ind at the same time
         for traj, rmsd_list in zip(trajectories, rmsds):
-            sfigarr[i].scatter(rmsd_list, [h.get_ for h in traj.headers])
+            sfigarr[i].scatter(rmsd_list, [h.get_energy(number_of_peptides=traj.number_of_peptides) for h in traj.headers])
             # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
         sfigarr[i].set_ylabel(lab)
     for traj, rmsd_list in zip(trajectories, rmsds):
