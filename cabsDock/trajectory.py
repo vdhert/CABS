@@ -9,7 +9,7 @@ from pdb import Pdb
 from utils import ranges
 from utils import kabsch
 from utils import ProgressBar
-from utils import aa_to_short
+from align import AbstractAlignMethod
 import warnings
 
 __all__ = ['Trajectory', 'Header']
@@ -254,25 +254,6 @@ class Trajectory(object):
 
         return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
 
-        #~ self.align_to(native, target_selection)
-        #~ models_peptide_traj = self.select("chain " + model_peptide_chain)
-        #~ peptide_length = len(models_peptide_traj.template)
-        #~ models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
-        #~ # TO BE FIXED: cabsDock.atoms.to_matrix() method returns numpy.matrix, for consistency
-        #~ # should return numpy.array instead.
-        #~ native_peptide = numpy.array(pdb.atoms.remove_alternative_locations().select(
-            #~ "name CA and not HETERO and chain " + native_peptide_chain
-        #~ ).models()[0].to_matrix())
-        #~ result = np.zeros(
-            #~ (len(models_peptide))
-        #~ )
-        #~ for i, h in zip(range(len(models_peptide)), self.headers):
-            #~ result[i] = rmsd(models_peptide[i], native_peptide, peptide_length)
-            #~ h.rmsd = result[i]
-        #~ self.coordinates.reshape(shape)
-        #~ print('... done.')
-        #~ return result
-
     def rmsd_to_given(self, structure, peptide, pept_chain):
 
         def rmsd(m1, m2, length):
@@ -287,6 +268,23 @@ class Trajectory(object):
             result[i] = rmsd(models_peptide[i], peptide, peptide_length)
             h.rmsd = result[i]
         return result
+
+    def rmsd_to_reference(self, ref_pdb, pept_chain, align_mth='trivial'):
+        mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
+        # aligning peptide
+        temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
+        ref_stc = Pdb(pdb_file=ref_pdb)
+        ref_pept_mers, temp_pept_mers = zip(*mth.execute(ref_stc, temp_pept, True))
+
+        # choosing remaining chains but the one aligned with peptide
+        chs = set([i.chid for i in ref_pept_mers])
+        if len(chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
+        ref_pept_chid = max(chs)
+        ref_target = ref_stc.atoms.select('not chain %s' % ref_pept_chid)
+
+        # aligning target to reference not-peptide
+        ref_target_mers, temp_target_mers = zip(*mth.execute(ref_stc, self.template.select('name CA and not HETERO and not chain %s' % pept_chain)))
+        return self.rmsd_to_given(Atoms(arg=list(ref_target_mers)), numpy.array(Atoms(arg=list(ref_pept_mers)).to_matrix()), pept_chain)
 
     def get_model(self, model):
         """
