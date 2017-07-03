@@ -225,8 +225,10 @@ class Job:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        #energy fix
+        number_of_peptides = len(self.initial_complex.ligand_chains)
+        tra, flt_inds = Filter(trajectory).cabs_filter(npept=number_of_peptides)
 
-        tra, flt_inds = Filter(trajectory).filter()
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],

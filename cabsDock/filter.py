@@ -29,7 +29,8 @@ class Filter(object):
             filtered_ndx = low_energy_ndxs[:N]
         return filtered_ndx
 
-    def cabs_filter(self):
+    def cabs_filter(self, npept = None):
+        #npept fixes energy calculations
         n_replicas = self.trajectory.coordinates.shape[0]
         n_models = self.trajectory.coordinates.shape[1]
         fromeach = int(self.N / n_replicas)
@@ -38,7 +39,7 @@ class Filter(object):
         filtered_total_ndx = []
         
         for i, replica in enumerate(self.trajectory.coordinates):
-            energies = [header.get_energy() for header in self.trajectory.headers if header.replica == i+1]
+            energies = [header.get_energy(number_of_peptides=npept) for header in self.trajectory.headers if header.replica == i+1]
             headers = [header for header in self.trajectory.headers if header.replica == i+1]
             filtered_ndx = self.mdl_fltr(replica, energies, fromeach)
             if len(filtered_models)==0:
