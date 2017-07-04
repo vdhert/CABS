@@ -8,7 +8,7 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
 from time import sleep, time
 
-from cabsDock.ca2all import ca2all
+
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
@@ -149,6 +149,8 @@ class Job:
             'clustering': (10, 100),  # number of clusters, iterations
             'native_pdb': None,
             'benchmark': False
+            'AA_rebuild': True
+            'contact_maps': True
         }
 
         self.config = Config(defaults)
@@ -258,7 +260,9 @@ class Job:
             #~ pickle.dump(clusters, f)
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-        #self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
+
+        if self.config['contact_maps']:
+            self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
 
         #Saving the trajectory to PDBs:
         trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
@@ -269,9 +273,10 @@ class Job:
         #Saving clusters in CA representation
         for i, cluster in enumerate(clusters):
             cluster.to_pdb(mode='replicas', to_dir=work_dir, name='cluster_{0}'.format(i))
-
-        for i, file in enumerate(pdb_medoids):
-            ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
+        if self.config['AA_rebuild']:
+            from cabsDock.ca2all import ca2all
+            for i, file in enumerate(pdb_medoids):
+                ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
         # dictionary holding results to be returned for use in the Benchmark class.
         # Not returned by deafault unless self.config['benchmark'] == True.
         if self.config['benchmark']:

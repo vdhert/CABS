@@ -286,7 +286,9 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               benchmark=True
+                               benchmark=True,
+                               contact_maps=False,
+                               AA_rebuild=False
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -298,7 +300,9 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               benchmark=True
+                               benchmark=True,
+                               contact_maps=False,
+                               AA_rebuild=False
                                )
         except Exception as errr:
             print(
