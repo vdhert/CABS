@@ -105,10 +105,20 @@ class Cluster(Trajectory):
         super(Cluster, self).__init__(template, coordinates, headers)
         self.score = self.get_score()
 
-    def get_score(self):
-        # standard CABSdock cluster scoring based on the cluster density.
-        if self.coordinates.shape[1]>1:
-            score = self.coordinates.shape[1] / numpy.max(self.rmsd_matrix())
+    def get_score(self, method='density'):
+        def density(cluster, mode='standard'):
+            modes={
+                'standard':numpy.max,
+                'stdev':numpy.std,
+                }
+            return cluster.coordinates.shape[1] / modes[mode](cluster.rmsd_matrix())
+
+        methods = {
+            'density':density
+            }
+
+        if self.coordinates.shape[1]==1:
+            score = 0
         else:
-            score = 0 # One-element clusters are assigned 0 score.
+            score = methods[method](self, mode='standard')
         return score

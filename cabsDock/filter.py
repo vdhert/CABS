@@ -25,8 +25,6 @@ class Filter(object):
         if N is None:
             N = len(mdls)
         low_energy_ndxs = numpy.argsort(enrgs)
-        # print(enrgs)
-        # print(numpy.array(enrgs)[low_energy_ndxs])
         if len(mdls) <= N:
             filtered_ndx = low_energy_ndxs
         else:
@@ -55,11 +53,3 @@ class Filter(object):
         traj = Trajectory(self.trajectory.template, numpy.array([filtered_models]), filtered_headers)
         return traj, filtered_total_ndx
 
-
-# mdls = numpy.zeros(10)
-# enrgs = numpy.arange(-10,10)
-# print enrgs
-# numpy.random.shuffle(enrgs)
-# print enrgs
-# ndx = Filter.mdl_fltr(mdls,enrgs,N=3)
-# print(enrgs[ndx])

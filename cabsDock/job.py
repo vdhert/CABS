@@ -238,7 +238,7 @@ class Job:
 
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
         lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15)
-        mk_histos_series(rmsf_vals, lbls, 'RMSF_target')
+        mk_histos_series(rmsf_vals, lbls, self.config['work_dir']+'/RMSF_target')
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],

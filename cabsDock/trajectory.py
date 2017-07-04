@@ -324,12 +324,4 @@ class Trajectory(object):
         return [numpy.mean([numpy.linalg.norm(avg[i] - case) for case in rsd]) for i, rsd in enumerate(mdls_crds)]
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('/Users/maciek/Desktop/1dkx/TRAF', '/Users/maciek/Desktop/1dkx/SEQ')
-    tra.coordinates = tra.coordinates[0:1]
-    print(tra.coordinates.shape)
-    tra.to_pdb(name='blagh.pdb', mode='replicas', to_dir='/Users/maciek/Desktop')
-    rmsf=tra.rmsf(chains='A')
-    print numpy.mean(rmsf)
-    from matplotlib import pyplot
-    pyplot.plot(rmsf)
-    pyplot.show()
+    pass
