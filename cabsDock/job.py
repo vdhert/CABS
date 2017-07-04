@@ -178,13 +178,14 @@ class Job:
             mkdir(work_dir)
 
     def run_job(self):
+        stime = time()
         work_dir = self.config['work_dir']
         print('CABS-docking job {0}'.format(self.config['receptor']))
         # prepare initial complex
         # noinspection PyAttributeOutsideInit
         print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-        print(' ... done.')
+        print(' ... done in {0} s'.format(time() - stime))
         # generate restraints
         # noinspection PyAttributeOutsideInit
         self.restraints = \
@@ -196,6 +197,7 @@ class Job:
         self.restraints += add_restraints.update_id(self.initial_complex.new_ids)
 
         # run cabs
+        stime = time()
         print('CABS simulation starts.')
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
         cabs_run.run()
@@ -205,8 +207,9 @@ class Job:
         #     bar.update(cabs_run.status())
         #     sleep(5)
         # bar.done()
-        print('CABS simuation is DONE.')
+        print('CABS simuation completed in {0} s.'.format(time() - stime))
         if self.config['native_pdb']:
+            stime = time()
             print('Calculating RMSD to the native structure...')
             trajectory = cabs_run.get_trajectory()
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
@@ -223,6 +226,7 @@ class Job:
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
+            print('completed in {0} s.'.format(time() - stime))
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
@@ -254,7 +258,7 @@ class Job:
             #~ pickle.dump(clusters, f)
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-        self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
+        #self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
 
         #Saving the trajectory to PDBs:
         trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
@@ -262,6 +266,9 @@ class Job:
         tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
         #Saving top 10 models in AA representation:
         pdb_medoids = medoids.to_pdb()
+        #Saving clusters in CA representation
+        for i, cluster in enumerate(clusters):
+            cluster.to_pdb(mode='replicas', to_dir=work_dir, name='cluster_{0}'.format(i))
 
         for i, file in enumerate(pdb_medoids):
             ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
