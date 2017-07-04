@@ -180,7 +180,8 @@ c       for larger distances energy grows in alinear fashion
 3009    FORMAT(A3,4F6.2)
         CLOSE(29)
 
-        READ(5,*) RANDOM, NCYCLE, PHOT, REPLICAS, MOLS
+	READ(5,*) RANDOM
+        READ(5,*) NANNEAL, NCYCLE, PHOT, REPLICAS, MOLS
         READ(5,*) ATEMP2, ATEMP1, EREP, ARLLO, DTEM
         READ(5,*) ESC_0, ARLO, ENONE, EHBOND, ASRO
 
@@ -941,12 +942,12 @@ c	twenty temperatures for the annealing - setting
 c	atemp2=atemp1 reduces program to a more standard REMC
 c	dtem1 -annealing increment
         
-        dtem1 = (atemp2 - atemp1) / 20.
+        dtem1 = (atemp2 - atemp1) / nanneal
 c	dtem distance between replicas
 c	dtem read from INP
         aatemp2 = atemp2
 
-        DO IDDDUM=1,20
+        DO IDDDUM = 1, nanneal
         
         aatemp1 = aatemp2 - dtem1
         atemp = aatemp1
