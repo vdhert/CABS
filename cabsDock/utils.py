@@ -841,10 +841,12 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
-def plot_E_rmsds(trajectories, rmsds, labels, fname):
+def plot_E_rmsds(trajectories, rmsds, labels, fname, _format='png'):
     fig, sfigarr = matplotlib.pyplot.subplots(3)
     for i, lab in zip((0, 1), labels):    #i is the energy mtx c and r and subplot ind at the same time
         for traj, rmsd_list in zip(trajectories, rmsds):
+            print(len(rmsd_list))
+            print(len([h for h in traj.headers]))
             sfigarr[i].scatter(rmsd_list, [h.get_energy(number_of_peptides=traj.number_of_peptides) for h in traj.headers])
             # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
         sfigarr[i].set_ylabel(lab)
@@ -852,10 +854,10 @@ def plot_E_rmsds(trajectories, rmsds, labels, fname):
         sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
     fig.get_axes()[-1].set_xlabel('RMSD')
     matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname + '.svg', format='svg')
+    matplotlib.pyplot.savefig(fname + '.'+_format, format=_format)
     matplotlib.pyplot.close(fig)
 
-def plot_rmsd_N(rmsds, fname):
+def plot_rmsd_N(rmsds, fname, _format='png'):
     for n, rmsd_lst in enumerate(rmsds):
         fig, sfig = matplotlib.pyplot.subplots(1)
         sfig.scatter(range(len(rmsd_lst)), rmsd_lst)
@@ -863,7 +865,7 @@ def plot_rmsd_N(rmsds, fname):
         fig.get_axes()[0].set_xlabel('frame')
         fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.svg', format='svg')
+        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
 
 def _chunk_lst(lst, sl_len):
@@ -873,13 +875,13 @@ def _chunk_lst(lst, sl_len):
         lst = lst[sl_len:]
     return slists
 
-def mk_histos_series(series, labels, fname, mpl_args={}):
+def mk_histos_series(series, labels, fname, mpl_args={}, _format='png'):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
     labels -- corresponding ticks labels.
     """
-    fig, sfigarr = matplotlib.pyplot.subplots(len(series))
+    fig, sfigarr = matplotlib.pyplot.subplots(len(series),1, squeeze=False)
 
     get_xloc = lambda x: [.5 * i for i in range(len(x))]
 
@@ -887,10 +889,10 @@ def mk_histos_series(series, labels, fname, mpl_args={}):
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
-        sfigarr[n].bar(xloc, vls, width=.45, color='orange')
-        sfigarr[n].set_xticks(xloc)
-        sfigarr[n].set_xticklabels(ticks)
+        sfigarr[n,0].bar(xloc, vls, width=.45, color='orange')
+        sfigarr[n,0].set_xticks(xloc)
+        sfigarr[n,0].set_xticklabels(ticks)
 
     matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname + '.svg', format='svg')
+    matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
     matplotlib.pyplot.close(fig)

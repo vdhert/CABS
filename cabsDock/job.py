@@ -229,7 +229,7 @@ class Job:
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         #energy fix
         trajectory.number_of_peptides = len(self.initial_complex.ligand_chains)
-        tra, flt_inds = Filter(trajectory).cabs_filter()
+        tra, flt_inds = Filter(trajectory, N=100).cabs_filter()
         tra.number_of_peptides = len(self.initial_complex.ligand_chains)
 
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
@@ -242,7 +242,6 @@ class Job:
                             self.config['work_dir'] + '/Ermsd')
             plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
                             self.config['work_dir'] + '/RMSDn')
-            quit()
         #~ import imp
         #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
         #~ pdbx.set_trace()

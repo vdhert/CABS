@@ -105,7 +105,7 @@ class ContactMap(object):
     def _fmt_res_name(atom):
         return (atom.chid + str(atom.resnum) + atom.icode).strip()
 
-    def save_fig(self, fname):
+    def save_fig(self, fname, _format = 'png'):
         fig, sfig = matplotlib.pyplot.subplots(1)
 
         sfig.matshow(
@@ -121,7 +121,7 @@ class ContactMap(object):
             fx([''] + [self._fmt_res_name(a) for a in atoms], rotation=deg)
 
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '.svg', format='svg')
+        matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
 
     def save_histo(self, fname):
