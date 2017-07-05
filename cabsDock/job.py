@@ -148,8 +148,8 @@ class Job:
             'filtering': 1000,  # number of models to filter
             'clustering': (10, 100),  # number of clusters, iterations
             'native_pdb': None,
-            'benchmark': False
-            'AA_rebuild': True
+            'benchmark': False,
+            'AA_rebuild': True,
             'contact_maps': True
         }
 
