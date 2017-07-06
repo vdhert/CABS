@@ -57,6 +57,13 @@ class Header:
         return h
 
     def get_energy(self, mode='interaction', number_of_peptides=None):
+        """
+        Calculates chosen energy for given frame.
+        :param mode: string Mode of calculation for further development. Currently supports 'total'
+        for total energy and 'interaction' for protein-peptide interactions.
+        :param number_of_peptides: int the number of peptides in the model.
+        :return: int the energy value.
+        """
         if mode == 'interaction':
             #number_of_peptides fixes energy calculations
             if number_of_peptides is None:
@@ -291,7 +298,9 @@ class Trajectory(object):
         Method for transforming a trajectory instance into a PDB file-like object.
         :param mode:    'models' -- the method returns a list of StringIO objects, each representing one model from the trajectory;
                         'replicas' -- the method returns a list of StringIO objects, each representing one replica from the trajectory.
-        :return: StringIO object
+        :param to_dir:  path to directory in which the PDB files should be saved. If None, only StringIO object is returned.
+        :return:        if to_dir is None: StringIO object
+                        if to_dir is not None: saves file and returns True.
         """
         execution_mode = {'models': (self.coordinates[0], 'model'), 'replicas': (self.coordinates, 'replica')}
         if to_dir:
@@ -316,6 +325,11 @@ class Trajectory(object):
         return out
 
     def rmsf(self, chains = ''):
+        """
+        Calculates the RMSF for each of the residues.
+        :param chains: string chains for which RMSF should be calculated.
+        :return: list of RMSF values.
+        """
         mdls = self.select('chain ' + ','.join(chains))
         mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)

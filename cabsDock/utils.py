@@ -776,48 +776,12 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
-# MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
-def kmedoids(D, k, tmax=100):
-    # determine dimensions of distance matrix D
-    m, n = D.shape
-
-    if k > n:
-        raise Exception('too many medoids')
-    # randomly initialize an array of k medoid indices
-    M = np.arange(n)
-    np.random.shuffle(M)
-    M = np.sort(M[:k])
-
-    # create a copy of the array of medoid indices
-    Mnew = np.copy(M)
-
-    # initialize a dictionary to represent clusters
-    C = {}
-    for t in xrange(tmax):
-        # determine clusters, i. e. arrays of data indices
-        J = np.argmin(D[:, M], axis=1)
-        for kappa in range(k):
-            C[kappa] = np.where(J == kappa)[0]
-        # update cluster medoids
-        for kappa in range(k):
-            J = np.mean(D[np.ix_(C[kappa], C[kappa])], axis=1)
-            j = np.argmin(J)
-            Mnew[kappa] = C[kappa][j]
-        np.sort(Mnew)
-        # check for convergence
-        if np.array_equal(M, Mnew):
-            break
-        M = np.copy(Mnew)
-    else:
-        # final update of cluster memberships
-        J = np.argmin(D[:, M], axis=1)
-        for kappa in range(k):
-            C[kappa] = np.where(J == kappa)[0]
-
-    # return results
-    return M, C
-
 def check_peptide_sequence(sequence):
+    """
+    Checks the peptide sequence for non-standard AAs.
+    :param sequence: string the peptide sequence.
+    :return: True is the sequence does not contain non-standard AAs. Raises error if does.
+    """
     standard_one_letter_residues = AA_NAMES.keys()
     for residue in sequence:
         if residue not in standard_one_letter_residues:
@@ -828,6 +792,12 @@ def check_peptide_sequence(sequence):
 
 
 def fix_residue(residue):
+    """
+    Fixes non-standard AA residues in the receptor.
+    :param residue: string three-letter residue code
+    :return:    if the residue is non-standard the method returns three-letter code of the appropriate substitution.
+                raises exception if the residue is non-standard and there is no substitution available.
+    """
     standard_three_letter_residues = AA_NAMES.values()
     known_non_standard_three_letter_residues = modified_residue_substitute.keys()
     if residue in standard_three_letter_residues:
