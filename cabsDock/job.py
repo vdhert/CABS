@@ -268,28 +268,39 @@ class Job:
         trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
         #Saving top1000 models to PDB:
         tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
-        #Saving top 10 models in AA representation:
-        pdb_medoids = medoids.to_pdb()
+
         #Saving clusters in CA representation
         for i, cluster in enumerate(clusters):
             cluster.to_pdb(mode='replicas', to_dir=work_dir, name='cluster_{0}'.format(i))
+
+        #Saving top10 models:
         if self.config['AA_rebuild']:
+            # Saving top 10 models in AA representation:
+            pdb_medoids = medoids.to_pdb()
             from cabsDock.ca2all import ca2all
             for i, file in enumerate(pdb_medoids):
                 ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
-        # dictionary holding results to be returned for use in the Benchmark class.
+        else:
+            #Saving top 10 models in CA representation:
+            medoids.to_pdb(mode='models', to_dir=work_dir, name='model')
+
+        # dictionary holding results
+        rmsds = [header.rmsd for header in medoids.headers]
+        results = {}
+        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+        results['rmsds_10'] = rmsds
+        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        #Saving rmsd results
+        with open(join(work_dir, 'rmsds.txt'), 'w') as outfile:
+            outfile.write(str(results))
+
         # Not returned by deafault unless self.config['benchmark'] == True.
         if self.config['benchmark']:
-            rmsds = [header.rmsd for header in medoids.headers ]
-            results = {}
-            results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-            results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-            results['rmsds_10'] = rmsds
-            results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-            results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-            results['lowest_10'] = sorted(results['rmsds_10'])[0]
-            print('... done.')
             return results
+
 
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
         stime = time()
