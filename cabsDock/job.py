@@ -234,15 +234,23 @@ class Job:
         tra, flt_inds = Filter(trajectory).filter()
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
         lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
-        mk_histos_series(rmsf_vals, lbls, self.config['work_dir'] + 'RMSF_target')
+
+        pltdir = self.config['work_dir'] + '/plots'
+        try: mkdir(pltdir)
+        except OSError: pass
+
+        mk_histos_series(rmsf_vals, lbls, pltdir + '/RMSF_target')
 
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],
                             ['energy1','energy2'],
-                            self.config['work_dir'] + '/Ermsd')
+                            pltdir + '/Ermsd')
             plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
-                            self.config['work_dir'] + '/RMSDn')
+                            pltdir + '/RMSDn')
+
+        medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
+        self.mk_cmaps(trajectory, medoids, clusters_dict, flt_inds, 4.5, pltdir)
         #~ import imp
         #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
         #~ pdbx.set_trace()
@@ -252,10 +260,9 @@ class Job:
         #~ with open('flti.pck', 'w') as f:
             #~ pickle.dump(flt_inds, f)
         #~ with open('clst.pck', 'w') as f:
-            #~ pickle.dump(clusters, f)
-
-        medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-        self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
+            #~ pickle.dump(clusters_dict, f)
+        #~ with open('meds.pck', 'w') as f:
+            #~ pickle.dump(medoids, f)
 
         #Saving the trajectory to PDBs:
         trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
@@ -280,11 +287,15 @@ class Job:
             print('... done.')
             return results
 
-    def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
+    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         stime = time()
-        scmodeler = SCModeler(self.initial_complex)
+        #~ print "start", stime
+        scmodeler = SCModeler(ca_traj.template)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
         sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+        sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
+        shp = sc_med.shape
+        sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
 
         #~ print 'traj conversion and filtering', time() - stime
 
@@ -298,6 +309,7 @@ class Job:
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         #~ print 'cmfactory creation', time() - stime
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
+        cmap10ktarg.zero_diagonal()
         cmap10ktarg.save_all(cmapdir + '/target_all')
 
         #~ print 'target cmap', time() - stime
@@ -309,11 +321,14 @@ class Job:
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
-            cmap10k.save_histo(self.config['work_dir'] + '/all_contacts_histo_%s' % lig)
+            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
             #~ print 'all %s cmaps' % lig, time() - stime
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
             #~ print 'top %s cmaps' % lig, time() - stime
+            cmaps_top = cmf.mk_cmap(sc_med, thr)
+            for n, cmap in enumerate(cmaps_top):
+                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig))
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))

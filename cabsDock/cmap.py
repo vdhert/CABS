@@ -106,6 +106,9 @@ class ContactMap(object):
     def _fmt_res_name(atom):
         return (atom.chid + str(atom.resnum) + atom.icode).strip()
 
+    def zero_diagonal(self):
+        numpy.fill_diagonal(self.cmtx, 0)
+
     def save_fig(self, fname):
         fig, sfig = matplotlib.pyplot.subplots(1)
 
@@ -122,7 +125,7 @@ class ContactMap(object):
             fx([''] + [self._fmt_res_name(a) for a in atoms], rotation=deg)
 
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '.svg', format='svg')
+        matplotlib.pyplot.savefig(fname + '.svg', format='svg', bbox_inches='tight')
         matplotlib.pyplot.close(fig)
 
     def save_histo(self, fname):
@@ -130,11 +133,17 @@ class ContactMap(object):
         inds1lst = _chunk_lst(inds1, 15)
         trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
         vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
-        _extend_last(trg_vls, 15, 0)
+        try:
+            _extend_last(trg_vls, 15, 0)
+        except IndexError:
+            trg_vls = [[0.] * 15]
         vls.extend(trg_vls)
         lbls = [[self._fmt_res_name(self.s2[i]) for i in inds2]]
         trg_lbls = [[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst]
-        _extend_last(trg_lbls, 15, "")
+        try:
+            _extend_last(trg_lbls, 15, "")
+        except IndexError:
+            trg_lbls = [[""] * 15]
         lbls.extend(trg_lbls)
         mk_histos_series(vls, lbls, fname)
 
