@@ -244,7 +244,7 @@ class Job:
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],
-                            ['energy1','energy2'],
+                            ['total','interaction'],
                             self.config['work_dir'] + '/Ermsd')
             plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
                             self.config['work_dir'] + '/RMSDn')

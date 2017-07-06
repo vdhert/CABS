@@ -841,14 +841,15 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
-def plot_E_rmsds(trajectories, rmsds, labels, fname, _format='png'):
+def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='png'):
+    #energies should be a list of modes as in energy calculation method header.get_energy(mode=...)
     fig, sfigarr = matplotlib.pyplot.subplots(3)
-    for i, lab in zip((0, 1), labels):    #i is the energy mtx c and r and subplot ind at the same time
+    for i, energy_mode in zip((0, 1), energies):
         #color fixes problem with older matplotlib version on Dworkowa
         for traj, rmsd_list, color in zip(trajectories, rmsds, ['blue','orange']):
-            sfigarr[i].scatter(rmsd_list, [h.get_energy(mode='interaction', number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
+            sfigarr[i].scatter(rmsd_list, [h.get_energy(mode=energy_mode, number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
             # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
-        sfigarr[i].set_ylabel(lab)
+        sfigarr[i].set_ylabel(energy_mode)
     for traj, rmsd_list in zip(trajectories, rmsds):
         sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
     fig.get_axes()[-1].set_xlabel('RMSD')
