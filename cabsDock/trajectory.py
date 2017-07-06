@@ -56,22 +56,22 @@ class Header:
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
 
-    def get_energy(self, number_of_peptides):
+    def get_energy(self, number_of_peptides=None):
         #number_of_peptides fixes energy calculations
         """ Returns the total energy of the system. """
         if not number_of_peptides:
-            print("Unknown number of peptides. Assuming 1.")
+            #~ print("Unknown number of peptides. Assuming 1.")
             num_pept = 1
         else:
             num_pept = number_of_peptides
         int_submtrx_size = self.energy.shape[0]-num_pept
         int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
-        print('whole')
-        print(self.energy)
-        print('int')
-        print(int_submtrx_size)
-        print (self.energy[:int_submtrx_size,-num_pept:])
-        print int_enrg
+        #~ print('whole')
+        #~ print(self.energy)
+        #~ print('int')
+        #~ print(int_submtrx_size)
+        #~ print (self.energy[:int_submtrx_size,-num_pept:])
+        #~ print int_enrg
         return int_enrg
 
 

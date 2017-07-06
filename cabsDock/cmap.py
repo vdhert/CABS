@@ -7,6 +7,7 @@ import numpy
 import operator
 
 from cabsDock.utils import _chunk_lst
+from cabsDock.utils import _extend_last
 from cabsDock.utils import mk_histos_series
 
 import matplotlib.pyplot
@@ -26,9 +27,9 @@ class ContactMapFactory(object):
         chs = {}
         for n, i in enumerate(temp.atoms):
             chs.setdefault(i.chid, []).append(n)
-        self.dims = (sum(map(len, [chs[ch1] for ch1 in chains1])), sum(map(len, [chs[ch2] for ch2 in chains2])))
-        self.inds1 = reduce(operator.add, [chs[i] for i in chains1])
-        self.inds2 = reduce(operator.add, [chs[i] for i in chains2])
+        self.dims = (sum(map(len, [chs.get(ch1, []) for ch1 in chains1])), sum(map(len, [chs.get(ch2, []) for ch2 in chains2])))
+        self.inds1 = reduce(operator.add, [chs.get(i, []) for i in chains1])
+        self.inds2 = reduce(operator.add, [chs.get(i, []) for i in chains2])
         self.ats1 = [temp.atoms[i] for i in self.inds1]
         self.ats2 = [temp.atoms[i] for i in self.inds2]
 
@@ -129,9 +130,12 @@ class ContactMap(object):
         inds1lst = _chunk_lst(inds1, 15)
         trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
         vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
+        _extend_last(trg_vls, 15, 0)
         vls.extend(trg_vls)
         lbls = [[self._fmt_res_name(self.s2[i]) for i in inds2]]
-        lbls.extend([[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst])
+        trg_lbls = [[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst]
+        _extend_last(trg_lbls, 15, "")
+        lbls.extend(trg_lbls)
         mk_histos_series(vls, lbls, fname)
 
     def save_txt(self, stream):

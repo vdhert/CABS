@@ -6,6 +6,7 @@ from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
 import matplotlib.pyplot
+from itertools import chain
 from matplotlib.ticker import MaxNLocator
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
@@ -865,30 +866,51 @@ def plot_rmsd_N(rmsds, fname):
         matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.svg', format='svg')
         matplotlib.pyplot.close(fig)
 
-def _chunk_lst(lst, sl_len):
+def _chunk_lst(lst, sl_len, extend_last=None):
+    """ Slices given list for slices of given len.
+
+    Arguments:
+    lst -- list to be sliced.
+    sl_len -- len of one slice.
+    extend_last -- value to be put in last slice in order to extend it to proper length.
+    """
     slists = []
     while lst != []:
         slists.append(lst[:sl_len])
         lst = lst[sl_len:]
+    if extend_last is not None:
+        _extend_last(slists, sl_len, extend_last)
     return slists
 
-def mk_histos_series(series, labels, fname, mpl_args={}):
+def _extend_last(sseries, slen, token):
+    sseries[-1].extend([token] * (slen - len(sseries[-1])))
+
+def mk_histos_series(series, labels, fname):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
     labels -- corresponding ticks labels.
     """
-    fig, sfigarr = matplotlib.pyplot.subplots(len(series))
+    slen = len(series)
+    fig, sfigarr = matplotlib.pyplot.subplots(slen)
+    if slen == 1:
+        sfigarr = [sfigarr]
 
+    try:
+        ylim = max(chain(*series))
+    except ValueError:  # for empty series
+        ylim = 5
     get_xloc = lambda x: [.5 * i for i in range(len(x))]
 
     fig.set_figheight(len(series))
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
-        sfigarr[n].bar(xloc, vls, width=.45, color='orange')
+        sfigarr[n].bar(xloc, vls, width=.51, color='orange')
+        sfigarr[n].set_ylim([0, ylim])
+        sfigarr[n].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
         sfigarr[n].set_xticks(xloc)
-        sfigarr[n].set_xticklabels(ticks)
+        sfigarr[n].set_xticklabels(ticks, stretch='condensed', fontsize=6)
 
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.svg', format='svg')
