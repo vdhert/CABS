@@ -3,7 +3,7 @@ c       CABSDOCK
 c       authors: A. Kolinski(kolinski@chem.uw.edu.pl)
 c                M. Kurcinski(mkurc@chem.uw.edu.pl)
 c
-c       updated: 12/6/2017
+c       updated: 5/7/2017
 c
 c       This version supports sg-sg restraints.
 c       This code is part of the cabsDock package.
@@ -62,6 +62,7 @@ c       proteins up to 30 for N>200
         COMMON /FR/     FRG(nmols,ndim,ndim)
         
         common /vec/ vector(-7:7,-7:7,-7:7)
+        common /excl/ ignore(nmols, nmols, ndim, ndim), nexcl, excl
 
         common /RCA/ nRCA, eRCA, RCAcount(ndim, nmols, nmols),
      &  distRCA(ndim, nmols, nmols, maxres),
@@ -180,7 +181,8 @@ c       for larger distances energy grows in alinear fashion
 3009    FORMAT(A3,4F6.2)
         CLOSE(29)
 
-        READ(5,*) RANDOM, NCYCLE, PHOT, REPLICAS, MOLS
+        READ(5,*) RANDOM
+        READ(5,*) NANNEAL, NCYCLE, PHOT, REPLICAS, MOLS
         READ(5,*) ATEMP2, ATEMP1, EREP, ARLLO, DTEM
         READ(5,*) ESC_0, ARLO, ENONE, EHBOND, ASRO
 
@@ -786,6 +788,28 @@ c       sg-sg restraints
          enddo
         endif
 
+c       excluding
+
+        do i = 1, mols
+         do j = 1, mols
+          do ii = 1, length(i)
+           do jj = 1, length(j)
+            ignore(i, j, ii, jj) = 0
+           enddo
+          enddo
+         enddo
+        enddo
+
+        read(5, *) nexcl, excl
+        if(nexcl .gt. 0) then
+         excl = (excl / 0.61) ** 2
+         do n = 1, nexcl
+          read(5, *) i, ii, j, jj
+          ignore(i, j, ii, jj) = 1
+          ignore(j, i, jj, ii) = 1
+         enddo
+        endif
+
         do imol=1,mols
         sec(imol,1)=1
         sec(imol,length(imol))=1
@@ -941,12 +965,12 @@ c	twenty temperatures for the annealing - setting
 c	atemp2=atemp1 reduces program to a more standard REMC
 c	dtem1 -annealing increment
         
-        dtem1 = (atemp2 - atemp1) / 20.
+        dtem1 = (atemp2 - atemp1) / nanneal
 c	dtem distance between replicas
 c	dtem read from INP
         aatemp2 = atemp2
 
-        DO IDDDUM=1,20
+        DO IDDDUM = 1, nanneal
         
         aatemp1 = aatemp2 - dtem1
         atemp = aatemp1
@@ -3307,6 +3331,7 @@ c     *****************************************************************
         common /lenfs/ mols,imol,itemp,lenf,lenf1,lenf2,lenf3,
      &  al2,al4,al5,al19,length(nmols)
         common /vec/ vector(-7:7,-7:7,-7:7)
+        common /excl/ ignore(nmols, nmols, ndim, ndim), nexcl, excl
 
 c	CHECKS Ca-Ca, Ca-Cb and Cb-Cb distances and overlaps
 
@@ -3371,6 +3396,12 @@ c	detect detailed overlaps Ca-Ca, Cb-Cb, Ca-Cb, Cb-Ca
         RETURN
         endif
         ENDIF
+
+        if(nexcl .gt. 0 .and. ar .lt. excl .and.
+     &     ignore(imol, kmol, k, i) .eq. 1) then
+         LOOKL = .FALSE.
+         RETURN
+        endif
 
         ar=(ax-px)**2+(ay-py)**2+(az-pz)**2
         if(ar.lt.43.0) then
