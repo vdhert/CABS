@@ -307,7 +307,7 @@ class Case(object):
                                benchmark=True,
                                contact_maps=False,
                                AA_rebuild=False,
-                               mc_annealing=20
+                               mc_anneal=20
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -322,7 +322,7 @@ class Case(object):
                                benchmark=True,
                                contact_maps=False,
                                AA_rebuild=False,
-                               mc_annealing=20
+                               mc_anneal=20
                                )
         except Exception as errr:
             print(
