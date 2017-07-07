@@ -6,19 +6,20 @@ import re
 import operator
 from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
-from time import sleep
+from time import sleep, time
 
-from cabsDock.ca2all import ca2all
+
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar
-from utils import kmedoids
 from utils import SCModeler
 from utils import plot_E_rmsds
 from utils import plot_rmsd_N
 from utils import check_peptide_sequence
+from utils import _chunk_lst
+from utils import mk_histos_series
 from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
 from cabsDock.cmap import ContactMap
@@ -146,7 +147,9 @@ class Job:
             'filtering': 1000,  # number of models to filter
             'clustering': (10, 100),  # number of clusters, iterations
             'native_pdb': None,
-            'benchmark': False
+            'benchmark': False,
+            'AA_rebuild': True,
+            'contact_maps': True
         }
 
         self.config = Config(defaults)
@@ -176,13 +179,14 @@ class Job:
             mkdir(work_dir)
 
     def run_job(self):
+        stime = time()
         work_dir = self.config['work_dir']
         print('CABS-docking job {0}'.format(self.config['receptor']))
         # prepare initial complex
         # noinspection PyAttributeOutsideInit
         print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-        print(' ... done.')
+        print(' ... done in {0} s'.format(time() - stime))
         # generate restraints
         # noinspection PyAttributeOutsideInit
         self.restraints = \
@@ -194,6 +198,7 @@ class Job:
         self.restraints += add_restraints.update_id(self.initial_complex.new_ids)
 
         # run cabs
+        stime = time()
         print('CABS simulation starts.')
         cabs_run = CabsRun(self.initial_complex, self.restraints, self.config)
         cabs_run.run()
@@ -203,8 +208,9 @@ class Job:
         #     bar.update(cabs_run.status())
         #     sleep(5)
         # bar.done()
-        print('CABS simuation is DONE.')
+        print('CABS simuation completed in {0} s.'.format(time() - stime))
         if self.config['native_pdb']:
+            stime = time()
             print('Calculating RMSD to the native structure...')
             trajectory = cabs_run.get_trajectory()
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
@@ -221,18 +227,23 @@ class Job:
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
             trajectory.align_to(self.initial_complex.receptor)
+            print('completed in {0} s.'.format(time() - stime))
         else:
             trajectory = cabs_run.get_trajectory()
             trajectory.align_to(self.initial_complex.receptor)
             trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         #energy fix
-        number_of_peptides = len(self.initial_complex.ligand_chains)
-        tra, flt_inds = Filter(trajectory).cabs_filter(npept=number_of_peptides)
+        trajectory.number_of_peptides = len(self.initial_complex.ligand_chains)
+        tra, flt_inds = Filter(trajectory, N=100).cabs_filter()
+        tra.number_of_peptides = len(self.initial_complex.ligand_chains)
 
+        rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15)
+        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15)
+        mk_histos_series(rmsf_vals, lbls, self.config['work_dir']+'/RMSF_target')
         if self.config['native_pdb']:
             plot_E_rmsds(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],
-                            ['energy1','energy2'],
+                            ['total','interaction'],
                             self.config['work_dir'] + '/Ermsd')
             plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
                             self.config['work_dir'] + '/RMSDn')
@@ -248,59 +259,93 @@ class Job:
             #~ pickle.dump(clusters, f)
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
-        self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
+
+        if self.config['contact_maps']:
+            self.mk_cmaps(trajectory, clusters_dict, flt_inds, 4.5)
 
         #Saving the trajectory to PDBs:
         trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
         #Saving top1000 models to PDB:
         tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
-        #Saving top 10 models in AA representation:
-        pdb_medoids = medoids.to_pdb()
 
-        for i, file in enumerate(pdb_medoids):
-            ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
-        # dictionary holding results to be returned for use in the Benchmark class.
+        #Saving clusters in CA representation
+        for i, cluster in enumerate(clusters):
+            cluster.to_pdb(mode='replicas', to_dir=work_dir, name='cluster_{0}'.format(i))
+
+        #Saving top10 models:
+        if self.config['AA_rebuild']:
+            # Saving top 10 models in AA representation:
+            pdb_medoids = medoids.to_pdb()
+            from cabsDock.ca2all import ca2all
+            for i, file in enumerate(pdb_medoids):
+                ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
+        else:
+            #Saving top 10 models in CA representation:
+            medoids.to_pdb(mode='models', to_dir=work_dir, name='model')
+
+        # dictionary holding results
+        rmsds = [header.rmsd for header in medoids.headers]
+        results = {}
+        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
+        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
+        results['rmsds_10'] = rmsds
+        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
+        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
+        results['lowest_10'] = sorted(results['rmsds_10'])[0]
+        #Saving rmsd results
+        with open(join(work_dir, 'rmsds.txt'), 'w') as outfile:
+            outfile.write(str(results))
+
         # Not returned by deafault unless self.config['benchmark'] == True.
         if self.config['benchmark']:
-            rmsds = [header.rmsd for header in medoids.headers ]
-            results = {}
-            results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-            results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-            results['rmsds_10'] = rmsds
-            results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-            results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-            results['lowest_10'] = sorted(results['rmsds_10'])[0]
-            print('... done.')
             return results
 
+
     def mk_cmaps(self, ca_traj, clusts, top1k_inds, thr):
+        stime = time()
         scmodeler = SCModeler(self.initial_complex)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+
+        print 'traj conversion and filtering', time() - stime
 
         cmapdir = self.config['work_dir'] + '/contact_maps'
         try: mkdir(cmapdir)
         except OSError: pass
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
+
+        targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        print 'cmfactory creation', time() - stime
+        cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
+        cmap10ktarg.save_all(cmapdir + '/target_all')
+
+        print 'target cmap', time() - stime
+
         for lig, cmf in cmfs.items():
+            print 'lig',lig
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
             cmap10k.save_histo(self.config['work_dir'] + '/all_contacts_histo_%s' % lig)
-            sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+            print 'all %s cmaps' % lig, time() - stime
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            print 'top %s cmaps' % lig, time() - stime
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+            print 'clusts %s cmaps' % lig, time() - stime
 
 if __name__ == '__main__':
-    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=10, mc_steps=1, replicas=2, native_pdb='1jbu',
+    j = Job(receptor='1jbu:H', ligand = [['EEWEVLCWTWETCER']], mc_cycles=20, mc_steps=1, replicas=2, native_pdb='1jbu',
                                native_receptor_chain='H',
-                               native_peptide_chain='X')
+                               native_peptide_chain='X',
+            work_dir='1jbu:H'
+            )
     print j.run_job()
     # j = Job(receptor='2gb1', ligand=[['MICHAL'], ['LAHCIM']], mc_cycles=2, mc_steps=2, replicas=2, )
     # j.run_job()

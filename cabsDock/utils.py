@@ -776,48 +776,12 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
-# MC: Functionality moved to a separate class cabsDock.clustering.Clustering (IN PROGRESS)
-def kmedoids(D, k, tmax=100):
-    # determine dimensions of distance matrix D
-    m, n = D.shape
-
-    if k > n:
-        raise Exception('too many medoids')
-    # randomly initialize an array of k medoid indices
-    M = np.arange(n)
-    np.random.shuffle(M)
-    M = np.sort(M[:k])
-
-    # create a copy of the array of medoid indices
-    Mnew = np.copy(M)
-
-    # initialize a dictionary to represent clusters
-    C = {}
-    for t in xrange(tmax):
-        # determine clusters, i. e. arrays of data indices
-        J = np.argmin(D[:, M], axis=1)
-        for kappa in range(k):
-            C[kappa] = np.where(J == kappa)[0]
-        # update cluster medoids
-        for kappa in range(k):
-            J = np.mean(D[np.ix_(C[kappa], C[kappa])], axis=1)
-            j = np.argmin(J)
-            Mnew[kappa] = C[kappa][j]
-        np.sort(Mnew)
-        # check for convergence
-        if np.array_equal(M, Mnew):
-            break
-        M = np.copy(Mnew)
-    else:
-        # final update of cluster memberships
-        J = np.argmin(D[:, M], axis=1)
-        for kappa in range(k):
-            C[kappa] = np.where(J == kappa)[0]
-
-    # return results
-    return M, C
-
 def check_peptide_sequence(sequence):
+    """
+    Checks the peptide sequence for non-standard AAs.
+    :param sequence: string the peptide sequence.
+    :return: True is the sequence does not contain non-standard AAs. Raises error if does.
+    """
     standard_one_letter_residues = AA_NAMES.keys()
     for residue in sequence:
         if residue not in standard_one_letter_residues:
@@ -828,6 +792,12 @@ def check_peptide_sequence(sequence):
 
 
 def fix_residue(residue):
+    """
+    Fixes non-standard AA residues in the receptor.
+    :param residue: string three-letter residue code
+    :return:    if the residue is non-standard the method returns three-letter code of the appropriate substitution.
+                raises exception if the residue is non-standard and there is no substitution available.
+    """
     standard_three_letter_residues = AA_NAMES.values()
     known_non_standard_three_letter_residues = modified_residue_substitute.keys()
     if residue in standard_three_letter_residues:
@@ -841,20 +811,23 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
-def plot_E_rmsds(trajectories, rmsds, labels, fname):
+def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='png'):
+    #energies should be a list of modes as in energy calculation method header.get_energy(mode=...)
     fig, sfigarr = matplotlib.pyplot.subplots(3)
-    for i, lab in zip((0, 1), labels):    #i is the energy mtx c and r and subplot ind at the same time
-        for traj, rmsd_list in zip(trajectories, rmsds):
-            sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
-        sfigarr[i].set_ylabel(lab)
+    for i, energy_mode in zip((0, 1), energies):
+        #color fixes problem with older matplotlib version on Dworkowa
+        for traj, rmsd_list, color in zip(trajectories, rmsds, ['blue','orange']):
+            sfigarr[i].scatter(rmsd_list, [h.get_energy(mode=energy_mode, number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
+            # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
+        sfigarr[i].set_ylabel(energy_mode)
     for traj, rmsd_list in zip(trajectories, rmsds):
         sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
     fig.get_axes()[-1].set_xlabel('RMSD')
     matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname, dpi=1200)
+    matplotlib.pyplot.savefig(fname + '.'+_format, format=_format)
     matplotlib.pyplot.close(fig)
 
-def plot_rmsd_N(rmsds, fname):
+def plot_rmsd_N(rmsds, fname, _format='png'):
     for n, rmsd_lst in enumerate(rmsds):
         fig, sfig = matplotlib.pyplot.subplots(1)
         sfig.scatter(range(len(rmsd_lst)), rmsd_lst)
@@ -862,5 +835,34 @@ def plot_rmsd_N(rmsds, fname):
         fig.get_axes()[0].set_xlabel('frame')
         fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '_replica_%i' % n, dpi=1200)
+        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
+
+def _chunk_lst(lst, sl_len):
+    slists = []
+    while lst != []:
+        slists.append(lst[:sl_len])
+        lst = lst[sl_len:]
+    return slists
+
+def mk_histos_series(series, labels, fname, mpl_args={}, _format='png'):
+    """
+    Arguments:
+    series -- list of sequences of data to be plotted.
+    labels -- corresponding ticks labels.
+    """
+    fig, sfigarr = matplotlib.pyplot.subplots(len(series),1, squeeze=False)
+
+    get_xloc = lambda x: [.5 * i for i in range(len(x))]
+
+    fig.set_figheight(len(series))
+
+    for n, (vls, ticks) in enumerate(zip(series, labels)):
+        xloc = get_xloc(ticks)
+        sfigarr[n,0].bar(xloc, vls, width=.45, color='orange')
+        sfigarr[n,0].set_xticks(xloc)
+        sfigarr[n,0].set_xticklabels(ticks)
+
+    matplotlib.pyplot.tight_layout()
+    matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
+    matplotlib.pyplot.close(fig)
