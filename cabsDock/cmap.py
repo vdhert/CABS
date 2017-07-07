@@ -109,7 +109,7 @@ class ContactMap(object):
     def zero_diagonal(self):
         numpy.fill_diagonal(self.cmtx, 0)
 
-    def save_fig(self, fname):
+    def save_fig(self, fname, _format = 'svg'):
         fig, sfig = matplotlib.pyplot.subplots(1)
 
         sfig.matshow(
@@ -130,7 +130,7 @@ class ContactMap(object):
         cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.pyplot.cm.tab20c)
 
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '.svg', format='svg', bbox_inches='tight', papertype='a0')
+        matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
 
     def save_histo(self, fname):

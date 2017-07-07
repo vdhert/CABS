@@ -14,15 +14,12 @@ copy_reg.pickle(types.MethodType, _reduce_method)
 
 
 class Benchmark(object):
-    """
-    Class for testing the performance against a reference set of structures (-> cases)
-    """
-
     def __init__(self, benchmark_file=None):
         """
+        Class for testing the performance against a reference set of structures (cases).
 
-        :param benchmark_file: text file with lines in format: bound_pdb_code, bound_receptor_chain_id,
-        bound_peptide_chain_id, peptide_sequence, peptide_secondary_structure,
+        :param benchmark_file: text file. Each line should consist of a case:
+                bound_pdb_code bound_receptor_chain_id bound_peptide_chain_id peptide_sequence peptide_secondary_structure
         """
         super(Benchmark, self).__init__()
         self.benchmark_rmsds_10 = []
@@ -44,26 +41,31 @@ class Benchmark(object):
                     peptide_sequence=row[3],
                     peptide_secondary_structure=row[4],
                     unbound_pdb_code=None,
-                    unbound_receptor_chain_id=None,
-                    unbound_peptide_chain_id=None
+                    unbound_receptor_chain_id=None
                 )
             )
 
     def __iter__(self):
         return self.cases.__iter__()
 
-    def bench_set(self, test = False):
+    def bench_set(self, test=False):
+        """
+        Sets up a job.Job for each of the benchmark cases.
+        :param test: If set True, the cases will be run in a lighter mode (see :func:case.setup_case)
+        """
         for element in self.cases:
             element.setup_case(test)
 
-    def bench_run(self, parallel=False):
-        if parallel:
-            pass
-        else:
-            for element in self.cases:
-                element.run_case()
+    def bench_run(self):
+        for element in self.cases:
+            element.run_case()
 
     def bench_analyze(self, histograms=False):
+        """
+        Runs an analysis of the performed jobs. Prints basic statistics of the obtained results (lowest RMSDs for
+        all, top 1000 and top 10 models).
+        :param histograms: If set True, the method will save RMSDs histograms.
+        """
         self.benchmark_lowest_rmsds_10k = []
         self.benchmark_lowest_rmsds_1k = []
         self.benchmark_lowest_rmsds_10 = []
@@ -136,6 +138,10 @@ class Benchmark(object):
         )
 
     def multi_run(self, histograms=False):
+        """
+        A multiprocess version of combined methods :func:benchmark.bench_run and :func:benchmark.bench_analyze.
+        :param histograms: If set True, the method will save RMSDs histograms.
+        """
         import multiprocessing
         import sys
         import os
@@ -246,10 +252,6 @@ class Benchmark(object):
 
 
 class Case(object):
-    """
-    Case represents a run and the reference structure it should be compared to.
-    """
-
     def __init__(
             self,
             bound_pdb_code=None,
@@ -259,8 +261,20 @@ class Case(object):
             peptide_secondary_structure=None,
             unbound_pdb_code=None,
             unbound_receptor_chain_id=None,
-            unbound_peptide_chain_id=None
     ):
+
+        """
+        Case represents a single complex from the benchmark list.
+        :param bound_pdb_code: PDB code of the bound complex.
+        :param bound_receptor_chain_id: chain ID of the receptor in the PDB (if the receptor consists
+        of multiple chains, they should be provided as a single string, i.e. 'ABC').
+        :param bound_peptide_chain_id: chain ID of the peptide in the PDB.
+        :param peptide_sequence: sequence of the peptide represented in one-letter AA code (i.e. 'LAHCIM').
+        :param peptide_secondary_structure: the secondary structure of the peptide, represented in one-letter code (i.e. 'CCEEHH')
+        :param unbound_pdb_code: PDB code of the unbound receptor.
+        :param unbound_receptor_chain_id: chain ID of the receptor in the PDB (if the receptor consists
+        of multiple chains, they should be provided as a single string, i.e. 'ABC').
+        """
         super(Case, self).__init__()
         self.bound_pdb_code = bound_pdb_code
         self.bound_receptor_chain_id = bound_receptor_chain_id
@@ -269,11 +283,15 @@ class Case(object):
         self.peptide_secondary_structure = peptide_secondary_structure
         self.unbound_pdb_code = unbound_pdb_code
         self.unbound_receptor_chain_id = unbound_receptor_chain_id
-        self.unbound_peptide_chain_id = unbound_peptide_chain_id
         self.rmsds = []
         self.is_valid = False
 
     def setup_case(self, test):
+        """
+        Sets up the case for the run (initializes a :class:job.Job instance according to the arguments passed to :func:benchmark.Case.__init__.
+        :param test: If set True, the cases will be run in a lighter mode, in which mc_cycles = 1, mc_steps = 1, annealing = 20, replicas = 10.
+        If False, the case will be run in default mode.
+        """
         print('Processing job {0}'.format(self.bound_pdb_code))
         try:
             if test:
@@ -286,7 +304,9 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               benchmark=True
+                               benchmark=True,
+                               contact_maps=False,
+                               AA_rebuild=False
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -298,7 +318,9 @@ class Case(object):
                                native_pdb=self.bound_pdb_code,
                                native_receptor_chain=self.bound_receptor_chain_id,
                                native_peptide_chain=self.bound_peptide_chain_id,
-                               benchmark=True
+                               benchmark=True,
+                               contact_maps=False,
+                               AA_rebuild=False
                                )
         except Exception as errr:
             print(
@@ -310,6 +332,10 @@ class Case(object):
             print('... done.')
 
     def run_case(self):
+        """
+        Runs the case and collects results.
+        :return: list of rmsds, string representing the working directory in which the jub was run.
+        """
         if not self.is_valid:
             raise Exception('The {0} job is not valid for run.'.format(self.bound_pdb_code))
         results = self.job.run_job()
@@ -324,4 +350,3 @@ class Case(object):
         self.work_dir = self.job.config['work_dir']
         print(self.bound_pdb_code, self.rmsds[5])
         return self.rmsds, self.work_dir
-
