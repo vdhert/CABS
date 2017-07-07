@@ -139,7 +139,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr)
+            f.write(inp + restr + '0, 0')
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
