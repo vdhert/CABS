@@ -306,7 +306,7 @@ class Trajectory(object):
         if to_dir:
             for i, m in enumerate(execution_mode[mode][0]):
                 Trajectory(self.template, m, None).to_atoms().save_to_pdb(
-                    to_dir+'/'
+                    to_dir + '/'
                     +
                     (execution_mode[mode][1] if name is None else name)
                     +

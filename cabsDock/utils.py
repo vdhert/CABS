@@ -6,6 +6,7 @@ from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
 import matplotlib.pyplot
+from itertools import chain
 from matplotlib.ticker import MaxNLocator
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
@@ -37,16 +38,6 @@ SIDECNT = { 'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
 RANDOM_LIGAND_LIBRARY = np.reshape(
     np.fromfile(resource_filename('cabsDock', 'data/data2.dat'), sep=' '), (1000, 50, 3)
 )
-
-# Dictionary for amino acid name conversion
-# AA_NAMES = {
-#     'A': 'ALA', 'B': 'ASX', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU',
-#     'F': 'PHE', 'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'J': 'XLE',
-#     'K': 'LYS', 'L': 'LEU', 'M': 'MET', 'N': 'ASN', 'O': 'HOH',
-#     'P': 'PRO', 'Q': 'GLN', 'R': 'ARG', 'S': 'SER', 'T': 'THR',
-#     'U': 'UNK', 'V': 'VAL', 'W': 'TRP', 'X': 'XAA', 'Y': 'TYR',
-#     'Z': 'GLX'
-# }
 
 AA_NAMES = {
     'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU',
@@ -811,13 +802,13 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
-def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='png'):
+def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='svg'):
     #energies should be a list of modes as in energy calculation method header.get_energy(mode=...)
     fig, sfigarr = matplotlib.pyplot.subplots(3)
     for i, energy_mode in zip((0, 1), energies):
         #color fixes problem with older matplotlib version on Dworkowa
         for traj, rmsd_list, color in zip(trajectories, rmsds, ['blue','orange']):
-            sfigarr[i].scatter(rmsd_list, [h.get_energy(mode=energy_mode, number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
+            sfigarr[i].stem(rmsd_list, [h.get_energy(mode=energy_mode, number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
             # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
         sfigarr[i].set_ylabel(energy_mode)
     for traj, rmsd_list in zip(trajectories, rmsds):
@@ -827,10 +818,10 @@ def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='png'):
     matplotlib.pyplot.savefig(fname + '.'+_format, format=_format)
     matplotlib.pyplot.close(fig)
 
-def plot_rmsd_N(rmsds, fname, _format='png'):
+def plot_rmsd_N(rmsds, fname, _format='svg'):
     for n, rmsd_lst in enumerate(rmsds):
         fig, sfig = matplotlib.pyplot.subplots(1)
-        sfig.scatter(range(len(rmsd_lst)), rmsd_lst)
+        sfig.stem(range(len(rmsd_lst)), rmsd_lst)
         fig.get_axes()[0].set_ylabel('RMSD')
         fig.get_axes()[0].set_xlabel('frame')
         fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -838,30 +829,48 @@ def plot_rmsd_N(rmsds, fname, _format='png'):
         matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
 
-def _chunk_lst(lst, sl_len):
+def _chunk_lst(lst, sl_len, extend_last=None):
+    """ Slices given list for slices of given len.
+
+    Arguments:
+    lst -- list to be sliced.
+    sl_len -- len of one slice.
+    extend_last -- value to be put in last slice in order to extend it to proper length.
+    """
     slists = []
     while lst != []:
         slists.append(lst[:sl_len])
         lst = lst[sl_len:]
+    if extend_last is not None:
+        _extend_last(slists, sl_len, extend_last)
     return slists
 
-def mk_histos_series(series, labels, fname, mpl_args={}, _format='png'):
+def _extend_last(sseries, slen, token):
+    sseries[-1].extend([token] * (slen - len(sseries[-1])))
+
+def mk_histos_series(series, labels, fname, _format='svg'):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
     labels -- corresponding ticks labels.
     """
-    fig, sfigarr = matplotlib.pyplot.subplots(len(series),1, squeeze=False)
+    fig, sfigarr = matplotlib.pyplot.subplots(len(series), squeeze=False)
 
+    try:
+        ylim = max(chain(*series))
+    except ValueError:  # for empty series
+        ylim = 5
     get_xloc = lambda x: [.5 * i for i in range(len(x))]
 
     fig.set_figheight(len(series))
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
-        sfigarr[n,0].bar(xloc, vls, width=.45, color='orange')
-        sfigarr[n,0].set_xticks(xloc)
-        sfigarr[n,0].set_xticklabels(ticks)
+        sfigarr[n].bar(xloc, vls, width=.51, color='orange')
+        sfigarr[n].set_ylim([0, ylim])
+        sfigarr[n].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
+        sfigarr[n].set_xticks(xloc)
+        sfigarr[n].set_xticklabels(ticks, fontsize=6)
 
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)

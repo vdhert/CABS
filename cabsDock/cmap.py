@@ -7,6 +7,7 @@ import numpy
 import operator
 
 from cabsDock.utils import _chunk_lst
+from cabsDock.utils import _extend_last
 from cabsDock.utils import mk_histos_series
 
 import matplotlib.pyplot
@@ -26,9 +27,9 @@ class ContactMapFactory(object):
         chs = {}
         for n, i in enumerate(temp.atoms):
             chs.setdefault(i.chid, []).append(n)
-        self.dims = (sum(map(len, [chs[ch1] for ch1 in chains1])), sum(map(len, [chs[ch2] for ch2 in chains2])))
-        self.inds1 = reduce(operator.add, [chs[i] for i in chains1])
-        self.inds2 = reduce(operator.add, [chs[i] for i in chains2])
+        self.dims = (sum(map(len, [chs.get(ch1, []) for ch1 in chains1])), sum(map(len, [chs.get(ch2, []) for ch2 in chains2])))
+        self.inds1 = reduce(operator.add, [chs.get(i, []) for i in chains1])
+        self.inds2 = reduce(operator.add, [chs.get(i, []) for i in chains2])
         self.ats1 = [temp.atoms[i] for i in self.inds1]
         self.ats2 = [temp.atoms[i] for i in self.inds2]
 
@@ -105,20 +106,28 @@ class ContactMap(object):
     def _fmt_res_name(atom):
         return (atom.chid + str(atom.resnum) + atom.icode).strip()
 
-    def save_fig(self, fname, _format = 'png'):
+    def zero_diagonal(self):
+        numpy.fill_diagonal(self.cmtx, 0)
+
+    def save_fig(self, fname, _format = 'svg'):
         fig, sfig = matplotlib.pyplot.subplots(1)
 
         sfig.matshow(
             self.cmtx.T,
-            cmap=matplotlib.pyplot.cm.Oranges,
+            cmap=matplotlib.pyplot.cm.tab20c,
             #~ vmin=0.,     #for normalization over n of frames -- uncommend
             #~ vmax=self.n  #
             )
-        sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-        sfig.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.tick_params(axis='both', which='major', labelsize=6)
-        for atoms, fx, deg in ((self.s1, sfig.set_xticklabels, 90), (self.s2, sfig.set_yticklabels, 0)):
-            fx([''] + [self._fmt_res_name(a) for a in atoms], rotation=deg)
+        for atoms, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.yaxis, 90), (self.s2, sfig.set_yticklabels, sfig.xaxis, 0)):
+            lbls = [self._fmt_res_name(a) for a in atoms]
+            mjr_loc = int(round(len(lbls)/50.)*50) / 50
+            if mjr_loc == 0: mjr_loc = 1
+            tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
+            lab_fx([''] + lbls[::mjr_loc], rotation=deg)
+
+        ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
+        cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.pyplot.cm.tab20c)
 
         matplotlib.pyplot.tight_layout()
         matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
@@ -129,9 +138,18 @@ class ContactMap(object):
         inds1lst = _chunk_lst(inds1, 15)
         trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
         vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
+        try:
+            _extend_last(trg_vls, 15, 0)
+        except IndexError:
+            trg_vls = [[0.] * 15]
         vls.extend(trg_vls)
         lbls = [[self._fmt_res_name(self.s2[i]) for i in inds2]]
-        lbls.extend([[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst])
+        trg_lbls = [[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst]
+        try:
+            _extend_last(trg_lbls, 15, "")
+        except IndexError:
+            trg_lbls = [[""] * 15]
+        lbls.extend(trg_lbls)
         mk_histos_series(vls, lbls, fname)
 
     def save_txt(self, stream):
