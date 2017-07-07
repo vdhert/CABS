@@ -14,7 +14,6 @@ from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar
-from utils import kmedoids
 from utils import SCModeler
 from utils import plot_E_rmsds
 from utils import plot_rmsd_N

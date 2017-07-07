@@ -89,7 +89,8 @@ class Clustering(object):
                 [self.trajectory.headers[i] for i in clusters[cluster]]
             )
             clusters_as_clusters.append(this_cluster)
-        sorting_ndx =  (sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse = True))
+        sorting_ndx = (
+            sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse=True))
         # print('sorted clusters')
         # print([clusters_as_clusters[i].score for i in sorting_ndx])
         medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :]
@@ -116,18 +117,19 @@ class Cluster(Trajectory):
         :param method:
         :return:
         """
+
         def density(cluster, mode='standard'):
-            modes={
-                'standard':numpy.max,
-                'stdev':numpy.std,
-                }
+            modes = {
+                'standard': numpy.max,
+                'stdev': numpy.std,
+            }
             return cluster.coordinates.shape[1] / modes[mode](cluster.rmsd_matrix())
 
         methods = {
-            'density':density
-            }
+            'density': density
+        }
 
-        if self.coordinates.shape[1]==1:
+        if self.coordinates.shape[1] == 1:
             score = 0
         else:
             score = methods[method](self, mode='standard')

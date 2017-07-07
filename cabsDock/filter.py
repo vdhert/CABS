@@ -1,8 +1,9 @@
 import numpy
 from trajectory import Trajectory
 
+
 class Filter(object):
-    def __init__(self, trajectory,  N = 1000):
+    def __init__(self, trajectory, N=1000):
         """
         Class for performing trajectory filtering according to chosen criteria (currently -- lowest energy).
         :param trajectory: trajectory.Trajectory instance to be clustered.
@@ -41,18 +42,18 @@ class Filter(object):
         filtered_models = []
         filtered_headers = []
         filtered_total_ndx = []
-        
+
         for i, replica in enumerate(self.trajectory.coordinates):
-            energies = [header.get_energy(number_of_peptides=self.trajectory.number_of_peptides) for header in self.trajectory.headers if header.replica == i+1]
-            headers = [header for header in self.trajectory.headers if header.replica == i+1]
+            energies = [header.get_energy(number_of_peptides=self.trajectory.number_of_peptides) for header in
+                        self.trajectory.headers if header.replica == i + 1]
+            headers = [header for header in self.trajectory.headers if header.replica == i + 1]
             filtered_ndx = self.mdl_fltr(replica, energies, N=fromeach)
-            if len(filtered_models)==0:
+            if len(filtered_models) == 0:
                 filtered_models = replica[filtered_ndx, :, :]
                 filtered_headers = [headers[k] for k in filtered_ndx]
             else:
                 filtered_models = numpy.concatenate([filtered_models, replica[filtered_ndx, :, :]])
                 filtered_headers += [headers[k] for k in filtered_ndx]
-            filtered_total_ndx.extend(numpy.array(filtered_ndx)+i*n_models)
+            filtered_total_ndx.extend(numpy.array(filtered_ndx) + i * n_models)
         traj = Trajectory(self.trajectory.template, numpy.array([filtered_models]), filtered_headers)
         return traj, filtered_total_ndx
-

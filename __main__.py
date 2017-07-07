@@ -82,15 +82,16 @@ def run_job():
         help='number of replicas'
     )
     parser.add_argument(
-    	'-dssp', '--dssp_command',
-    	dest = 'dssp_command',
-    	help = 'Set the DSSP command (path).'
+        '-dssp', '--dssp_command',
+        dest='dssp_command',
+        help='Set the DSSP command (path).'
     )
 
     args = parser.parse_args()
     job_args = {k: v for k, v in vars(args).items() if v}
     from job import Job
     j = Job(**job_args)
+
 
 if __name__ == '__main__':
     run_job()

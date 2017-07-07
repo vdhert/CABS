@@ -41,15 +41,14 @@ class Benchmark(object):
                     peptide_sequence=row[3],
                     peptide_secondary_structure=row[4],
                     unbound_pdb_code=None,
-                    unbound_receptor_chain_id=None,
-                    unbound_peptide_chain_id=None
+                    unbound_receptor_chain_id=None
                 )
             )
 
     def __iter__(self):
         return self.cases.__iter__()
 
-    def bench_set(self, test = False):
+    def bench_set(self, test=False):
         """
         Sets up a job.Job for each of the benchmark cases.
         :param test: If set True, the cases will be run in a lighter mode (see :func:case.setup_case)
@@ -351,4 +350,3 @@ class Case(object):
         self.work_dir = self.job.config['work_dir']
         print(self.bound_pdb_code, self.rmsds[5])
         return self.rmsds, self.work_dir
-
