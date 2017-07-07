@@ -114,18 +114,23 @@ class ContactMap(object):
 
         sfig.matshow(
             self.cmtx.T,
-            cmap=matplotlib.pyplot.cm.Oranges,
+            cmap=matplotlib.pyplot.cm.tab20c,
             #~ vmin=0.,     #for normalization over n of frames -- uncommend
             #~ vmax=self.n  #
             )
-        sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-        sfig.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.tick_params(axis='both', which='major', labelsize=6)
-        for atoms, fx, deg in ((self.s1, sfig.set_xticklabels, 90), (self.s2, sfig.set_yticklabels, 0)):
-            fx([''] + [self._fmt_res_name(a) for a in atoms], rotation=deg)
+        for atoms, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.yaxis, 90), (self.s2, sfig.set_yticklabels, sfig.xaxis, 0)):
+            lbls = [self._fmt_res_name(a) for a in atoms]
+            mjr_loc = int(round(len(lbls)/50.)*50) / 50
+            if mjr_loc == 0: mjr_loc = 1
+            tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
+            lab_fx([''] + lbls[::mjr_loc], rotation=deg)
+
+        ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
+        cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.pyplot.cm.tab20c)
 
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '.svg', format='svg', bbox_inches='tight')
+        matplotlib.pyplot.savefig(fname + '.svg', format='svg', bbox_inches='tight', papertype='a0')
         matplotlib.pyplot.close(fig)
 
     def save_histo(self, fname):
