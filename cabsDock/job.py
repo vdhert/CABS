@@ -146,7 +146,9 @@ class Job:
             'filtering': 1000,  # number of models to filter
             'clustering': (10, 100),  # number of clusters, iterations
             'native_pdb': None,
-            'benchmark': False
+            'benchmark': False,
+            'reference_pdb': None,
+            'align': 'trivial'
         }
 
         self.config = Config(defaults)
@@ -204,10 +206,10 @@ class Job:
         #     sleep(5)
         # bar.done()
         print('CABS simuation is DONE.')
+        trajectory = cabs_run.get_trajectory()
+        trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         if self.config['native_pdb']:
             print('Calculating RMSD to the native structure...')
-            trajectory = cabs_run.get_trajectory()
-            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
             print(
                 'The native complex loaded from {0} consists of receptor (chain(s) {1}) and peptide(s) (chains(s) {2}).'
                 .format(
@@ -220,11 +222,13 @@ class Job:
                                       native_receptor_chain=self.config['native_receptor_chain'],
                                       native_peptide_chain=self.config['native_peptide_chain'],
                                       model_peptide_chain=self.initial_complex.ligand_chains[0])
-            trajectory.align_to(self.initial_complex.receptor)
-        else:
-            trajectory = cabs_run.get_trajectory()
-            trajectory.align_to(self.initial_complex.receptor)
-            trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        elif self.config['reference_pdb']:
+            rmslst = trajectory.rmsd_to_reference(
+                                        ref_pdb=self.config['reference_pdb'],
+                                        pept_chain=self.initial_complex.ligand_chains[0],
+                                        align_mth=self.config['align']
+                                        )
+        trajectory.align_to(self.initial_complex.receptor)
         #energy fix
         number_of_peptides = len(self.initial_complex.ligand_chains)
         tra, flt_inds = Filter(trajectory).cabs_filter(npept=number_of_peptides)

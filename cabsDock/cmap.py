@@ -22,9 +22,9 @@ class ContactMapFactory(object):
         chs = {}
         for n, i in enumerate(temp.atoms):
             chs.setdefault(i.chid, []).append(n)
-        self.dims = (sum(map(len, [chs[ch1] for ch1 in chains1])), sum(map(len, [chs[ch2] for ch2 in chains2])))
-        self.inds1 = reduce(operator.add, [chs[i] for i in chains1])
-        self.inds2 = reduce(operator.add, [chs[i] for i in chains2])
+        self.dims = (sum(map(len, [chs.get(ch1, []) for ch1 in chains1])), sum(map(len, [chs.get(ch2, []) for ch2 in chains2])))
+        self.inds1 = reduce(operator.add, [chs.get(i, []) for i in chains1])
+        self.inds2 = reduce(operator.add, [chs.get(i, []) for i in chains2])
         self.ats1 = [temp.atoms[i] for i in self.inds1]
         self.ats2 = [temp.atoms[i] for i in self.inds2]
 
