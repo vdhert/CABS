@@ -72,7 +72,7 @@ def ca2all(filename, output=None, iterations=1, verbose=False):
         pir = prefix + '.pir'
         with open(pir, 'w') as f:
             f.write(
-""">P1;%s
+                """>P1;%s
 sequence:::::::::
 %s
 *
@@ -135,6 +135,7 @@ structure:%s:FIRST:@:END:@::::
     finally:
         junk = ['family.mat'] + glob.glob(prefix + '*')
         map(os.remove, junk)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

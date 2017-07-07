@@ -6,8 +6,13 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
+from cabsDock.utils import _chunk_lst
+from cabsDock.utils import _extend_last
+from cabsDock.utils import mk_histos_series
+
 import matplotlib.pyplot
 import matplotlib.ticker
+
 
 class ContactMapFactory(object):
     def __init__(self, chains1, chains2, temp):
@@ -101,64 +106,51 @@ class ContactMap(object):
     def _fmt_res_name(atom):
         return (atom.chid + str(atom.resnum) + atom.icode).strip()
 
-    def save_png(self, fname):
+    def zero_diagonal(self):
+        numpy.fill_diagonal(self.cmtx, 0)
+
+    def save_fig(self, fname, _format = 'svg'):
         fig, sfig = matplotlib.pyplot.subplots(1)
-        #~ fig = matplotlib.pyplot.figure(figsize=(20, 20))
-        #~ sfig = fig.add_subplot(111)
 
         sfig.matshow(
             self.cmtx.T,
-            cmap=matplotlib.pyplot.cm.Oranges,
-            vmin=0.,
-            vmax=self.n
+            cmap=matplotlib.pyplot.cm.tab20c,
+            #~ vmin=0.,     #for normalization over n of frames -- uncommend
+            #~ vmax=self.n  #
             )
-        print numpy.max(self.cmtx), numpy.min(self.cmtx), numpy.max(self.cmtx/ float(self.n)), numpy.min(self.cmtx/ float(self.n))
-        sfig.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-        sfig.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
         sfig.tick_params(axis='both', which='major', labelsize=6)
-        for atoms, fx, deg in ((self.s1, sfig.set_xticklabels, 90), (self.s2, sfig.set_yticklabels, 0)):
-            fx([''] + [self._fmt_res_name(a) for a in atoms], rotation=deg)
+        for atoms, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.yaxis, 90), (self.s2, sfig.set_yticklabels, sfig.xaxis, 0)):
+            lbls = [self._fmt_res_name(a) for a in atoms]
+            mjr_loc = int(round(len(lbls)/50.)*50) / 50
+            if mjr_loc == 0: mjr_loc = 1
+            tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
+            lab_fx([''] + lbls[::mjr_loc], rotation=deg)
+
+        ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
+        cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.pyplot.cm.tab20c)
 
         matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname, dpi=1200)
+        matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
         matplotlib.pyplot.close(fig)
 
     def save_histo(self, fname):
-
         inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
-        inds1lst = []
-        while inds1 != []:
-            inds1lst.append(inds1[:15])
-            inds1 = inds1[15:]
+        inds1lst = _chunk_lst(inds1, 15)
+        trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
+        vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
         try:
-            last = inds1lst[-1]
-        except IndexError:  #while no contacts were found
-            return
-        if len(last) < 3:
-            inds1lst[-2].extend(last)
-            inds1lst.pop()
-
-        fig, sfigarr = matplotlib.pyplot.subplots(len(inds1lst) + 1)
-
-        targs = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
-        pept = [numpy.sum(self.cmtx[:,i]) for i in inds2]
-
-        get_xloc = lambda x: [.5 * i for i in range(len(x))]
-
-        xloc = get_xloc(inds2)
-        sfigarr[0].bar(xloc, pept, width=.45, color='orange')
-        sfigarr[0].set_xticks(xloc)
-        sfigarr[0].set_xticklabels([self._fmt_res_name(self.s2[i]) for i in inds2])
-
-        for n, (vls, inds) in enumerate(zip(targs, inds1lst), 1):
-            xloc = get_xloc(inds)
-            sfigarr[n].bar(xloc, vls, width=.45, color='orange')
-            sfigarr[n].set_xticks(xloc)
-            sfigarr[n].set_xticklabels([self._fmt_res_name(self.s1[i]) for i in inds])
-
-        matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname, dpi=1200)
-        matplotlib.pyplot.close(fig)
+            _extend_last(trg_vls, 15, 0)
+        except IndexError:
+            trg_vls = [[0.] * 15]
+        vls.extend(trg_vls)
+        lbls = [[self._fmt_res_name(self.s2[i]) for i in inds2]]
+        trg_lbls = [[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst]
+        try:
+            _extend_last(trg_lbls, 15, "")
+        except IndexError:
+            trg_lbls = [[""] * 15]
+        lbls.extend(trg_lbls)
+        mk_histos_series(vls, lbls, fname)
 
     def save_txt(self, stream):
         """Saves contact list in CSV format.
@@ -174,7 +166,7 @@ class ContactMap(object):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)
-        self.save_png(fname)
+        self.save_fig(fname)
 
     def __add__(self, other):
         """Addition of cmaps sums their matrices.

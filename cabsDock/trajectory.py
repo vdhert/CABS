@@ -59,23 +59,32 @@ class Header:
                 h.energy = np.concatenate([self.energy, other.energy])
         return h
 
-    def get_energy(self, number_of_peptides):
-        #number_of_peptides fixes energy calculations
-        """ Returns the total energy of the system. """
-        if not number_of_peptides:
-            print("Unknown number of peptides. Assuming 1.")
-            num_pept = 1
-        else:
-            num_pept = number_of_peptides
-        int_submtrx_size = self.energy.shape[0]-num_pept
-        int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
-        print('whole')
-        print(self.energy)
-        print('int')
-        print(int_submtrx_size)
-        print (self.energy[:int_submtrx_size,-num_pept:])
-        print int_enrg
-        return int_enrg
+    def get_energy(self, mode='interaction', number_of_peptides=None):
+        """
+        Calculates chosen energy for given frame.
+        :param mode: string Mode of calculation for further development. Currently supports 'total'
+        for total energy and 'interaction' for protein-peptide interactions.
+        :param number_of_peptides: int the number of peptides in the model.
+        :return: int the energy value.
+        """
+        if mode == 'interaction':
+            #number_of_peptides fixes energy calculations
+            if number_of_peptides is None:
+                print("Unknown number of peptides. Assuming 1.")
+                num_pept = 1
+            else:
+                num_pept = number_of_peptides
+            int_submtrx_size = self.energy.shape[0]-num_pept
+            int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
+            # print('whole')
+            # print(self.energy)
+            # print('int')
+            # print(int_submtrx_size)
+            # print (self.energy[:int_submtrx_size,-num_pept:])
+            # print int_enrg
+            return int_enrg
+        elif mode == 'total':
+            return np.sum(np.tril(self.energy))
 
 
 class Trajectory(object):
@@ -89,6 +98,7 @@ class Trajectory(object):
         self.coordinates = coordinates
         self.headers = headers
         self.rmsd_native = None
+        self.number_of_peptides = None
 
     @staticmethod
     def read_seq(filename):
@@ -309,12 +319,16 @@ class Trajectory(object):
         Method for transforming a trajectory instance into a PDB file-like object.
         :param mode:    'models' -- the method returns a list of StringIO objects, each representing one model from the trajectory;
                         'replicas' -- the method returns a list of StringIO objects, each representing one replica from the trajectory.
-        :return: StringIO object
+        :param to_dir:  path to directory in which the PDB files should be saved. If None, only StringIO object is returned.
+        :return:        if to_dir is None: StringIO object
+                        if to_dir is not None: saves file and returns True.
         """
         execution_mode = {'models': (self.coordinates[0], 'model'), 'replicas': (self.coordinates, 'replica')}
         if to_dir:
             for i, m in enumerate(execution_mode[mode][0]):
                 Trajectory(self.template, m, None).to_atoms().save_to_pdb(
+                    to_dir + '/'
+                    +
                     (execution_mode[mode][1] if name is None else name)
                     +
                     ('' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i))
@@ -332,7 +346,11 @@ class Trajectory(object):
         return out
 
     def rmsf(self, chains = ''):
-        #fix align to self
+        """
+        Calculates the RMSF for each of the residues.
+        :param chains: string chains for which RMSF should be calculated.
+        :return: list of RMSF values.
+        """
         mdls = self.select('chain ' + ','.join(chains))
         mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)
@@ -341,12 +359,4 @@ class Trajectory(object):
         return [numpy.mean([numpy.linalg.norm(avg[i] - case) for case in rsd]) for i, rsd in enumerate(mdls_crds)]
 
 if __name__ == '__main__':
-    tra = Trajectory.read_trajectory('/Users/maciek/Desktop/1dkx/TRAF', '/Users/maciek/Desktop/1dkx/SEQ')
-    tra.coordinates = tra.coordinates[0:1]
-    print(tra.coordinates.shape)
-    tra.to_pdb(name='blagh.pdb', mode='replicas', to_dir='/Users/maciek/Desktop')
-    rmsf=tra.rmsf(chains='A')
-    print numpy.mean(rmsf)
-    from matplotlib import pyplot
-    pyplot.plot(rmsf)
-    pyplot.show()
+    pass

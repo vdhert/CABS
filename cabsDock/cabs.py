@@ -36,7 +36,7 @@ class CabsLattice:
             for j in range(-dim, dim + 1):
                 for k in range(-dim, dim + 1):
                     l = i * i + j * j + k * k
-                    if r12min <= l <= r12max:
+                    if r12min <= float(l) <= r12max:
                         self.vectors.append(Vector3d(i, j, k))
 
         n = len(self.vectors)
@@ -242,8 +242,9 @@ class CabsRun(Thread):
 
     @staticmethod
     def make_inp(config, nmols, force_field):
-        return '%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
+        return '%i\n%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
             randint(999, 10000),
+            config['mc_anneal'],
             config['mc_cycles'],
             config['mc_steps'],
             config['replicas'],
