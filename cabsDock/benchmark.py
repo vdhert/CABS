@@ -306,7 +306,8 @@ class Case(object):
                                native_peptide_chain=self.bound_peptide_chain_id,
                                benchmark=True,
                                contact_maps=False,
-                               AA_rebuild=False
+                               AA_rebuild=False,
+                               mc_annealing=20
                                )
             else:
                 self.job = Job(receptor=self.bound_pdb_code + ':' + self.bound_receptor_chain_id,
@@ -320,7 +321,8 @@ class Case(object):
                                native_peptide_chain=self.bound_peptide_chain_id,
                                benchmark=True,
                                contact_maps=False,
-                               AA_rebuild=False
+                               AA_rebuild=False,
+                               mc_annealing=20
                                )
         except Exception as errr:
             print(
