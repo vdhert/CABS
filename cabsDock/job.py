@@ -304,8 +304,6 @@ class Job:
         shp = sc_med.shape
         sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
 
-        print 'traj conversion and filtering', time() - stime
-
         cmapdir = self.config['work_dir'] + '/contact_maps'
         try: mkdir(cmapdir)
         except OSError: pass
@@ -314,12 +312,9 @@ class Job:
 
         targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
-        print 'cmfactory creation', time() - stime
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
         cmap10ktarg.save_all(cmapdir + '/target_all')
-
-        print 'target cmap', time() - stime
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
@@ -336,4 +331,3 @@ class Job:
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
-            print 'clusts %s cmaps' % lig, time() - stime
