@@ -866,11 +866,11 @@ def mk_histos_series(series, labels, fname, _format='svg'):
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
-        sfigarr[n].bar(xloc, vls, width=.51, color='orange')
-        sfigarr[n].set_ylim([0, ylim])
-        sfigarr[n].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
-        sfigarr[n].set_xticks(xloc)
-        sfigarr[n].set_xticklabels(ticks, fontsize=6)
+        sfigarr[n, 0].bar(xloc, vls, width=.51, color='orange')
+        sfigarr[n, 0].set_ylim([0, ylim])
+        sfigarr[n, 0].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
+        sfigarr[n, 0].set_xticks(xloc)
+        sfigarr[n, 0].set_xticklabels(ticks, fontsize=6)
 
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
