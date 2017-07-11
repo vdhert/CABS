@@ -1,16 +1,21 @@
 ![cabsdock-logo.jpg](https://bitbucket.org/repo/Bgk4jed/images/288308575-cabsdock-logo.jpg)
 
 # README #
-This is a repository for CABS-dock standalone application for protein-peptide molecular docking. Detailed instructions and tutorials are provided on [WIKI PAGE](https://bitbucket.org/labcompbiol/cabsdock/wiki/)
+This is a repository for CABS-dock standalone application for protein-peptide molecular docking. Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/labcompbiol/cabsdock/wiki/). CABSdock web server is available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
 
 
 # INSTALLATION #
-CABSdock standalone package ...
+CABSdock standalone package ... full functionality requires installation of the following software packages:
+
+* 
+* [MODELLER](https://salilab.org/modeller/) - a program for comparative modeling of protein structure using spatial restraints. CABSdock uses MODELLER for reconstruction of predicted complexes from C-alpha to all-atom representation. 
+* [Matplotlib](https://matplotlib.org/) - a Python 2D plotting library which produces publication quality figures. CABSdock uses Matplotlib for automated analysis of simulation results - several kinds of plots are being made. 
+* ...
 
 
 # ABOUT THE METHOD ###
 
-CABS-dock method has been first made available in 2015 as a web server at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/). The following papers describe the CABS-dock web server and its example applications:
+The following papers describe the CABS-dock method/ web server/ and its example applications:
 
 * [CABS-dock web server for flexible docking of peptides to proteins without prior knowledge of the binding site, Nucleic Acids Research, 43(W1): W419-W424, 2015](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)
 * [Modeling of protein-peptide interactions using the CABS-dock web server for binding site search and flexible docking, Methods, 93, 72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207)
