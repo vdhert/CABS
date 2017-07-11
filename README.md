@@ -3,6 +3,7 @@
 # README #
 This is a repository for CABS-dock standalone application for protein-peptide molecular docking. Detailed instructions and tutorials are provided on [**CABSdock WIKI PAGE**](https://bitbucket.org/labcompbiol/cabsdock/wiki/). CABSdock web server is available at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
 
+-------------------------------------------
 
 # INSTALLATION #
 CABSdock standalone package ... full functionality requires installation of the following software packages:
@@ -12,6 +13,7 @@ CABSdock standalone package ... full functionality requires installation of the 
 * [Matplotlib](https://matplotlib.org/) - a Python 2D plotting library which produces publication quality figures. CABSdock uses Matplotlib for automated analysis of simulation results - several kinds of plots are being made. 
 * ...
 
+--------------------------------------------
 
 # ABOUT THE METHOD ###
 
