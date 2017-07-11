@@ -2,7 +2,7 @@
 
 # README #
 This is a repository for CABSdock standalone application for protein-peptide molecular docking. CABSdock method is also available as a web server at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
-## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/labcompbiol/cabsdock/wiki/) ## 
+## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/labcompbiol/cabsdock/wiki/) ##
 
 -------------------------------------------
 
