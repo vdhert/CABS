@@ -117,10 +117,12 @@ class ContactMap(object):
         """
         #~ grid = matplotlib.pyplot.GridSpec(*(numpy.array([5, 0]) + self.cmtx.shape))
         grid = matplotlib.pyplot.GridSpec(2, 1,
-                                    width_ratios=(self.cmtx.shape[1],),
-                                    height_ratios=(self.cmtx.shape[0], 1))
+                                    width_ratios=(1,),
+                                    height_ratios=(99, 1))
         sfig = matplotlib.pyplot.subplot(grid[0, :])
         vmax = self.n if norm_n else numpy.max(self.cmtx)
+        if not vmax:
+            vmax = 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
                 ['#ffffff', '#ff0066', '#33cc33', '#999999', '#ff9933'])
 
@@ -130,8 +132,11 @@ class ContactMap(object):
             vmin=0.,
             vmax=vmax,
             )
+        if sfig.get_data_ratio() < 1.:
+            aratio = self.cmtx.shape[0] / 100.
+            sfig.set_aspect(aratio)
         sfig.tick_params(axis='both', which='major', labelsize=6)
-        for lbls, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.yaxis, 90), (self.s2, sfig.set_yticklabels, sfig.xaxis, 0)):
+        for lbls, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.xaxis, 90), (self.s2, sfig.set_yticklabels, sfig.yaxis, 0)):
             mjr_loc = int(round(len(lbls)/50.)*50) / 50
             if mjr_loc == 0: mjr_loc = 1
             tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
@@ -141,14 +146,23 @@ class ContactMap(object):
         cb = matplotlib.colorbar.ColorbarBase(ax2,
                                 cmap=colors,
                                 orientation='horizontal',
-                                boundaries=range(int(vmax))
+                                boundaries=range(self.n + 1)
                                 )
 
         matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close()
 
-    def save_histo(self, fname):
+    def save_histo(self, fname, all_inds_stc2=True):
+        """
+        Saves histogram of contact counts for each atom.
+
+        Arguments:
+        fname -- str; name of file to be created.
+        all_inds_stc2 -- bool; True by default
+        """
         inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
+        if all_inds_stc2:
+            inds2 = range(self.cmtx.shape[1])
         inds1lst = _chunk_lst(inds1, 15)
         trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
         vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]

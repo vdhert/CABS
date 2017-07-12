@@ -14,7 +14,6 @@ from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar
 from cabsDock.utils import SCModeler
-from cabsDock.utils import check_peptide_sequence
 from cabsDock.utils import _chunk_lst
 from cabsDock.plots import plot_E_RMSD
 from cabsDock.plots import plot_RMSD_N
@@ -90,15 +89,11 @@ class Config(dict):
             if 'ligand' not in self:
                 self['ligand'] = []
             val = config['ligand']
-            if type(val) is list:
+            if type(val) in (list, tuple):
                 self['ligand'].extend(val)
-            elif type(val) is tuple:
-                self['ligand'].append(val)
             elif type(val) is str:
                 self['ligand'].append((val,))
             del config['ligand']
-            # checks the input peptide sequence for non-standard amino acids.
-            [check_peptide_sequence(peptide[0]) for peptide in self['ligand']]
         self.update(config)
         return self
 

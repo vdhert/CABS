@@ -23,6 +23,24 @@ def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
         splot.set_ylim(ylim)
     return splot
 
+def drop_csv_file(fname, columns, fmts="%s"):
+    """
+    Creates *fname* csv file and writes given columns to this file.
+
+    Arguments:
+    fname -- name of file to be created.
+    columns -- sequences of data sequences. Lists will be truncated to len of the shortest one.
+    fmts -- str or sequence of str. C-style string formats to be used (e.g. "%s", "%.3f", ...).
+    If only one string is given -- same format is used for all data.
+    Otheriwse subsequent fmts are used for corresponding solumns.
+    """
+    if type(fmts) is str:
+        fmts = [fmts for dummy in columns]
+    with open(fname + '.csv', 'w') as f:
+        for vals in zip(*columns):
+            f.write("\t".join([fmt % val for fmt, val in zip(fmts, vals)]))
+            f.write('\n')
+
 def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
     """
     Creates energy(RMSD) plots.
@@ -45,6 +63,7 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
         xlim = (0, max(chain((5,), *rmsds)))
         ylim = (min(chain((0,), *data)), max(chain((5,), *data)))
         mk_discrete_plot(sfigarr[ind], rmsds, data, xlim, ylim)
+        drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
     for traj, rmsd_list in zip(trajectories, rmsds):
         sfigarr[2].hist(rmsd_list, int(numpy.max(rmsd_list) - numpy.min(rmsd_list)))
     fig.get_axes()[-1].set_xlabel('RMSD')
@@ -62,14 +81,18 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
     See matplotlib.pyplot.savefig for more formats.
     """
     for n, rmsd_lst in enumerate(rmsds):
+        tfname = fname + '_replica_%i' % n
+        nfs = range(len(rmsd_lst))
+
         fig, sfig = matplotlib.pyplot.subplots(1)
-        mk_discrete_plot(sfig, [range(len(rmsd_lst))], [rmsd_lst], joined=True)
+        mk_discrete_plot(sfig, [nfs], [rmsd_lst], joined=True)
         fig.get_axes()[0].set_ylabel('RMSD')
         fig.get_axes()[0].set_xlabel('frame')
         fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
 
-        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.' + fmt, format=fmt)
+        matplotlib.pyplot.savefig(tfname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close(fig)
+        drop_csv_file(tfname, (map(str, nfs), rmsd_lst), fmts=("%s", "%.3f"))
 
 def graph_RMSF(trajectory, chains, fname, hist=False):
     if hist:
@@ -80,9 +103,7 @@ def graph_RMSF(trajectory, chains, fname, hist=False):
         rmsf_vals = [trajectory.rmsf(chains)]
         lbls = [[i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in chains]]
         plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq')
-    with open(fname + '.csv', 'w') as f:
-        for lab, rmsf in zip(chain(*lbls), chain(*rmsf_vals)):
-            f.write("%s\t%.3f\n" % (lab, rmsf))
+    drop_csv_file(fname, (tuple(chain(*lbls)), tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
 
 def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     """
@@ -128,5 +149,6 @@ def mk_histos_series(series, labels, fname, fmt='svg'):
         sfigarr[n, 0].set_xticks(xloc)
         sfigarr[n, 0].set_xticklabels(ticks, fontsize=6)
 
+    matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
     matplotlib.pyplot.close(fig)
