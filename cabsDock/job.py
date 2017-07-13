@@ -279,7 +279,7 @@ class Job:
         self.results['lowest_medoids'] = sorted(self.results['rmsds_medoids'])[0]
         # Saving rmsd results
         if save:
-            with open(join(self.config['work_dir'], 'rmsds.txt'), 'w') as outfile:
+            with open(self.config['work_dir']+'/rmsds.txt', 'w') as outfile:
                 outfile.write(
                     'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(self.results['lowest_all'],
                                                                                        self.results['lowest_filtered'],
