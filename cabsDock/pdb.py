@@ -2,7 +2,7 @@
 
 import re
 import os
-from os.path import exists
+from os.path import exists, expanduser
 from gzip import GzipFile
 from urllib2 import urlopen, HTTPError
 from StringIO import StringIO
@@ -99,7 +99,7 @@ class Pdb:
         return sec
 
 
-def download_pdb(pdb_code, work_dir='.', force_download=False):
+def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
     path = work_dir + '/cabsPDBcache/%s' % pdb_code[1:3]
     try: os.makedirs(path)
     except OSError: pass
