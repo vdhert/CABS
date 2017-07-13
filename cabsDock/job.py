@@ -95,8 +95,6 @@ class Config(dict):
             elif type(val) is str:
                 self['ligand'].append((val,))
             del config['ligand']
-            # checks the input peptide sequence for non-standard amino acids.
-            [check_peptide_sequence(peptide[0]) for peptide in self['ligand']]
         self.update(config)
         return self
 
@@ -330,7 +328,7 @@ class Job:
             self.filtered_trajectory.to_pdb(mode='replicas', to_dir=self.config['work_dir'], name='top1000')
         # Saving clusters in CA representation
         if clusters:
-            for i, cluster in enumerate(clusters):
+            for i, cluster in enumerate(self.clusters):
                 cluster.to_pdb(mode='replicas', to_dir=self.config['work_dir'], name='cluster_{0}'.format(i))
         # Saving top10 models:
         if medoids == 'CA':
