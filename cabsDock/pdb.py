@@ -1,6 +1,7 @@
 """Module to handle pdb files."""
 
 import re
+import os
 from os.path import exists
 from gzip import GzipFile
 from urllib2 import urlopen, HTTPError
@@ -98,15 +99,24 @@ class Pdb:
         return sec
 
 
-def download_pdb(pdb_code):
-    url = 'http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz'
-    s = StringIO()
+def download_pdb(pdb_code, work_dir='.', force_download=False):
+    path = work_dir + '/.cabsPDBcache/%s' % pdb_code[1:3]
+    try: os.makedirs(path)
+    except OSError: pass
+    fname = path + '/%s.pdb' % pdb_code
     try:
-        s.write(urlopen(url).read())
-    except HTTPError:
-        raise InvalidPdbCode(pdb_code)
-    s.seek(0)
-    return GzipFile(fileobj=s)
+        if force_download:
+            raise IOError
+        file_ = open(fname)
+    except IOError:
+        try:
+            gz_string = urlopen('http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz').read()
+        except HTTPError:
+            raise InvalidPdbCode(pdb_code)
+        with open(fname, 'w') as fobj:
+            fobj.write(gz_string)
+    file_ = open(fname)
+    return GzipFile(fileobj=file_)
 
 
 class PdbFileEmpty(Exception):
