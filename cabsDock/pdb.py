@@ -100,7 +100,7 @@ class Pdb:
 
 
 def download_pdb(pdb_code, work_dir='.', force_download=False):
-    path = work_dir + '/.cabsPDBcache/%s' % pdb_code[1:3]
+    path = work_dir + '/cabsPDBcache/%s' % pdb_code[1:3]
     try: os.makedirs(path)
     except OSError: pass
     fname = path + '/%s.pdb' % pdb_code
