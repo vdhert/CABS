@@ -250,7 +250,7 @@ class Job:
         self.trajectory.align_to(initial_complex.receptor)
         return self.trajectory
 
-    def score_results(self, n_filtered=1000, number_of_medoids=10, number_of_iterations=100):
+    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         print("score_results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
