@@ -279,7 +279,12 @@ class Job:
         self.results['lowest_medoids'] = sorted(self.results['rmsds_medoids'])[0]
         # Saving rmsd results
         if save:
-            with open(self.config['work_dir']+'/rmsds.txt', 'w') as outfile:
+            odir = self.config['work_dir'] + '/output_data'
+            try:
+                mkdir(odir)
+            except OSError:
+                pass
+            with open(odir+'/rmsds.txt', 'w') as outfile:
                 outfile.write(
                     'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(self.results['lowest_all'],
                                                                                        self.results['lowest_filtered'],
@@ -319,27 +324,33 @@ class Job:
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
+        #output folder
+        output_folder = self.config['work_dir'] + '/output_pdbs'
+        try:
+            mkdir(output_folder)
+        except OSError:
+            pass
         print('save_models')
         # Saving the trajectory to PDBs:
         if replicas:
-            self.trajectory.to_pdb(mode='replicas', to_dir=self.config['work_dir'])
+            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
         # Saving top1000 models to PDB:
         if topn:
-            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=self.config['work_dir'], name='top1000')
+            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
         # Saving clusters in CA representation
         if clusters:
             for i, cluster in enumerate(self.clusters):
-                cluster.to_pdb(mode='replicas', to_dir=self.config['work_dir'], name='cluster_{0}'.format(i))
+                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
         # Saving top10 models:
         if medoids == 'CA':
             # Saving top 10 models in CA representation:
-            self.medoids.to_pdb(mode='models', to_dir=self.config['work_dir'], name='model')
+            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
         elif medoids == 'AA':
             # Saving top 10 models in AA representation:
             pdb_medoids = self.medoids.to_pdb()
             from cabsDock.ca2all import ca2all
             for i, fname in enumerate(pdb_medoids):
-                ca2all(fname, output=self.config['work_dir'] + '/' + 'model_{0}.pdb'.format(i), iterations=1,
+                ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
                        verbose=False)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
