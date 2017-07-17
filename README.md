@@ -8,8 +8,11 @@ This is a repository for CABSdock standalone application for protein-peptide mol
 # INSTALLATION #
 
 To install CABSdock:
+
 1. Download latest version of CABSdock
+
 2. Extract CABSdock-version.tar.gz
+
 ```
 tar xzvf CABSdock-version.tar.gz
 ```
@@ -18,6 +21,7 @@ tar xzvf CABSdock-version.tar.gz
 cd CABSdock-version
 ```
 4. Installation and running
+
 4.1 If you have root privileges and want to install CABSdock systemwide run:
 ```
 python setup.py install
@@ -27,7 +31,9 @@ python setup.py install
 python setup.py install --prefix=<PATH>
 ```
 Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
+
 4.3 To run CABSdock simply type:
+
 ```
 CABSdock
 ```
