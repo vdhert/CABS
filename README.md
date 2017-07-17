@@ -22,17 +22,17 @@ cd CABSdock-version
 ```
 4. Installation and running
 
-4.1 If you have root privileges and want to install CABSdock systemwide run:
+If you have root privileges and want to install CABSdock systemwide run:
 ```
 python setup.py install
 ```
-4.2 To install CABSdock locally run:
+To install CABSdock locally run:
 ```
 python setup.py install --prefix=<PATH>
 ```
 Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
 
-4.3 To run CABSdock simply type:
+To run CABSdock simply type:
 
 ```
 CABSdock
