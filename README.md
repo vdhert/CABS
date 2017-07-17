@@ -50,7 +50,11 @@ Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
 CABSdock
 ```
 
-CABSdock standalone package ... full functionality requires installation of the following software packages:
+Additionally, CABSdock requires installation of the following packages: gfortran, numpy, matplotlib, dssp and modeller. To install them run:
+```
+#!bash
+sudo apt install gfortran python-numpy python-matplotlib dssp modeller
+```
 
 * 
 * [MODELLER](https://salilab.org/modeller/) - a program for comparative modeling of protein structure using spatial restraints. CABSdock uses MODELLER for reconstruction of predicted complexes from C-alpha to all-atom representation. 
