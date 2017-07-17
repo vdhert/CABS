@@ -16,7 +16,7 @@ CABSdock standalone package ... full functionality requires installation of the 
 
 # ABOUT THE METHOD ###
 
-The following papers describe the CABS-dock method/ web server/ and its example applications:
+CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc. CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.The following papers describe the CABS-dock method/ web server/ and its example applications:
 
 * [CABS-dock web server for flexible docking of peptides to proteins without prior knowledge of the binding site, Nucleic Acids Research, 43(W1): W419-W424, 2015](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)
 * [Modeling of protein-peptide interactions using the CABS-dock web server for binding site search and flexible docking, Methods, 93, 72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207)
@@ -26,9 +26,7 @@ The following papers describe the CABS-dock method/ web server/ and its example 
 CABS-dock pipeline consist of the three following modules:
 
 * Simulation module – performs docking simulations using peptide sequence, protein structure and set of parameters as an input. With default settings the module outputs a set of 10’000 of models (10 trajectories consisting of 1000 models) in C-alpha representation.
-
 * Scoring module – selects representative and best-scored models from the simulation module output. Scoring module outputs sets of 10, 100 and 1000 top-scored models in C-alpha representation.
-
 * Reconstruction to all-atom representation module – uses a Modeller package to reconstruct a set of 10 top-scored models from C-alpha to all-atom representation.
 
 
