@@ -17,7 +17,7 @@ CABSdock standalone package ... full functionality requires installation of the 
 
 # ABOUT THE METHOD ###
 
-CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
+CABSdock method has been first made available as a web server [at: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
 
 The following papers describe the CABS-dock method/ web server/ and its example applications:
 
