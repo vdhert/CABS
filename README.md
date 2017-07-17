@@ -77,11 +77,11 @@ CABS-dock pipeline consist of the three following modules:
 
 CABS-dock application uses some external software packages for the following tasks:
 
-* [Gfortran] (https://gcc.gnu.org/wiki/GFortran) complier for the compilation of CABS simulation model code
-* [dssp] (http://www.cmbi.ru.nl/dssp.html) - for secondary structure assignment of protein receptors from PDB files
+* [Gfortran](https://gcc.gnu.org/wiki/GFortran) complier for the compilation of CABS simulation model code
+* [dssp](http://www.cmbi.ru.nl/dssp.html) - for secondary structure assignment of protein receptors from PDB files
 * [MODELLER](https://salilab.org/modeller/) - a program for comparative modeling of protein structure using spatial restraints. CABSdock uses MODELLER for reconstruction of predicted complexes from C-alpha to all-atom representation. 
 * [Matplotlib](https://matplotlib.org/) - a Python 2D plotting library which produces publication quality figures. CABSdock uses Matplotlib for automated analysis of simulation results - several kinds of plots are being made. 
-* [numpy] (http://www.cmbi.ru.nl/dssp.html) - a fundamental package for scientific computing with Python
+* [numpy](http://www.cmbi.ru.nl/dssp.html) - a fundamental package for scientific computing with Python
 
 ------------------------------------------
 Laboratory of Computational Biology, 2017
