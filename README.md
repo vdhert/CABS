@@ -1,5 +1,6 @@
 # README #
-This is a repository for CABSdock standalone application for protein-peptide molecular docking. CABSdock method is also available as a web server at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
+This is a repository for CABSdock standalone application for protein-peptide molecular docking. CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
+
 ## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/lcbio/cabsdock/wiki/) ##
 
 -------------------------------------------
@@ -16,7 +17,9 @@ CABSdock standalone package ... full functionality requires installation of the 
 
 # ABOUT THE METHOD ###
 
-CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc. CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.The following papers describe the CABS-dock method/ web server/ and its example applications:
+CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
+
+The following papers describe the CABS-dock method/ web server/ and its example applications:
 
 * [CABS-dock web server for flexible docking of peptides to proteins without prior knowledge of the binding site, Nucleic Acids Research, 43(W1): W419-W424, 2015](https://academic.oup.com/nar/article-lookup/doi/10.1093/nar/gkv456)
 * [Modeling of protein-peptide interactions using the CABS-dock web server for binding site search and flexible docking, Methods, 93, 72-83, 2016](http://www.sciencedirect.com/science/article/pii/S1046202315300207)
