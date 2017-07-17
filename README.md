@@ -1,5 +1,5 @@
 # README #
-This is a repository for CABSdock standalone application for protein-peptide molecular docking. CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
+This is a repository for CABSdock standalone application for molecular docking of peptides to proteins. The CABSdock allows for flexible docking (also with large-scale conformational changes) without knowledge about the binding site. The CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
 
 ## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/lcbio/cabsdock/wiki/) ##
 
