@@ -49,36 +49,6 @@ Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
 #!bash
 CABSdock
 ```
-To install CABSdock:
-
-1. Download latest version of CABSdock
-
-2. Extract CABSdock-version.tar.gz
-
-```
-tar xzvf CABSdock-version.tar.gz
-```
-3. Change into CABSdock-version directory
-```
-cd CABSdock-version
-```
-4. Installation and running
-
-If you have root privileges and want to install CABSdock systemwide run:
-```
-python setup.py install
-```
-To install CABSdock locally run:
-```
-python setup.py install --prefix=<PATH>
-```
-Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
-
-To run CABSdock simply type:
-
-```
-CABSdock
-```
 
 CABSdock standalone package ... full functionality requires installation of the following software packages:
 
