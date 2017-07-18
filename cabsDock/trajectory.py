@@ -76,12 +76,6 @@ class Header:
                 num_pept = number_of_peptides
             int_submtrx_size = self.energy.shape[0]-num_pept
             int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
-            # print('whole')
-            # print(self.energy)
-            # print('int')
-            # print(int_submtrx_size)
-            # print (self.energy[:int_submtrx_size,-num_pept:])
-            # print int_enrg
             return int_enrg
         elif mode == 'total':
             return np.sum(np.tril(self.energy))
@@ -93,12 +87,12 @@ class Trajectory(object):
     """
     GRID = 0.61
 
-    def __init__(self, template, coordinates, headers):
+    def __init__(self, template, coordinates, headers, number_of_peptides=None):
         self.template = template
         self.coordinates = coordinates
         self.headers = headers
         self.rmsd_native = None
-        self.number_of_peptides = None
+        self.number_of_peptides = number_of_peptides
 
     @staticmethod
     def read_seq(filename):
@@ -272,7 +266,7 @@ class Trajectory(object):
         # aligning peptide
         temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
         ref_stc = Pdb(pdb_code=ref_pdb).atoms.select('name CA and not HETERO')
-        ref_pept_mers, temp_pept_mers = zip(*mth.execute(ref_stc, temp_pept, True))
+        ref_pept_mers, temp_pept_mers = zip(*mth.execute(ref_stc, temp_pept))
 
         # choosing remaining chains but the one aligned with peptide
         chs = set([i.chid for i in ref_pept_mers])
