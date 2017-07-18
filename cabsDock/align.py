@@ -1,3 +1,4 @@
+import numpy
 from abc import ABCMeta
 from abc import abstractmethod
 from tempfile import mkstemp
@@ -5,6 +6,48 @@ from os import remove
 from subprocess import check_output
 
 from utils import aa_to_short
+
+
+BLOSUM62 = numpy.array([[ 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2, -1,  1,  0, -3, -2,  0, -2, -1,  0, -4],
+       [-1,  5,  0, -2, -3,  1,  0, -2,  0, -3, -2,  2, -1, -3, -2, -1, -1, -3, -2, -3, -1,  0, -1, -4],
+       [-2,  0,  6,  1, -3,  0,  0,  0,  1, -3, -3,  0, -2, -3, -2,  1,  0, -4, -2, -3,  3,  0, -1, -4],
+       [-2, -2,  1,  6, -3,  0,  2, -1, -1, -3, -4, -1, -3, -3, -1,  0, -1, -4, -3, -3,  4,  1, -1, -4],
+       [ 0, -3, -3, -3,  9, -3, -4, -3, -3, -1, -1, -3, -1, -2, -3, -1, -1, -2, -2, -1, -3, -3, -2, -4],
+       [-1,  1,  0,  0, -3,  5,  2, -2,  0, -3, -2,  1,  0, -3, -1,  0, -1, -2, -1, -2,  0,  3, -1, -4],
+       [-1,  0,  0,  2, -4,  2,  5, -2,  0, -3, -3,  1, -2, -3, -1,  0, -1, -3, -2, -2,  1,  4, -1, -4],
+       [ 0, -2,  0, -1, -3, -2, -2,  6, -2, -4, -4, -2, -3, -3, -2,  0, -2, -2, -3, -3, -1, -2, -1, -4],
+       [-2,  0,  1, -1, -3,  0,  0, -2,  8, -3, -3, -1, -2, -1, -2, -1, -2, -2,  2, -3,  0,  0, -1, -4],
+       [-1, -3, -3, -3, -1, -3, -3, -4, -3,  4,  2, -3,  1,  0, -3, -2, -1, -3, -1,  3, -3, -3, -1, -4],
+       [-1, -2, -3, -4, -1, -2, -3, -4, -3,  2,  4, -2,  2,  0, -3, -2, -1, -2, -1,  1, -4, -3, -1, -4],
+       [-1,  2,  0, -1, -3,  1,  1, -2, -1, -3, -2,  5, -1, -3, -1,  0, -1, -3, -2, -2,  0,  1, -1, -4],
+       [-1, -1, -2, -3, -1,  0, -2, -3, -2,  1,  2, -1,  5,  0, -2, -1, -1, -1, -1,  1, -3, -1, -1, -4],
+       [-2, -3, -3, -3, -2, -3, -3, -3, -1,  0,  0, -3,  0,  6, -4, -2, -2, 1,  3, -1, -3, -3, -1, -4],
+       [-1, -2, -2, -1, -3, -1, -1, -2, -2, -3, -3, -1, -2, -4,  7, -1, -1, -4, -3, -2, -2, -1, -2, -4],
+       [ 1, -1,  1,  0, -1,  0,  0,  0, -1, -2, -2,  0, -1, -2, -1,  4,  1, -3, -2, -2,  0,  0,  0, -4],
+       [ 0, -1,  0, -1, -1, -1, -1, -2, -2, -1, -1, -1, -1, -2, -1,  1,  5, -2, -2,  0, -1, -1,  0, -4],
+       [-3, -3, -4, -4, -2, -2, -3, -2, -2, -3, -2, -3, -1,  1, -4, -3, -2, 11,  2, -3, -4, -3, -2, -4],
+       [-2, -2, -2, -3, -2, -1, -2, -3,  2, -1, -1, -2, -1,  3, -3, -2, -2, 2,  7, -1, -3, -2, -1, -4],
+       [ 0, -3, -3, -3, -1, -2, -2, -3, -3,  3,  1, -2,  1, -1, -2, -2,  0, -3, -1,  4, -3, -2, -1, -4],
+       [-2, -1,  3,  4, -3,  0,  1, -1,  0, -3, -4,  0, -3, -3, -2,  0, -1, -4, -3, -3,  4,  1, -1, -4],
+       [-1,  0,  0,  1, -3,  3,  4, -2,  0, -3, -3,  1, -1, -3, -1,  0, -1, -3, -2, -2,  1,  4, -1, -4],
+       [ 0, -1, -1, -1, -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2,  0,  0, -2, -1, -1, -1, -1, -1, -4],
+       [-4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,  1]])
+B62h = {None: 23, 'A': 0, 'C': 4, 'B': 20, 'E': 6, 'D': 3, 'G': 7, 'F': 13, 'I': 9, 'H': 8, 'K': 11, 'M': 12, 'L': 10, 'N': 2, 'Q': 5, 'P': 14, 'S': 15, 'R': 1, 'T': 16, 'W': 17, 'V': 19, 'Y': 18, 'X': 22, 'Z': 21}
+
+
+def raise_aerror_on(*errors):
+    """Method wrapper that takes list of errors raised by method to be changed into AlignError."""
+    def wrapper(method):
+        def wrapped_mth(*args, **kwargs):
+            try:
+                return method(*args, **kwargs)
+            except errors:
+                raise AlignError
+        return wrapped_mth
+    return wrapper
+
+class AlignError(Exception):
+    pass
 
 class AlnMeta(ABCMeta):
     def __init__(self, *args, **kwargs):
@@ -37,7 +80,8 @@ class BLASTpAlign(AbstractAlignMethod):
 
     methodname = 'blastp'
 
-    def execute(self, atoms1, atoms2, short=False):
+    @raise_aerror_on(StopIteration, IndexError)
+    def execute(self, atoms1, atoms2, short=False, **kwargs):
         get_seq = lambda stc: [aa_to_short(r.resname) for r in stc.atoms]
         tn1 = mkstemp()[1]
         tn2 = mkstemp()[1]
@@ -50,7 +94,7 @@ class BLASTpAlign(AbstractAlignMethod):
         with open(tn1) as f1:
             with open(tn2) as f2:
                 task = ['-task', 'blastp-short'] if short else []
-                res = check_output(['blastp', '-subject', f1.name, '-query', f2.name] + task)
+                res = check_output(['blastp', '-subject', f1.name, '-query', f2.name] + task) #?? + kwargs
         remove(tn1)
         remove(tn2)
         bhit = [i for i in map(str.strip, res.split('\n\n\n')) if i.startswith('Score')][0].split('\n\n')[1:]
@@ -67,3 +111,30 @@ class BLASTpAlign(AbstractAlignMethod):
                 if None in (m1, m2): continue
                 aln_res.append((m1, m2))
         return aln_res
+
+
+class SmithWaterman(AbstractAlignMethod):
+
+    methodname = 'SW'
+
+    def execute(self, atoms1, atoms2, **kwargs):
+        # filling matrix
+        mtx = numpy.zeros((len(atoms1) + 1, len(atoms2) + 1), dtype=numpy.int)
+        for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):
+            for j, r2 in enumerate([aa_to_short(l.resname) for l in atoms2], 1):
+                dgn = mtx[i - 1, j - 1] + BLOSUM62[B62h[r1], B62h[r2]]
+                dwn = mtx[i - 1, j] + BLOSUM62[B62h[None], B62h[r2]]
+                rght = mtx[i, j - 1] + BLOSUM62[B62h[r1], B62h[None]]
+                mtx[i, j] = max((dgn, dwn, rght, 0))
+        # finding path
+        i, j = numpy.unravel_index(numpy.argmax(mtx), mtx.shape)
+        pickup = lambda ind1, ind2: (atoms1[ind1 - 1], atoms2[ind2 - 1])
+        alg = [pickup(i, j)]
+        while i != j != 0:
+            di, dj = max(((-1, -1), (-1, 0), (0, -1)), key=lambda x: mtx[i + x[0], j + x[1]])
+            if 1 in (i, j): break   #?? is it so
+            i += di
+            j += dj
+            if di == dj:
+                alg.append(pickup(i, j))
+        return tuple(reversed(alg))

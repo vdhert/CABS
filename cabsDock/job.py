@@ -260,6 +260,7 @@ class Job:
     def calculate_rmsd(self, reference_pdb=None, save=True):
         print('calculate_rmsd')
         self.rmslst = self.trajectory.rmsd_to_reference(
+            self.initial_complex.receptor_chains,
             ref_pdb=reference_pdb,
             pept_chain=self.initial_complex.ligand_chains,
             align_mth=self.config['align']
