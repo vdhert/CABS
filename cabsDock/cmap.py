@@ -8,10 +8,12 @@ import operator
 
 from cabsDock.utils import _chunk_lst
 from cabsDock.utils import _extend_last
-from cabsDock.utils import mk_histos_series
+from cabsDock.utils import _fmt_res_name
+from cabsDock.plots import mk_histos_series
 
 import matplotlib.pyplot
 import matplotlib.ticker
+import matplotlib.colors
 
 
 class ContactMapFactory(object):
@@ -61,7 +63,7 @@ class ContactMapFactory(object):
                 ncmtx = self.mk_cmtx(self.mk_dmtx(fra), thr)
                 cmtx += ncmtx
                 nframes += 1
-            resl.append(ContactMap(cmtx, self.ats1, self.ats2, nframes))
+            resl.append(ContactMap(cmtx, map(_fmt_res_name, self.ats1), map(_fmt_res_name, self.ats2), nframes))
         return resl
 
     def mk_cmtx(self, mtx, thr):
@@ -102,39 +104,65 @@ class ContactMap(object):
         self.s2 = atoms2
         self.n = n
 
-    @staticmethod
-    def _fmt_res_name(atom):
-        return (atom.chid + str(atom.resnum) + atom.icode).strip()
-
     def zero_diagonal(self):
         numpy.fill_diagonal(self.cmtx, 0)
 
-    def save_fig(self, fname, _format = 'svg'):
-        fig, sfig = matplotlib.pyplot.subplots(1)
+    def save_fig(self, fname, fmt='svg', norm_n=False):
+        """Saves cmap as matrix plot.
+
+        Arguments:
+        fname -- str; file name.
+        fmt -- str; by default 'svg'. See matplotlib.pyplot.savefig for more inforamtion.
+        norm_n -- bool; if True cmap will be normalized by cmap number of frames.
+        """
+        #~ grid = matplotlib.pyplot.GridSpec(*(numpy.array([5, 0]) + self.cmtx.shape))
+        grid = matplotlib.pyplot.GridSpec(2, 1,
+                                    width_ratios=(1,),
+                                    height_ratios=(99, 1))
+        sfig = matplotlib.pyplot.subplot(grid[0, :])
+        vmax = self.n if norm_n else numpy.max(self.cmtx)
+        if not vmax:
+            vmax = 5
+        colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
+                ['#ffffff', '#ff0066', '#33cc33', '#999999', '#ff9933'])
 
         sfig.matshow(
             self.cmtx.T,
-            cmap=matplotlib.pyplot.cm.tab20c,
-            #~ vmin=0.,     #for normalization over n of frames -- uncommend
-            #~ vmax=self.n  #
+            cmap=colors,
+            vmin=0.,
+            vmax=vmax,
             )
+        if sfig.get_data_ratio() < 1.:
+            aratio = self.cmtx.shape[0] / 100.
+            sfig.set_aspect(aratio)
         sfig.tick_params(axis='both', which='major', labelsize=6)
-        for atoms, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.yaxis, 90), (self.s2, sfig.set_yticklabels, sfig.xaxis, 0)):
-            lbls = [self._fmt_res_name(a) for a in atoms]
+        for lbls, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.xaxis, 90), (self.s2, sfig.set_yticklabels, sfig.yaxis, 0)):
             mjr_loc = int(round(len(lbls)/50.)*50) / 50
             if mjr_loc == 0: mjr_loc = 1
             tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
-            lab_fx([''] + lbls[::mjr_loc], rotation=deg)
+            lab_fx([''] + lbls[::mjr_loc], rotation=deg, fontsize=4)
 
-        ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
-        cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.pyplot.cm.tab20c)
+        ax2 = matplotlib.pyplot.subplot(grid[1, 0])
+        cb = matplotlib.colorbar.ColorbarBase(ax2,
+                                cmap=colors,
+                                orientation='horizontal',
+                                boundaries=range(self.n + 1)
+                                )
 
-        matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
-        matplotlib.pyplot.close(fig)
+        matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
+        matplotlib.pyplot.close()
 
-    def save_histo(self, fname):
+    def save_histo(self, fname, all_inds_stc2=True):
+        """
+        Saves histogram of contact counts for each atom.
+
+        Arguments:
+        fname -- str; name of file to be created.
+        all_inds_stc2 -- bool; True by default
+        """
         inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
+        if all_inds_stc2:
+            inds2 = range(self.cmtx.shape[1])
         inds1lst = _chunk_lst(inds1, 15)
         trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
         vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
@@ -143,8 +171,8 @@ class ContactMap(object):
         except IndexError:
             trg_vls = [[0.] * 15]
         vls.extend(trg_vls)
-        lbls = [[self._fmt_res_name(self.s2[i]) for i in inds2]]
-        trg_lbls = [[self._fmt_res_name(self.s1[i]) for i in inds] for inds in inds1lst]
+        lbls = [[self.s2[i] for i in inds2]]
+        trg_lbls = [[self.s1[i] for i in inds] for inds in inds1lst]
         try:
             _extend_last(trg_lbls, 15, "")
         except IndexError:
@@ -159,8 +187,9 @@ class ContactMap(object):
         stream -- file-like object; stream to which text will be passed.
         """
         inds1, inds2 = numpy.nonzero(self.cmtx)
+        stream.write("# n=%i\n" % self.n)
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
-           stream.write("%s%i%s\t%s%i%s\t%.3f\n" % (m1.chid, m1.resnum, m1.icode.strip(), m2.chid, m2.resnum, m2.icode.strip(), self.cmtx[c1, c2] / float(self.n)))
+           stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2] / float(self.n)))
 
     def save_all(self, fname):
         """Creates txt and png of given name."""
