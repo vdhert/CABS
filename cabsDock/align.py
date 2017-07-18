@@ -19,7 +19,7 @@ class AbstractAlignMethod(object):
     __metaclass__ = AlnMeta
 
     @abstractmethod
-    def execute(self, mers1, mers2):
+    def execute(self, mers1, mers2, **kwargs):
         pass
 
     @classmethod
@@ -30,7 +30,7 @@ class TrivialAlign(AbstractAlignMethod):
 
     methodname = 'trivial'
 
-    def execute(self, atoms1, atoms2):
+    def execute(self, atoms1, atoms2, **kwargs):
         return zip(atoms1.atoms, atoms2.atoms)
 
 class BLASTpAlign(AbstractAlignMethod):

@@ -267,20 +267,39 @@ class Trajectory(object):
 
         return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
 
-    def rmsd_to_reference(self, ref_pdb, pept_chain, align_mth='trivial'):
+    def rmsd_to_reference(self, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='trivial', pept_align_kwargs={}, target_align_kwargs={}):
+        """
+        Arguments:
+        ref_pdb -- str; pdb code of reference structure.
+        pept_chain -- str; peptide chain name (template).
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
+        align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
+        pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.
+        target_align_kwargs -- as above, but used when aligning target protein.
+        """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        # aligning peptide
-        temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
         ref_stc = Pdb(pdb_code=ref_pdb).atoms.select('name CA and not HETERO')
-        ref_pept_mers, temp_pept_mers = zip(*mth.execute(ref_stc, temp_pept, True))
+        # aligning peptide
+        if ref_pept_chid is None:
+            temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
+            ref_pept, temp_pept = [Atoms(arg=list(i)) for i in zip(*mth.execute(ref_stc, temp_pept, **pept_align_kwargs))]
+            ref_pept_chs = set([i.chid for i in ref_pept.atoms])
+            if len(ref_pept_chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
+            ref_pept_chid = max(ref_pept_chs)
+        else:
+            ref_pept = ref_stc.atoms.select('NAME CA and CHAIN %s' % ref_pept_chid)
 
         # choosing remaining chains but the one aligned with peptide
-        chs = set([i.chid for i in ref_pept_mers])
-        if len(chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
-        ref_pept_chid = max(chs)
-        ref_target = ref_stc.select('not chain %s' % ref_pept_chid)
+        ref_target = ref_stc.select('not CHAIN %s' % ref_pept_chid)
 
         # aligning target to reference not-peptide
+        ref_target_chs = [i.chid for i in ref_target.atoms]
+        temp_target_chs = [i.chid for i in self.template.atoms]
+        import imp
+        pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+        pdbx.set_trace()
+
+
         ref_target_mers, temp_target_mers = zip(*mth.execute(ref_stc, self.template.select('name CA and not HETERO and not chain %s' % pept_chain)))
         aligned_ref = Atoms(arg=list(ref_target_mers))
         aligned_tem = Atoms(arg=list(temp_target_mers))
