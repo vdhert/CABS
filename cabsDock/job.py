@@ -11,12 +11,13 @@ from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import SCModeler
-from utils import plot_E_rmsds
-from utils import plot_rmsd_N
+from utils import ProgressBar
+from cabsDock.utils import SCModeler
+from cabsDock.utils import _chunk_lst
+from cabsDock.plots import plot_E_RMSD
+from cabsDock.plots import plot_RMSD_N
+from cabsDock.plots import graph_RMSF
 from utils import check_peptide_sequence
-from utils import _chunk_lst
-from utils import mk_histos_series
 from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
 from filter import Filter
@@ -29,7 +30,6 @@ class Config(dict):
     Smart dictionary that can append items with 'ligand' key instead of overwriting them.
     TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
     """
-
     def __init__(self, config):
         dict.__init__(self, config)
 
@@ -88,10 +88,8 @@ class Config(dict):
             if 'ligand' not in self:
                 self['ligand'] = []
             val = config['ligand']
-            if type(val) is list:
+            if type(val) in (list, tuple):
                 self['ligand'].extend(val)
-            elif type(val) is tuple:
-                self['ligand'].append(val)
             elif type(val) is str:
                 self['ligand'].append((val,))
             del config['ligand']
@@ -184,9 +182,6 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-                # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-                # if ans != 'y':
-                #     exit(code=1)
         else:
             mkdir(work_dir)
 
@@ -304,17 +299,12 @@ class Job:
         else:
             pltdir = plots_dir
 
-        # RMSF graph
-        rmsf_vals = _chunk_lst(self.trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in self.trajectory.template.atoms if
-                           i.chid in self.initial_complex.receptor_chains], 15, "")
-        mk_histos_series(rmsf_vals, lbls, pltdir + '/RMSF_target')
+        graph_RMSF(trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
             plot_E_rmsds([self.trajectory, self.filtered_trajectory],
                          [self.rmslst, self.rmslst[self.filtered_ndx,]],
-                         ['total', 'interaction'],
                          pltdir + '/Ermsd')
             plot_rmsd_N(self.rmslst.reshape(self.config['replicas'], -1),
                         pltdir + '/RMSDn')
