@@ -46,6 +46,21 @@ def raise_aerror_on(*errors):
         return wrapped_mth
     return wrapper
 
+def save_csv(fname, stcs, aligned_mers):
+    """Creates csv alignment file.
+
+    Argument:
+    fname -- str; name of file to be created.
+    stcs -- tuple of structure names.
+    aligned_mers -- sequence of tuples containing aligned cabsDock.atoms.Atom instances.
+    """
+    fmt = lambda atm: "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
+    with open(fname, 'w') as f:
+        f.write("\t".join(stcs) + "\n")
+        for mrs in aligned_mers:
+            f.write("\t".join(map(fmt, mrs)) + '\n')
+
+
 class AlignError(Exception):
     pass
 
@@ -110,7 +125,7 @@ class BLASTpAlign(AbstractAlignMethod):
                 m2 = it2.next() if i.isalpha() else None
                 if None in (m1, m2): continue
                 aln_res.append((m1, m2))
-        return aln_res
+        return tuple(aln_res)
 
 
 class SmithWaterman(AbstractAlignMethod):
