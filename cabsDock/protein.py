@@ -12,7 +12,7 @@ from cabsDock.utils import AA_NAMES
 
 from atom import Atoms
 from pdb import Pdb, InvalidPdbCode
-from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue
+from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from vector3d import Vector3d
 
 
@@ -153,6 +153,8 @@ class Ligand(Atoms):
                 atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
                 atoms.update_sec(pdb.dssp())
             except InvalidPdbCode:
+                seq, sec = self.name.split(':')
+                check_peptide_sequence(seq)
                 atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)

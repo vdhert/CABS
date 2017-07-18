@@ -65,7 +65,7 @@ class Clustering(object):
         # return results
         return medoid_ndx, clusters
 
-    def cabs_clustering(self):
+    def cabs_clustering(self, number_of_medoids, number_of_iterations):
         """
         Performs default cabs-dock clustering (10-medoids) and returns clusters as list of 10 trajectory.Trajectory object with
         trajectory.coordinates.shape = [1, n_models_in_cluster, n_atoms, 3] and medoids as a trajectory.Trajectory object with
@@ -73,7 +73,7 @@ class Clustering(object):
         :return: trajectory.Trajectory representing medoids, dictionary representing the cluster indeces, list of trajectory.Trajectory instances representing the clusters.
         """
         self.calculate_distance_matrix()
-        medoid_ndx, clusters = self.k_medoids(10)
+        medoid_ndx, clusters = self.k_medoids(number_of_medoids, tmax=number_of_iterations)
         model_length = len(self.trajectory.template)
         models = self.trajectory.coordinates.reshape(-1, model_length, 3)
         medoids = Trajectory(

@@ -65,7 +65,9 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
         mk_discrete_plot(sfigarr[ind], rmsds, data, xlim, ylim)
         drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
     for traj, rmsd_list in zip(trajectories, rmsds):
-        sfigarr[2].hist(rmsd_list, int(numpy.max(rmsd_list) - numpy.min(rmsd_list)))
+        diff = numpy.max(rmsd_list) - numpy.min(rmsd_list)
+        n_bins = 25 if diff < 25 else int(diff)
+        sfigarr[2].hist(rmsd_list, n_bins)
     fig.get_axes()[-1].set_xlabel('RMSD')
 
     matplotlib.pyplot.savefig(fname + '.'+fmt, format=fmt)

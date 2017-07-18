@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import StringIO
 import numpy
+import operator
 import numpy as np
 
 from atom import Atom, Atoms
@@ -10,6 +11,7 @@ from utils import ranges
 from utils import kabsch
 from utils import ProgressBar
 from align import AbstractAlignMethod
+from align import AlignError
 import warnings
 
 __all__ = ['Trajectory', 'Header']
@@ -76,12 +78,6 @@ class Header:
                 num_pept = number_of_peptides
             int_submtrx_size = self.energy.shape[0]-num_pept
             int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
-            # print('whole')
-            # print(self.energy)
-            # print('int')
-            # print(int_submtrx_size)
-            # print (self.energy[:int_submtrx_size,-num_pept:])
-            # print int_enrg
             return int_enrg
         elif mode == 'total':
             return np.sum(np.tril(self.energy))
@@ -93,12 +89,12 @@ class Trajectory(object):
     """
     GRID = 0.61
 
-    def __init__(self, template, coordinates, headers):
+    def __init__(self, template, coordinates, headers, number_of_peptides=None):
         self.template = template
         self.coordinates = coordinates
         self.headers = headers
         self.rmsd_native = None
-        self.number_of_peptides = None
+        self.number_of_peptides = number_of_peptides
 
     @staticmethod
     def read_seq(filename):
@@ -267,7 +263,7 @@ class Trajectory(object):
 
         return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
 
-    def rmsd_to_reference(self, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='trivial', pept_align_kwargs={}, target_align_kwargs={}):
+    def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='trivial', pept_align_kwargs={}, target_align_kwargs={}):
         """
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
@@ -282,7 +278,7 @@ class Trajectory(object):
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
-            ref_pept, temp_pept = [Atoms(arg=list(i)) for i in zip(*mth.execute(ref_stc, temp_pept, **pept_align_kwargs))]
+            ref_pept, temp_pept = [Atoms(arg=list(i)) for i in zip(*mth.execute(ref_stc, temp_pept, short=True, **pept_align_kwargs))]
             ref_pept_chs = set([i.chid for i in ref_pept.atoms])
             if len(ref_pept_chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
             ref_pept_chid = max(ref_pept_chs)
@@ -291,19 +287,35 @@ class Trajectory(object):
 
         # choosing remaining chains but the one aligned with peptide
         ref_target = ref_stc.select('not CHAIN %s' % ref_pept_chid)
+        temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(temp_target_ids))
 
         # aligning target to reference not-peptide
-        ref_target_chs = [i.chid for i in ref_target.atoms]
-        temp_target_chs = [i.chid for i in self.template.atoms]
-        import imp
-        pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
-        pdbx.set_trace()
+        ref_target_ids = tuple(set([i.chid for i in ref_target.atoms]))
+        mtch_mtx = numpy.zeros((len(ref_target_ids), len(temp_target_ids)), dtype=int)
+        algs = {}
+        key = 1
+        for n, rch in enumerate(ref_target_ids):
+            for m, tch in enumerate(temp_target_ids):
+                ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
+                tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
+                if 0 in (len(ref), len(tmp)): continue  #??? whai?
+                try:
+                    algs[key] = mth.execute(ref, tmp)
+                except AlignError:
+                    continue
+                mtch_mtx[n, m] = key
+                key += 1
 
+        longest_keys = [max(mtch_mtx[:, tch], key=lambda k: len(algs.get(k, ()))) for tch in range(len(temp_target_ids))]
+        best_alg = reduce(operator.add, [algs.get(k, ()) for k in longest_keys])
+        #~ import imp
+        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+        #~ pdbx.set_trace()
 
-        ref_target_mers, temp_target_mers = zip(*mth.execute(ref_stc, self.template.select('name CA and not HETERO and not chain %s' % pept_chain)))
+        ref_target_mers, temp_target_mers = zip(*best_alg)
         aligned_ref = Atoms(arg=list(ref_target_mers))
         aligned_tem = Atoms(arg=list(temp_target_mers))
-        ref_pept_arr = numpy.array(Atoms(arg=list(ref_pept_mers)).to_matrix())
+        ref_pept_arr = numpy.array(ref_pept.to_matrix())
         return self.rmsd_to_given(aligned_ref, ref_pept_arr, pept_chain, template_aligned=aligned_tem)
 
     def rmsd_to_given(self, structure, peptide, pept_chain, template_aligned=None):
