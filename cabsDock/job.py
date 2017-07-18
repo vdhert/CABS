@@ -13,12 +13,11 @@ from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
 from utils import ProgressBar
-from utils import SCModeler
-from utils import plot_E_rmsds
-from utils import plot_rmsd_N
-from utils import check_peptide_sequence
-from utils import _chunk_lst
-from utils import mk_histos_series
+from cabsDock.utils import SCModeler
+from cabsDock.utils import _chunk_lst
+from cabsDock.plots import plot_E_RMSD
+from cabsDock.plots import plot_RMSD_N
+from cabsDock.plots import graph_RMSF
 from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
 from cabsDock.cmap import ContactMap
@@ -90,15 +89,11 @@ class Config(dict):
             if 'ligand' not in self:
                 self['ligand'] = []
             val = config['ligand']
-            if type(val) is list:
+            if type(val) in (list, tuple):
                 self['ligand'].extend(val)
-            elif type(val) is tuple:
-                self['ligand'].append(val)
             elif type(val) is str:
                 self['ligand'].append((val,))
             del config['ligand']
-            # checks the input peptide sequence for non-standard amino acids.
-            [check_peptide_sequence(peptide[0]) for peptide in self['ligand']]
         self.update(config)
         return self
 
@@ -236,23 +231,18 @@ class Job:
         tra, flt_inds = Filter(trajectory, N=1000).cabs_filter()
         tra.number_of_peptides = len(self.initial_complex.ligand_chains)
 
-        rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
-
         pltdir = self.config['work_dir'] + '/plots'
         try: mkdir(pltdir)
         except OSError: pass
 
-        mk_histos_series(rmsf_vals, lbls, pltdir + '/RMSF_target')
+        graph_RMSF(trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
 
         if self.config['native_pdb'] or self.config['reference_pdb']:
-            plot_E_rmsds(   [trajectory, tra],
+            plot_E_RMSD(   [trajectory, tra],
                             [rmslst, rmslst[flt_inds,]],
-                            ['total','interaction'],
                             pltdir + '/Ermsd')
-            plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
+            plot_RMSD_N(    rmslst.reshape(self.config['replicas'], -1),
                             pltdir + '/RMSDn')
-
 
         medoids, clusters_dict, clusters = Clustering(tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)).cabs_clustering()
 
