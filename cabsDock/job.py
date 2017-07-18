@@ -299,14 +299,14 @@ class Job:
         else:
             pltdir = plots_dir
 
-        graph_RMSF(trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
+        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
-            plot_E_rmsds([self.trajectory, self.filtered_trajectory],
+            plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                          [self.rmslst, self.rmslst[self.filtered_ndx,]],
                          pltdir + '/Ermsd')
-            plot_rmsd_N(self.rmslst.reshape(self.config['replicas'], -1),
+            plot_RMSD_N(self.rmslst.reshape(self.config['replicas'], -1),
                         pltdir + '/RMSDn')
 
         # Contact maps
