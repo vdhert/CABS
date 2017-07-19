@@ -144,8 +144,19 @@ class Job:
             'AA_rebuild': True,
             'contact_maps': True,
             'reference_pdb': None,
-            'align': 'trivial'
+            'align': 'trivial',
+            'save_replicas': True,
+            'save_topn': True,
+            'save_clusters': True,
+            'save_medoids': 'AA' #'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
+
+
         }
+        #parsed inputs:
+        self.save_replicas = None
+        self.save_topn = None
+        self.save_clusters = None
+        self.save_medoids = None
 
         # Job attributes collected.
         self.initial_complex = None
@@ -196,7 +207,7 @@ class Job:
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
         self.draw_plots()
-        self.save_models()
+        self.save_models(replicas=self.save_replicas, topn=self.save_topn, clusters=self.save_clusters, medoids=self.save_medoids)
 
     def setup_job(self):
         print('CABS-docking job {0}'.format(self.config['receptor']))
@@ -256,6 +267,7 @@ class Job:
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
 
+
     def calculate_rmsd(self, reference_pdb=None, save=True):
         print('calculate_rmsd')
         self.rmslst = self.trajectory.rmsd_to_reference(
@@ -278,12 +290,16 @@ class Job:
                 mkdir(odir)
             except OSError:
                 pass
-            with open(odir+'/rmsds.txt', 'w') as outfile:
+            with open(odir+'/lowest_rmsds.txt', 'w') as outfile:
                 outfile.write(
                     'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(self.results['lowest_all'],
                                                                                        self.results['lowest_filtered'],
                                                                                        self.results['lowest_medoids'], )
                 )
+            for type in ['all', 'filtered', 'medoids']:
+                with open(odir+'/'+type+'_rmsds.txt','w') as outfile:
+                    for rmsd in self.results['rmsds_'+type]:
+                        outfile.write(str(rmsd)+';\n')
         return self.results
 
     def draw_plots(self, plots_dir=None):
