@@ -185,29 +185,27 @@ class Job:
         else:
             mkdir(work_dir)
 
-    def cabsdock(self, withcabs=True, ext_old_ids=None, ext_initial_complex=None, ftraf=None, fseq=None):
+    def cabsdock(self, ftraf=None, fseq=None):
+        self.setup_job()
+        withcabs = True if (ftraf is None or fseq is None) else False
         if withcabs:
-            self.setup()
-            self.execute()
-            initial_complex = self.initial_complex
-            old_ids = initial_complex.receptor.old_ids
-        else:
-            initial_complex = ext_initial_complex
-            old_ids = ext_old_ids
-        self.load_output(old_ids, initial_complex, ftraf, fseq)
+            self.setup_cabs_run()
+            self.execute_cabs_run()
+        self.load_output(ftraf, fseq)
         self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'], number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
         self.draw_plots()
         self.save_models()
 
-    def setup(self):
+    def setup_job(self):
         print('CABS-docking job {0}'.format(self.config['receptor']))
         # Preparing the initial complex
         print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
         print(' ... done.')
 
+    def setup_cabs_run(self):
         # Generating the restraints
         restraints = \
             Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
@@ -221,12 +219,12 @@ class Job:
         self.cabsrun = CabsRun(self.initial_complex, restraints, self.config)
         return self.cabsrun
 
-    def execute(self):
+    def execute_cabs_run(self):
         print('CABS simulation starts.')
         self.cabsrun.run()
         print('CABS simuation is DONE.')
 
-    def load_output(self, old_ids, initial_complex, ftraf=None, fseq=None):
+    def load_output(self, ftraf=None, fseq=None):
         """
         Method for loading previously done simulation results. Stores the results to self.trajectory.
         :param number_of_peptides:
@@ -237,12 +235,13 @@ class Job:
         """
         print("load_output")
         if ftraf is not None and fseq is not None:
+            print('im reading!!!!')
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.number_of_peptides = len(self.config['ligand'])
-        self.trajectory.template.update_ids(old_ids, pedantic=False)
-        self.trajectory.align_to(initial_complex.receptor)
+        self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
+        self.trajectory.align_to(self.initial_complex.receptor)
         return self.trajectory
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
