@@ -56,4 +56,5 @@ class Filter(object):
                 filtered_headers += [headers[k] for k in filtered_ndx]
             filtered_total_ndx.extend(numpy.array(filtered_ndx) + i * n_models)
         traj = Trajectory(self.trajectory.template, numpy.array([filtered_models]), filtered_headers)
+        traj.number_of_peptides=self.trajectory.number_of_peptides
         return traj, filtered_total_ndx

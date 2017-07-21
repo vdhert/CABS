@@ -1,7 +1,9 @@
 from copy import deepcopy
+from itertools import chain
 
 import StringIO
 import numpy
+import operator
 import numpy as np
 
 from atom import Atom, Atoms
@@ -10,6 +12,9 @@ from utils import ranges
 from utils import kabsch
 from utils import ProgressBar
 from align import AbstractAlignMethod
+from align import AlignError
+from align import save_csv
+from align import load_csv
 import warnings
 
 __all__ = ['Trajectory', 'Header']
@@ -76,12 +81,6 @@ class Header:
                 num_pept = number_of_peptides
             int_submtrx_size = self.energy.shape[0]-num_pept
             int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
-            # print('whole')
-            # print(self.energy)
-            # print('int')
-            # print(int_submtrx_size)
-            # print (self.energy[:int_submtrx_size,-num_pept:])
-            # print int_enrg
             return int_enrg
         elif mode == 'total':
             return np.sum(np.tril(self.energy))
@@ -93,12 +92,12 @@ class Trajectory(object):
     """
     GRID = 0.61
 
-    def __init__(self, template, coordinates, headers):
+    def __init__(self, template, coordinates, headers, number_of_peptides=None):
         self.template = template
         self.coordinates = coordinates
         self.headers = headers
         self.rmsd_native = None
-        self.number_of_peptides = None
+        self.number_of_peptides = number_of_peptides
 
     @staticmethod
     def read_seq(filename):
@@ -253,41 +252,72 @@ class Trajectory(object):
             bar.done(True)
         return result
 
-    def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
+    def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
         """
-        Calculates a list of ligand - rmsd of the models to the native structure (argument 'native' is either
-        a PDB code (to be downloaded) or a local PDB file).
-        :return: np.array
+        Arguments:
+        ref_pdb -- str; pdb code of reference structure.
+        pept_chain -- str; peptide chain name (template).
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
+        align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
+        alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
+        path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
+        pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.
+        target_align_kwargs -- as above, but used when aligning target protein.
         """
-
-        target_selection = 'name CA and not HETERO and chain ' + ','.join(native_receptor_chain)
-        pdb = Pdb(pdb_code=native_pdb[:4])
-        native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
-        nat_pept = numpy.array(pdb.atoms.remove_alternative_locations().select("name CA and not HETERO and chain " + native_peptide_chain).models()[0].to_matrix())
-
-        return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
-
-    def rmsd_to_reference(self, ref_pdb, pept_chain, align_mth='trivial'):
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        # aligning peptide
-        temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
         ref_stc = Pdb(pdb_code=ref_pdb).atoms.select('name CA and not HETERO')
-        ref_pept_mers, temp_pept_mers = zip(*mth.execute(ref_stc, temp_pept, True))
+        # aligning peptide
+        if ref_pept_chid is None:
+            temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
+            ref_pept, temp_pept = [Atoms(arg=list(i)) for i in zip(*mth.execute(ref_stc, temp_pept, short=True, **pept_align_kwargs))]
+            ref_pept_chs = set([i.chid for i in ref_pept.atoms])
+            if len(ref_pept_chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
+            ref_pept_chid = max(ref_pept_chs)
+        else:
+            ref_pept = ref_stc.atoms.select('NAME CA and CHAIN %s' % ref_pept_chid)
 
-        # choosing remaining chains but the one aligned with peptide
-        chs = set([i.chid for i in ref_pept_mers])
-        if len(chs) > 1: raise ValueError("Peptide aligned to more tha one chain")
-        ref_pept_chid = max(chs)
-        ref_target = ref_stc.select('not chain %s' % ref_pept_chid)
+        #aligning target
+        if not alignment:
+            # choosing remaining chains but the one aligned with peptide
+            ref_target = ref_stc.select('not CHAIN %s' % ref_pept_chid)
+            temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(temp_target_ids))
 
-        # aligning target to reference not-peptide
-        ref_target_mers, temp_target_mers = zip(*mth.execute(ref_stc, self.template.select('name CA and not HETERO and not chain %s' % pept_chain)))
-        aligned_ref = Atoms(arg=list(ref_target_mers))
-        aligned_tem = Atoms(arg=list(temp_target_mers))
-        ref_pept_arr = numpy.array(Atoms(arg=list(ref_pept_mers)).to_matrix())
-        return self.rmsd_to_given(aligned_ref, ref_pept_arr, pept_chain, template_aligned=aligned_tem)
+            # aligning target to reference not-peptide
+            ref_target_ids = tuple(ref_target.list_chains().keys())
+            mtch_mtx = numpy.zeros((len(ref_target_ids), len(temp_target_ids)), dtype=int)
+            algs = {}
+            key = 1
+            for n, rch in enumerate(ref_target_ids):
+                for m, tch in enumerate(temp_target_ids):
+                    ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
+                    tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
+                    if 0 in (len(ref), len(tmp)): continue  #??? whai?
+                    try:
+                        algs[key] = mth.execute(ref, tmp)
+                    except AlignError:
+                        continue
+                    mtch_mtx[n, m] = key
+                    key += 1
 
-    def rmsd_to_given(self, structure, peptide, pept_chain, template_aligned=None):
+            # joining cabs chains 
+            pickups = []
+            for n, refch in enumerate(mtch_mtx):
+                inds = numpy.nonzero(refch)
+                pickups.extend(refch[inds])
+                mtch_mtx[n + 1:, inds] = 0
+            best_alg = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+        else:
+            with open(alignment) as f:
+                best_alg = load_csv(f, ref_stc, self.template)
+
+        #saving alignment
+        if path and not alignment:
+            save_csv(path, ('ref', 'cabs'), best_alg)
+
+        ref_target_mers, temp_target_mers = zip(*best_alg)
+        structure = Atoms(arg=list(ref_target_mers))
+        template_aligned = Atoms(arg=list(temp_target_mers))
+        peptide = numpy.array(ref_pept.to_matrix())
 
         def rmsd(m1, m2, length):
             return np.sqrt(np.sum((m1 - m2) ** 2) / length)

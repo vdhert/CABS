@@ -2,18 +2,23 @@
 Module for running cabsDock jobs.
 """
 
+import re
 import operator
-from os import mkdir
+from os import getcwd, mkdir
 from os.path import exists, isdir, join, abspath
+
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import SCModeler
-from utils import plot_E_rmsds
-from utils import plot_rmsd_N
-from utils import _chunk_lst
-from utils import mk_histos_series
+from utils import ProgressBar
+from cabsDock.utils import SCModeler
+from cabsDock.utils import _chunk_lst
+from cabsDock.plots import plot_E_RMSD
+from cabsDock.plots import plot_RMSD_N
+from cabsDock.plots import graph_RMSF
+from utils import check_peptide_sequence
+from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
 from filter import Filter
 
@@ -29,9 +34,51 @@ class Job:
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
     def __init__(self, **kwargs):
-        # TODO: jak job jest importowany to nie ma defaults.
-        self.config = kwargs
 
+        defaults = {
+            'work_dir': getcwd(),
+            'replicas': 10,
+            'mc_cycles': 50,
+            'mc_steps': 50,
+            't_init': 2.0,
+            't_final': 1.0,
+            'replicas_dtemp': 0.5,
+            'initial_separation': 20.0,
+            'ligand_insertion_clash': 0.5,
+            'ligand_insertion_attempts': 1000,
+            'ca_restraints_strength': 1.0,
+            'sg_restraints_strength': 1.0,
+            'receptor_restraints': ('all', 4, 5.0, 15.0),  # sequence gap, min length, max length
+            'dssp_command': 'mkdssp',
+            'fortran_compiler': ('gfortran', '-O2'),  # build (command, flags)
+            'filtering': 1000,  # number of models to filter
+            'clustering_nmedoids': 10,
+            'clustering_niterations': 100,  # number of clusters, iterations
+            'benchmark': False,
+            'AA_rebuild': True,
+            'contact_maps': True,
+            'reference_pdb': None,
+            'align': 'SW',
+            'reference_alignment': None,
+        }
+
+        # Job attributes collected.
+        self.initial_complex = None
+        self.restraints = None
+        self.cabsrun = None
+        self.trajectory = None
+        self.filtered_trajectory = None
+        self.filtered_ndx = None
+        self.medoids = None
+        self.clusters_dict = None
+        self.clusters = None
+        self.rmslst = {}
+        self.results = None
+
+        self.config = defaults
+        self.config.update(kwargs)
+
+        # Workdir processing:
         # making sure work_dir is abspath
         self.config['work_dir'] = abspath(self.config['work_dir'])
 
@@ -40,13 +87,9 @@ class Job:
         if exists(work_dir):
             if not isdir(work_dir):
                 raise Exception('File %s already exists and is not a directory' % work_dir)
-            # ans = raw_input('You are about to overwrite results in %s\nContinue? y or n: ' % work_dir)
-            # if ans != 'y':
-            #     exit(code=1)
         else:
             mkdir(work_dir)
 
-        self.initial_complex = None
 
     def prepare_restraints(self):
 
@@ -75,109 +118,184 @@ class Job:
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
         return receptor_restraints
 
-    def run_job(self):
-        work_dir = self.config['work_dir']
-
-        # prepare initial complex
-        self.initial_complex = ProteinComplex(self.config)
-
-        # run cabs
-        cabs_run = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
-        cabs_run.run()
-
-        trajectory = cabs_run.get_trajectory()
-        trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        if self.config['native_pdb']:
-            rmslst = trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
-                                      native_receptor_chain=self.config['native_receptor_chain'],
-                                      native_peptide_chain=self.config['native_peptide_chain'],
-                                      model_peptide_chain=self.initial_complex.ligand_chains[0])
-        elif self.config['reference_pdb']:
-            rmslst = trajectory.rmsd_to_reference(
-                                        ref_pdb=self.config['reference_pdb'],
-                                        pept_chain=self.initial_complex.ligand_chains[0],
-                                        align_mth=self.config['align']
-                                        )
-        trajectory.align_to(self.initial_complex.receptor)
-
-        # energy fix
-        trajectory.number_of_peptides = len(self.initial_complex.ligand_chains)
-        tra, flt_inds = Filter(trajectory, N=1000).cabs_filter()
-        tra.number_of_peptides = len(self.initial_complex.ligand_chains)
-
-        rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
-
-        pltdir = self.config['work_dir'] + '/plots'
-        try: mkdir(pltdir)
-        except OSError: pass
-
-        mk_histos_series(rmsf_vals, lbls, pltdir + '/RMSF_target')
-
-        if self.config['native_pdb'] or self.config['reference_pdb']:
-            plot_E_rmsds(   [trajectory, tra],
-                            [rmslst, rmslst[flt_inds,]],
-                            ['total','interaction'],
-                            pltdir + '/Ermsd')
-            plot_rmsd_N(    rmslst.reshape(self.config['replicas'], -1),
-                            pltdir + '/RMSDn')
-
-        medoids, clusters_dict, clusters = Clustering(
-            tra, 'chain ' + ','.join(self.initial_complex.ligand_chains)
-        ).cabs_clustering()
-
-        if self.config['contact_maps']:
-            self.mk_cmaps(trajectory, medoids, clusters_dict, flt_inds, 4.5, pltdir)
-
-        # Saving the trajectory to PDBs:
-        trajectory.to_pdb(mode = 'replicas', to_dir = work_dir)
-        # Saving top1000 models to PDB:
-        tra.to_pdb(mode = 'replicas', to_dir= work_dir, name='top1000' )
-
-        # Saving clusters in CA representation
-        for i, cluster in enumerate(clusters):
-            cluster.to_pdb(mode='replicas', to_dir=work_dir, name='cluster_{0}'.format(i))
-
-        # Saving top10 models:
-        if self.config['AA_rebuild']:
-            # Saving top 10 models in AA representation:
-            pdb_medoids = medoids.to_pdb()
-            from cabsDock.ca2all import ca2all
-            for i, file in enumerate(pdb_medoids):
-                ca2all(file, output='model_{0}.pdb'.format(i), iterations=1, verbose=False)
+    def cabsdock(self, withcabs=True, ext_old_ids=None, ext_initial_complex=None, ftraf=None, fseq=None):
+        if withcabs:
+            self.setup()
+            self.execute()
+            initial_complex = self.initial_complex
+            old_ids = initial_complex.receptor.old_ids
         else:
+            initial_complex = ext_initial_complex
+            old_ids = ext_old_ids
+        self.load_output(old_ids, initial_complex, ftraf, fseq)
+        self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'], number_of_iterations=self.config['clustering_niterations'])
+        if self.config['reference_pdb']:
+            self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+        self.draw_plots()
+        self.save_models()
+
+    def setup(self):
+        print('CABS-docking job {0}'.format(self.config['receptor']))
+        # Preparing the initial complex
+        print(' Building complex...')
+        self.initial_complex = ProteinComplex(self.config)
+        print(' ... done.')
+
+        # Initializing CabsRun instance
+        self.cabsrun = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
+        return self.cabsrun
+
+    def execute(self):
+        print('CABS simulation starts.')
+        self.cabsrun.run()
+        print('CABS simuation is DONE.')
+
+    def load_output(self, old_ids, initial_complex, ftraf=None, fseq=None):
+        """
+        Method for loading previously done simulation results. Stores the results to self.trajectory.
+        :param number_of_peptides:
+        :param old_ids:
+        :param ftraf: path to TRAF file
+        :param fseq: path to SEQ file
+        :return: returns trajectory.Trajectory instance
+        """
+        print("load_output")
+        if ftraf is not None and fseq is not None:
+            self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
+        else:
+            self.trajectory = self.cabsrun.get_trajectory()
+        self.trajectory.number_of_peptides = len(self.config['ligand'])
+        self.trajectory.template.update_ids(old_ids, pedantic=False)
+        self.trajectory.align_to(initial_complex.receptor)
+        return self.trajectory
+
+    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
+        print("score_results")
+        # Filtering the trajectory
+        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
+        # Clustering the trajectory
+        self.medoids, self.clusters_dict, self.clusters = Clustering(
+            self.filtered_trajectory,
+            'chain ' + ','.join(
+                self.initial_complex.ligand_chains,
+            )
+        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+
+    def calculate_rmsd(self, reference_pdb=None, save=True):
+        print('calculate_rmsd')
+        if save:
+            odir = self.config['work_dir'] + '/output_data'
+            try:
+                mkdir(odir)
+            except OSError:
+                pass
+        all_results = {}
+        for pept_chain in self.initial_complex.ligand_chains:
+            aln_path = None if not save else self.config['work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
+            #~ self.trajectory.rmsd_to_native_test(
+                #~ reference_pdb,
+                #~ self.initial_complex.receptor_chains,
+                #~ pept_chain,
+                #~ pept_chain,
+                #~ )
+            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
+                self.initial_complex.receptor_chains,
+                ref_pdb=reference_pdb,
+                pept_chain=pept_chain,
+                align_mth=self.config['align'],
+                alignment=self.config['reference_alignment'],
+                path=aln_path
+            )
+            rmsds = [header.rmsd for header in self.medoids.headers]
+            results = {}
+            results['rmsds_all'] = [header.rmsd for header in self.trajectory.headers]
+            results['rmsds_filtered'] = [header.rmsd for header in self.filtered_trajectory.headers]
+            results['rmsds_medoids'] = rmsds
+            results['lowest_all'] = sorted(results['rmsds_all'])[0]
+            results['lowest_filtered'] = sorted(results['rmsds_filtered'])[0]
+            results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
+            # Saving rmsd results
+            if save:
+                with open(odir+'/rmsds_%s.txt' % pept_chain, 'w') as outfile:
+                    outfile.write(
+                        'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(results['lowest_all'],
+                                                                                           results['lowest_filtered'],
+                                                                                           results['lowest_medoids'], )
+                    )
+            all_results[pept_chain] = results
+        return all_results
+
+    def draw_plots(self, plots_dir=None):
+        print('draw_plots')
+        # set the plots dir
+        if plots_dir is None:
+            pltdir = self.config['work_dir'] + '/plots'
+            try:
+                mkdir(pltdir)
+            except OSError:
+                pass
+        else:
+            pltdir = plots_dir
+
+        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
+
+        # RMSD-based graphs
+        if self.config['reference_pdb']:
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
+                             [rmslst, rmslst[self.filtered_ndx,]],
+                             pltdir + '/E_RMSD_%s' % k)
+                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
+                            pltdir + '/RMSD_frame_%s' % k)
+
+        # Contact maps
+        if self.config['contact_maps']:
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+
+    def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
+        #output folder
+        output_folder = self.config['work_dir'] + '/output_pdbs'
+        try:
+            mkdir(output_folder)
+        except OSError:
+            pass
+        print('save_models')
+        # Saving the trajectory to PDBs:
+        if replicas:
+            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
+        # Saving top1000 models to PDB:
+        if topn:
+            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+        # Saving clusters in CA representation
+        if clusters:
+            for i, cluster in enumerate(self.clusters):
+                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
+        # Saving top10 models:
+        if medoids == 'CA':
             # Saving top 10 models in CA representation:
-            medoids.to_pdb(mode='models', to_dir=work_dir, name='model')
-
-        # dictionary holding results
-        rmsds = [header.rmsd for header in medoids.headers]
-        results = {}
-        results['rmsds_10k'] = [header.rmsd for header in trajectory.headers]
-        results['rmsds_1k'] = [header.rmsd for header in tra.headers]
-        results['rmsds_10'] = rmsds
-        results['lowest_10k'] = sorted(results['rmsds_10k'])[0]
-        results['lowest_1k'] = sorted(results['rmsds_1k'])[0]
-        results['lowest_10'] = sorted(results['rmsds_10'])[0]
-
-        # Saving rmsd results
-        with open(join(work_dir, 'rmsds.txt'), 'w') as outfile:
-            outfile.write(str(results))
-
-        # Not returned by default unless self.config['benchmark'] == True.
-        if self.config['benchmark']:
-            return results
+            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
+        elif medoids == 'AA':
+            # Saving top 10 models in AA representation:
+            pdb_medoids = self.medoids.to_pdb()
+            if self.config['AA_rebuild']:
+                from cabsDock.ca2all import ca2all
+                for i, fname in enumerate(pdb_medoids):
+                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
+                           verbose=False)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
-        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:,top1k_inds,:,:]
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
         sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
         shp = sc_med.shape
         sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
 
         cmapdir = self.config['work_dir'] + '/contact_maps'
-        try: mkdir(cmapdir)
-        except OSError: pass
+        try:
+            mkdir(cmapdir)
+        except OSError:
+            pass
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
 

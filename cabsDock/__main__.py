@@ -20,6 +20,9 @@ class Config(dict):
         if config.add_peptide:
             config.ligand.extend([p for p in config.add_peptide if p])
 
+        # checks the input peptide sequence for non-standard amino acids.
+        #[check_peptide_sequence(peptide[0]) for peptide in self['ligand']]
+
         dict.__init__(self, vars(config))
 
     def __repr__(self):
