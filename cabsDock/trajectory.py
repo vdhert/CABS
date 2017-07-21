@@ -252,20 +252,6 @@ class Trajectory(object):
             bar.done(True)
         return result
 
-    def rmsd_to_native(self, native_pdb="", native_receptor_chain="", native_peptide_chain="", model_peptide_chain=""):
-        """
-        Calculates a list of ligand - rmsd of the models to the native structure (argument 'native' is either
-        a PDB code (to be downloaded) or a local PDB file).
-        :return: np.array
-        """
-
-        target_selection = 'name CA and not HETERO and chain ' + ','.join(native_receptor_chain)
-        pdb = Pdb(pdb_code=native_pdb[:4])
-        native = pdb.atoms.remove_alternative_locations().select(target_selection).models()[0]
-        nat_pept = numpy.array(pdb.atoms.remove_alternative_locations().select("name CA and not HETERO and chain " + native_peptide_chain).models()[0].to_matrix())
-
-        return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
-
     def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
         """
         Arguments:
@@ -329,12 +315,9 @@ class Trajectory(object):
             save_csv(path, ('ref', 'cabs'), best_alg)
 
         ref_target_mers, temp_target_mers = zip(*best_alg)
-        aligned_ref = Atoms(arg=list(ref_target_mers))
-        aligned_tem = Atoms(arg=list(temp_target_mers))
-        ref_pept_arr = numpy.array(ref_pept.to_matrix())
-        return self.rmsd_to_given(aligned_ref, ref_pept_arr, pept_chain, template_aligned=aligned_tem)
-
-    def rmsd_to_given(self, structure, peptide, pept_chain, template_aligned=None):
+        structure = Atoms(arg=list(ref_target_mers))
+        template_aligned = Atoms(arg=list(temp_target_mers))
+        peptide = numpy.array(ref_pept.to_matrix())
 
         def rmsd(m1, m2, length):
             return np.sqrt(np.sum((m1 - m2) ** 2) / length)

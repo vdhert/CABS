@@ -145,7 +145,6 @@ class Job:
             'contact_maps': True,
             'reference_pdb': None,
             'align': 'SW',
-            'save_alignment': True,
             'reference_alignment': None,
         }
 
@@ -159,7 +158,7 @@ class Job:
         self.medoids = None
         self.clusters_dict = None
         self.clusters = None
-        self.rmslst = None
+        self.rmslst = {}
         self.results = None
 
         # Config processing:
@@ -261,10 +260,22 @@ class Job:
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
         print('calculate_rmsd')
+        if save:
+            odir = self.config['work_dir'] + '/output_data'
+            try:
+                mkdir(odir)
+            except OSError:
+                pass
         all_results = {}
         for pept_chain in self.initial_complex.ligand_chains:
-            aln_path = None if not self.config['save_alignment'] else self.config['work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
-            self.rmslst = self.trajectory.rmsd_to_reference(
+            aln_path = None if not save else self.config['work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
+            #~ self.trajectory.rmsd_to_native_test(
+                #~ reference_pdb,
+                #~ self.initial_complex.receptor_chains,
+                #~ pept_chain,
+                #~ pept_chain,
+                #~ )
+            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
                 self.initial_complex.receptor_chains,
                 ref_pdb=reference_pdb,
                 pept_chain=pept_chain,
@@ -282,11 +293,6 @@ class Job:
             results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
             # Saving rmsd results
             if save:
-                odir = self.config['work_dir'] + '/output_data'
-                try:
-                    mkdir(odir)
-                except OSError:
-                    pass
                 with open(odir+'/rmsds_%s.txt' % pept_chain, 'w') as outfile:
                     outfile.write(
                         'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(results['lowest_all'],
@@ -312,11 +318,12 @@ class Job:
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
-            plot_E_RMSD([self.trajectory, self.filtered_trajectory],
-                         [self.rmslst, self.rmslst[self.filtered_ndx,]],
-                         pltdir + '/Ermsd')
-            plot_RMSD_N(self.rmslst.reshape(self.config['replicas'], -1),
-                        pltdir + '/RMSDn')
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
+                             [rmslst, rmslst[self.filtered_ndx,]],
+                             pltdir + '/E_RMSD_%s' % k)
+                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
+                            pltdir + '/RMSD_frame_%s' % k)
 
         # Contact maps
         if self.config['contact_maps']:
