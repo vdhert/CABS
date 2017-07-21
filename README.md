@@ -16,7 +16,7 @@ To install CABSdock:
 ```
 #!bash
 
-tar xzvf CABSdock-version.tar.gz
+tar xzf CABSdock-version.tar.gz
 ```
 
 * change into CABSdock-version directory
