@@ -30,7 +30,7 @@ class Receptor(Atoms):
             m = re.match(r'.{4}:([A-Z]*)', name)
             if m:
                 selection += ' and chain ' + ','.join(m.group(1))
-                # TODO przenieść do Pdb
+                # TODO move to Pdb
         atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
 
         if 'receptor_flexibility' in config:

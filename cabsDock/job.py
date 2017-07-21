@@ -2,26 +2,19 @@
 Module for running cabsDock jobs.
 """
 
-import re
 import operator
-from os import getcwd, mkdir
+from os import mkdir
 from os.path import exists, isdir, join, abspath
-from time import sleep
-
 from cabsDock.cluster import Clustering
 from protein import ProteinComplex
 from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar
 from utils import SCModeler
 from utils import plot_E_rmsds
 from utils import plot_rmsd_N
-from utils import check_peptide_sequence
 from utils import _chunk_lst
 from utils import mk_histos_series
-from trajectory import Trajectory
 from cabsDock.cmap import ContactMapFactory
-from cabsDock.cmap import ContactMap
 from filter import Filter
 
 __all__ = ['Job']
@@ -36,7 +29,7 @@ class Job:
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
     def __init__(self, **kwargs):
-        # TODO: defaults jesli job import
+        # TODO: jak job jest importowany to nie ma defaults.
         self.config = kwargs
 
         # making sure work_dir is abspath
@@ -80,39 +73,21 @@ class Job:
                 add_restraints += Restraints(filename, sg=True)
 
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
-
         return receptor_restraints
-
-    def process_excluding(self):
-        pass
 
     def run_job(self):
         work_dir = self.config['work_dir']
-        print('CABS-docking job {0}'.format(self.config['receptor']))
 
         # prepare initial complex
-        print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-        print(' ... done.')
 
         # run cabs
-        print('CABS simulation starts.')
         cabs_run = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
         cabs_run.run()
 
-        print('CABS simuation is DONE.')
         trajectory = cabs_run.get_trajectory()
         trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         if self.config['native_pdb']:
-            print('Calculating RMSD to the native structure...')
-            print(
-                'The native complex loaded from {0} consists of receptor (chain(s) {1}) and peptide(s) (chains(s) {2}).'
-                .format(
-                    self.config['native_pdb'],
-                    self.config['native_receptor_chain'],
-                    self.config['native_peptide_chain']
-                )
-            )
             rmslst = trajectory.rmsd_to_native(native_pdb=self.config['native_pdb'],
                                       native_receptor_chain=self.config['native_receptor_chain'],
                                       native_peptide_chain=self.config['native_peptide_chain'],
