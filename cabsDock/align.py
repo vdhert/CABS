@@ -46,6 +46,9 @@ def raise_aerror_on(*errors):
         return wrapped_mth
     return wrapper
 
+def fmt_csv(atm):
+    return "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
+
 def save_csv(fname, stcs, aligned_mers):
     """Creates csv alignment file.
 
@@ -54,11 +57,26 @@ def save_csv(fname, stcs, aligned_mers):
     stcs -- tuple of structure names.
     aligned_mers -- sequence of tuples containing aligned cabsDock.atoms.Atom instances.
     """
-    fmt = lambda atm: "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
     with open(fname, 'w') as f:
         f.write("\t".join(stcs) + "\n")
         for mrs in aligned_mers:
-            f.write("\t".join(map(fmt, mrs)) + '\n')
+            f.write("\t".join(map(fmt_csv, mrs)) + '\n')
+
+def load_csv(fname, *stcs):
+    """Loads pairwise alignment in csv format.
+
+    Arguments:
+    fname -- filelike object; stream containing alignment in csv format.
+    stcs -- cabsDock.atom.Atoms instances.
+    """
+    dcts = [{fmt_csv(atm): atm for atm in stc.atoms.select('name CA and not HETERO')} for stc in stcs]
+
+    res = []
+    for line in fname.split('\n')[1:]:
+        if line.strip() == '': continue
+        ms = line.split('\t')
+        res.append([dct[mer] for mer, dct in zip(ms, dcts)])
+    return res
 
 
 class AlignError(Exception):
@@ -78,6 +96,7 @@ class AbstractAlignMethod(object):
 
     @abstractmethod
     def execute(self, mers1, mers2, **kwargs):
+        """Returns TUPLE of tuples containig subsequent aligned mers."""
         pass
 
     @classmethod
@@ -89,7 +108,7 @@ class TrivialAlign(AbstractAlignMethod):
     methodname = 'trivial'
 
     def execute(self, atoms1, atoms2, **kwargs):
-        return zip(atoms1.atoms, atoms2.atoms)
+        return tuple(zip(atoms1.atoms, atoms2.atoms))
 
 class BLASTpAlign(AbstractAlignMethod):
 
@@ -132,7 +151,7 @@ class SmithWaterman(AbstractAlignMethod):
 
     methodname = 'SW'
 
-    def execute(self, atoms1, atoms2, **kwargs):
+    def execute(self, atoms1, atoms2, ident_threshold=.9, **kwargs):
         # filling matrix
         mtx = numpy.zeros((len(atoms1) + 1, len(atoms2) + 1), dtype=numpy.int)
         for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):
@@ -145,11 +164,15 @@ class SmithWaterman(AbstractAlignMethod):
         i, j = numpy.unravel_index(numpy.argmax(mtx), mtx.shape)
         pickup = lambda ind1, ind2: (atoms1[ind1 - 1], atoms2[ind2 - 1])
         alg = [pickup(i, j)]
-        while i != j != 0:
+        while not (i == j == 0):
             di, dj = max(((-1, -1), (-1, 0), (0, -1)), key=lambda x: mtx[i + x[0], j + x[1]])
             if 1 in (i, j): break   #?? is it so
             i += di
             j += dj
             if di == dj:
                 alg.append(pickup(i, j))
-        return tuple(reversed(alg))
+        result = tuple(reversed(alg))
+        ident = [i[0].resname == i[1].resname for i in result].count(True) * 1. / min((len(atoms1), len(atoms2)))
+        if ident <= ident_threshold:
+            raise AlignError('Identity below threshold.')
+        return result

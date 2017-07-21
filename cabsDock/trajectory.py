@@ -1,4 +1,5 @@
 from copy import deepcopy
+from itertools import chain
 
 import StringIO
 import numpy
@@ -12,6 +13,8 @@ from utils import kabsch
 from utils import ProgressBar
 from align import AbstractAlignMethod
 from align import AlignError
+from align import save_csv
+from align import load_csv
 import warnings
 
 __all__ = ['Trajectory', 'Header']
@@ -263,13 +266,15 @@ class Trajectory(object):
 
         return self.rmsd_to_given(native, nat_pept, model_peptide_chain)
 
-    def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='trivial', pept_align_kwargs={}, target_align_kwargs={}):
+    def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
         """
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
         ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
         align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
+        alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
+        path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
         pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.
         target_align_kwargs -- as above, but used when aligning target protein.
         """
@@ -285,32 +290,43 @@ class Trajectory(object):
         else:
             ref_pept = ref_stc.atoms.select('NAME CA and CHAIN %s' % ref_pept_chid)
 
-        # choosing remaining chains but the one aligned with peptide
-        ref_target = ref_stc.select('not CHAIN %s' % ref_pept_chid)
-        temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(temp_target_ids))
+        #aligning target
+        if not alignment:
+            # choosing remaining chains but the one aligned with peptide
+            ref_target = ref_stc.select('not CHAIN %s' % ref_pept_chid)
+            temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(temp_target_ids))
 
-        # aligning target to reference not-peptide
-        ref_target_ids = tuple(set([i.chid for i in ref_target.atoms]))
-        mtch_mtx = numpy.zeros((len(ref_target_ids), len(temp_target_ids)), dtype=int)
-        algs = {}
-        key = 1
-        for n, rch in enumerate(ref_target_ids):
-            for m, tch in enumerate(temp_target_ids):
-                ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
-                tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
-                if 0 in (len(ref), len(tmp)): continue  #??? whai?
-                try:
-                    algs[key] = mth.execute(ref, tmp)
-                except AlignError:
-                    continue
-                mtch_mtx[n, m] = key
-                key += 1
+            # aligning target to reference not-peptide
+            ref_target_ids = tuple(ref_target.list_chains().keys())
+            mtch_mtx = numpy.zeros((len(ref_target_ids), len(temp_target_ids)), dtype=int)
+            algs = {}
+            key = 1
+            for n, rch in enumerate(ref_target_ids):
+                for m, tch in enumerate(temp_target_ids):
+                    ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
+                    tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
+                    if 0 in (len(ref), len(tmp)): continue  #??? whai?
+                    try:
+                        algs[key] = mth.execute(ref, tmp)
+                    except AlignError:
+                        continue
+                    mtch_mtx[n, m] = key
+                    key += 1
 
-        longest_keys = [max(mtch_mtx[:, tch], key=lambda k: len(algs.get(k, ()))) for tch in range(len(temp_target_ids))]
-        best_alg = reduce(operator.add, [algs.get(k, ()) for k in longest_keys])
-        #~ import imp
-        #~ pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
-        #~ pdbx.set_trace()
+            # joining cabs chains 
+            pickups = []
+            for n, refch in enumerate(mtch_mtx):
+                inds = numpy.nonzero(refch)
+                pickups.extend(refch[inds])
+                mtch_mtx[n + 1:, inds] = 0
+            best_alg = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+        else:
+            with open(alignment) as f:
+                best_alg = load_csv(f, ref_stc, self.template)
+
+        #saving alignment
+        if path and not alignment:
+            save_csv(path, ('ref', 'cabs'), best_alg)
 
         ref_target_mers, temp_target_mers = zip(*best_alg)
         aligned_ref = Atoms(arg=list(ref_target_mers))
