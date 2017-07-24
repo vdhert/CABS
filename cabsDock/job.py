@@ -144,15 +144,14 @@ class Job:
             'AA_rebuild': True,
             'contact_maps': True,
             'reference_pdb': None,
-            'align': 'trivial',
             'save_replicas': True,
             'save_topn': True,
             'save_clusters': True,
             'save_medoids': 'AA', #'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
-
-
             'align': 'SW',
             'reference_alignment': None,
+            'file_TRAF': None,
+            'file_SEQ': None,
         }
 
         # Job attributes collected.
@@ -193,7 +192,9 @@ class Job:
         else:
             mkdir(work_dir)
 
-    def cabsdock(self, ftraf=None, fseq=None):
+    def cabsdock(self):
+        ftraf = self.config['file_TRAF']
+        fseq = self.config['file_SEQ']
         self.setup_job()
         withcabs = True if (ftraf is None or fseq is None) else False
         if withcabs:
@@ -204,7 +205,7 @@ class Job:
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
         self.draw_plots()
-        self.save_models(replicas=self.save_replicas, topn=self.save_topn, clusters=self.save_clusters, medoids=self.save_medoids)
+        self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'], clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
 
     def setup_job(self):
         print('CABS-docking job {0}'.format(self.config['receptor']))
