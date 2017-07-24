@@ -148,15 +148,12 @@ class Job:
             'save_replicas': True,
             'save_topn': True,
             'save_clusters': True,
-            'save_medoids': 'AA' #'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
+            'save_medoids': 'AA', #'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
 
 
+            'align': 'SW',
+            'reference_alignment': None,
         }
-        #parsed inputs:
-        self.save_replicas = None
-        self.save_topn = None
-        self.save_clusters = None
-        self.save_medoids = None
 
         # Job attributes collected.
         self.initial_complex = None
@@ -168,7 +165,7 @@ class Job:
         self.medoids = None
         self.clusters_dict = None
         self.clusters = None
-        self.rmslst = None
+        self.rmslst = {}
         self.results = None
 
         # Config processing:
@@ -246,7 +243,6 @@ class Job:
         """
         print("load_output")
         if ftraf is not None and fseq is not None:
-            print('im reading!!!!')
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
             self.trajectory = self.cabsrun.get_trajectory()
@@ -270,37 +266,47 @@ class Job:
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
         print('calculate_rmsd')
-        self.rmslst = self.trajectory.rmsd_to_reference(
-            ref_pdb=reference_pdb,
-            pept_chain=self.initial_complex.ligand_chains,
-            align_mth=self.config['align']
-        )
-        rmsds = [header.rmsd for header in self.medoids.headers]
-        self.results = {}
-        self.results['rmsds_all'] = [header.rmsd for header in self.trajectory.headers]
-        self.results['rmsds_filtered'] = [header.rmsd for header in self.filtered_trajectory.headers]
-        self.results['rmsds_medoids'] = rmsds
-        self.results['lowest_all'] = sorted(self.results['rmsds_all'])[0]
-        self.results['lowest_filtered'] = sorted(self.results['rmsds_filtered'])[0]
-        self.results['lowest_medoids'] = sorted(self.results['rmsds_medoids'])[0]
-        # Saving rmsd results
         if save:
             odir = self.config['work_dir'] + '/output_data'
             try:
                 mkdir(odir)
             except OSError:
                 pass
-            with open(odir+'/lowest_rmsds.txt', 'w') as outfile:
-                outfile.write(
-                    'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(self.results['lowest_all'],
-                                                                                       self.results['lowest_filtered'],
-                                                                                       self.results['lowest_medoids'], )
-                )
-            for type in ['all', 'filtered', 'medoids']:
-                with open(odir+'/'+type+'_rmsds.txt','w') as outfile:
-                    for rmsd in self.results['rmsds_'+type]:
-                        outfile.write(str(rmsd)+';\n')
-        return self.results
+        all_results = {}
+        for pept_chain in self.initial_complex.ligand_chains:
+            aln_path = None if not save else self.config['work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
+            #~ self.trajectory.rmsd_to_native_test(
+                #~ reference_pdb,
+                #~ self.initial_complex.receptor_chains,
+                #~ pept_chain,
+                #~ pept_chain,
+                #~ )
+            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
+                self.initial_complex.receptor_chains,
+                ref_pdb=reference_pdb,
+                pept_chain=pept_chain,
+                align_mth=self.config['align'],
+                alignment=self.config['reference_alignment'],
+                path=aln_path
+            )
+            rmsds = [header.rmsd for header in self.medoids.headers]
+            results = {}
+            results['rmsds_all'] = [header.rmsd for header in self.trajectory.headers]
+            results['rmsds_filtered'] = [header.rmsd for header in self.filtered_trajectory.headers]
+            results['rmsds_medoids'] = rmsds
+            results['lowest_all'] = sorted(results['rmsds_all'])[0]
+            results['lowest_filtered'] = sorted(results['rmsds_filtered'])[0]
+            results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
+            # Saving rmsd results
+            if save:
+                with open(odir+'/rmsds_%s.txt' % pept_chain, 'w') as outfile:
+                    outfile.write(
+                        'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(results['lowest_all'],
+                                                                                           results['lowest_filtered'],
+                                                                                           results['lowest_medoids'], )
+                    )
+            all_results[pept_chain] = results
+        return all_results
 
     def draw_plots(self, plots_dir=None):
         print('draw_plots')
@@ -318,11 +324,12 @@ class Job:
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
-            plot_E_RMSD([self.trajectory, self.filtered_trajectory],
-                         [self.rmslst, self.rmslst[self.filtered_ndx,]],
-                         pltdir + '/Ermsd')
-            plot_RMSD_N(self.rmslst.reshape(self.config['replicas'], -1),
-                        pltdir + '/RMSDn')
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
+                             [rmslst, rmslst[self.filtered_ndx,]],
+                             pltdir + '/E_RMSD_%s' % k)
+                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
+                            pltdir + '/RMSD_frame_%s' % k)
 
         # Contact maps
         if self.config['contact_maps']:
@@ -353,10 +360,11 @@ class Job:
         elif medoids == 'AA':
             # Saving top 10 models in AA representation:
             pdb_medoids = self.medoids.to_pdb()
-            from cabsDock.ca2all import ca2all
-            for i, fname in enumerate(pdb_medoids):
-                ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                       verbose=False)
+            if self.config['AA_rebuild']:
+                from cabsDock.ca2all import ca2all
+                for i, fname in enumerate(pdb_medoids):
+                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
+                           verbose=False)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)
