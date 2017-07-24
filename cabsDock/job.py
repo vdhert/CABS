@@ -126,6 +126,7 @@ class Job:
             'replicas': 10,
             'mc_cycles': 50,
             'mc_steps': 50,
+            'mc_anneal': 20,
             't_init': 2.0,
             't_final': 1.0,
             'replicas_dtemp': 0.5,
