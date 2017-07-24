@@ -1,11 +1,15 @@
 import matplotlib.pyplot
 from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import IndexFormatter
+from matplotlib.ticker import NullFormatter
 
 import numpy
 from itertools import chain
 
 from cabsDock.utils import _chunk_lst
 
+matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
 
 def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
     """
@@ -57,21 +61,34 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
     so nested arrays or lists are expected. Plots will be written in given format
     to file of given name.
     """
-    fig, sfigarr = matplotlib.pyplot.subplots(3)
+    max_data = 5
     for ind, etp in zip((0, 1), ('total','interaction')):
-        data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
-        xlim = (0, max(chain((5,), *rmsds)))
-        ylim = (min(chain((0,), *data)), max(chain((5,), *data)))
-        mk_discrete_plot(sfigarr[ind], rmsds, data, xlim, ylim)
-        drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
-    for traj, rmsd_list in zip(trajectories, rmsds):
-        diff = numpy.max(rmsd_list) - numpy.min(rmsd_list)
-        n_bins = 25 if diff < 25 else int(diff)
-        sfigarr[2].hist(rmsd_list, n_bins)
-    fig.get_axes()[-1].set_xlabel('RMSD')
+        grid = matplotlib.pyplot.GridSpec(42, 2)
+        plot = matplotlib.pyplot.subplot(grid[:-12, :])
+        histo = matplotlib.pyplot.subplot(grid[-10:, :])
 
-    matplotlib.pyplot.savefig(fname + '.'+fmt, format=fmt)
-    matplotlib.pyplot.close(fig)
+        data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
+        xlim = (0, max(chain((max_data,), *rmsds)))
+        ylim = (min(chain(*data)), max(chain(*data)))
+        mk_discrete_plot(plot, rmsds, data, xlim, ylim)
+        drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
+
+        #TODO histo is the same in both cases, could be done once at the beginning
+        for traj, rmsd_list in zip(trajectories, rmsds):
+            diff = numpy.max(rmsd_list) - numpy.min(rmsd_list)
+            n_bins = numpy.arange(0, max_data, 1) if diff < max_data else numpy.arange(0, int(diff), 1)
+            histo.hist(rmsd_list, n_bins)
+
+        plot.xaxis.set_major_locator(MaxNLocator(10))
+        plot.xaxis.set_minor_locator(MaxNLocator(20))
+        plot.tick_params(labelbottom='off')
+        plot.set_ylabel('%s energy' % etp.capitalize())
+        histo.set_xlabel('RMSD')
+        histo.xaxis.set_major_locator(MaxNLocator(10))
+        histo.xaxis.set_minor_locator(MaxNLocator(20))
+        histo.set_xlim(xlim)
+        matplotlib.pyplot.savefig(fname + '_%s.' % etp + fmt, format=fmt)
+        matplotlib.pyplot.close()
 
 def plot_RMSD_N(rmsds, fname, fmt='svg'):
     """Plots and saves to a file RMSD(Nframe) plot.
@@ -88,9 +105,9 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
 
         fig, sfig = matplotlib.pyplot.subplots(1)
         mk_discrete_plot(sfig, [nfs], [rmsd_lst], joined=True)
-        fig.get_axes()[0].set_ylabel('RMSD')
-        fig.get_axes()[0].set_xlabel('frame')
-        fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
+        sfig.set_ylabel('RMSD')
+        sfig.set_xlabel('Frame index')
+        sfig.xaxis.set_major_formatter(IndexFormatter(nfs))
 
         matplotlib.pyplot.savefig(tfname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close(fig)
@@ -99,11 +116,11 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
 def graph_RMSF(trajectory, chains, fname, hist=False):
     if hist:
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        lbls = _chunk_lst([i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
+        lbls = _chunk_lst([i.fmt() for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
         mk_histos_series(rmsf_vals, lbls, fname + '_hist')
     else:
         rmsf_vals = [trajectory.rmsf(chains)]
-        lbls = [[i.chid + str(i.resnum) + i.icode for i in trajectory.template.atoms if i.chid in chains]]
+        lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
         plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq')
     drop_csv_file(fname, (tuple(chain(*lbls)), tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
 
@@ -117,39 +134,49 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     See matplotlib.pyplot.savefig for more formats.
     """
     fig, sfig = matplotlib.pyplot.subplots(1)
-    mk_discrete_plot(sfig, map(range, map(len, series)), series, joined=True)
+    xvals = [range(len(series[0]))]
+    mk_discrete_plot(sfig, xvals, series, xlim=(min(xvals[0]), max(xvals[0])), joined=True)
     sfig.set_ylabel('RMSF')
-    sfig.set_xticklabels(labels)
-    matplotlib.pyplot.savefig(fname + '.'+fmt, format=fmt)
+    sfig.set_xlabel('Residue index')
+    sfig.xaxis.set_major_locator(MaxNLocator(25, integer=True))
+    #~ fnc = lambda x, y: labels[int(x)]
+    #~ sfig.xaxis.set_major_formatter(FuncFormatter(fnc))
+    sfig.xaxis.set_major_formatter(NullFormatter())
+    #~ for tick in sfig.get_xticklabels():
+        #~ tick.set_rotation(90)
+    matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
     matplotlib.pyplot.close(fig)
 
 
-def mk_histos_series(series, labels, fname, fmt='svg'):
+def mk_histos_series(series, labels, fname, fmt='svg', n_y_ticks=5):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
     labels -- corresponding ticks labels.
     fname -- file name to be created.
     fmt -- format of file to be created; 'svg' byt default.
+    n_y_ticks -- int; maximal number of tickes on y axis.
     See matplotlib.pyplot.savefig for more formats.
     """
     fig, sfigarr = matplotlib.pyplot.subplots(len(series), squeeze=False)
 
     try:
-        ylim = max(chain((5,), *series))
+        ylim = max(chain((n_y_ticks,), *series)) + 1
     except ValueError:  # for empty series
-        ylim = 5
+        ylim = n_y_ticks + 1
     get_xloc = lambda x: [.5 * i for i in range(len(x))]
 
     fig.set_figheight(len(series))
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
-        sfigarr[n, 0].bar(xloc, vls, width=.51, color='orange')
-        sfigarr[n, 0].set_ylim([0, ylim])
-        sfigarr[n, 0].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
+        sfigarr[n, 0].set_ylim((0, ylim))
+        sfigarr[n, 0].bar(xloc, vls, width=.51)
+        sfigarr[n, 0].yaxis.set_major_locator(MaxNLocator(n_y_ticks))
+        sfigarr[n, 0].yaxis.set_major_formatter(FuncFormatter(lambda x, pos: "%i" % x))
         sfigarr[n, 0].set_xticks(xloc)
-        sfigarr[n, 0].set_xticklabels(ticks, fontsize=6)
+        sfigarr[n, 0].set_xticklabels(ticks)
+        sfigarr[n, 0].tick_params(labelsize=6)
 
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)

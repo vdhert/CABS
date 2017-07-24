@@ -8,7 +8,7 @@ import operator
 
 from cabsDock.utils import _chunk_lst
 from cabsDock.utils import _extend_last
-from cabsDock.utils import _fmt_res_name
+#~ from cabsDock.utils import _fmt_res_name
 from cabsDock.plots import mk_histos_series
 
 import matplotlib.pyplot
@@ -63,7 +63,7 @@ class ContactMapFactory(object):
                 ncmtx = self.mk_cmtx(self.mk_dmtx(fra), thr)
                 cmtx += ncmtx
                 nframes += 1
-            resl.append(ContactMap(cmtx, map(_fmt_res_name, self.ats1), map(_fmt_res_name, self.ats2), nframes))
+            resl.append(ContactMap(cmtx, [i.fmt() for i in self.ats1], [i.fmt() for i in self.ats2], nframes))
         return resl
 
     def mk_cmtx(self, mtx, thr):
@@ -124,7 +124,7 @@ class ContactMap(object):
         if not vmax:
             vmax = 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                ['#ffffff', '#ff0066', '#33cc33', '#999999', '#ff9933'])
+                ['#ffffff', '#ffd700', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
 
         sfig.matshow(
             self.cmtx.T,
@@ -189,7 +189,7 @@ class ContactMap(object):
         inds1, inds2 = numpy.nonzero(self.cmtx)
         stream.write("# n=%i\n" % self.n)
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
-           stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2] / float(self.n)))
+           stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
     def save_all(self, fname):
         """Creates txt and png of given name."""
