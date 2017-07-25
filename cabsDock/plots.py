@@ -69,7 +69,7 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
 
         data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
         xlim = (0, max(chain((max_data,), *rmsds)))
-        ylim = (min(chain(*data)), max(chain(*data)))
+        ylim = (min(chain(*data)), max(chain((max_data,), *data)))
         mk_discrete_plot(plot, rmsds, data, xlim, ylim)
         drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
 
@@ -139,11 +139,10 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     sfig.set_ylabel('RMSF')
     sfig.set_xlabel('Residue index')
     sfig.xaxis.set_major_locator(MaxNLocator(25, integer=True))
-    #~ fnc = lambda x, y: labels[int(x)]
-    #~ sfig.xaxis.set_major_formatter(FuncFormatter(fnc))
-    sfig.xaxis.set_major_formatter(NullFormatter())
-    #~ for tick in sfig.get_xticklabels():
-        #~ tick.set_rotation(90)
+    sfig.xaxis.set_major_formatter(FuncFormatter(lambda x, p: labels[int(x)]))
+    for tick in sfig.get_xticklabels():
+        tick.set_rotation(90)
+    fig.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
     matplotlib.pyplot.close(fig)
 

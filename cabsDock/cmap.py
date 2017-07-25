@@ -107,48 +107,79 @@ class ContactMap(object):
     def zero_diagonal(self):
         numpy.fill_diagonal(self.cmtx, 0)
 
-    def save_fig(self, fname, fmt='svg', norm_n=False):
+    def save_fig(self, fname, fmt='svg', norm_n=False, break_long_x=50):
         """Saves cmap as matrix plot.
 
         Arguments:
         fname -- str; file name.
         fmt -- str; by default 'svg'. See matplotlib.pyplot.savefig for more inforamtion.
         norm_n -- bool; if True cmap will be normalized by cmap number of frames.
+        break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
-        #~ grid = matplotlib.pyplot.GridSpec(*(numpy.array([5, 0]) + self.cmtx.shape))
-        grid = matplotlib.pyplot.GridSpec(2, 1,
-                                    width_ratios=(1,),
-                                    height_ratios=(99, 1))
-        sfig = matplotlib.pyplot.subplot(grid[0, :])
+        wdth = self.cmtx.shape[0]
+        chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
+        lngst = max(map(len, chunks))
+        label_size = lngst / 50. * 10
+        size = (lngst / 5., len(chunks) * len(self.s2) / 5. + 2)
+        fig = matplotlib.pyplot.figure(figsize=size)
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, lngst, height_ratios=([7 for i in chunks] + [1]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
-        if not vmax:
+        if vmax < 5:
             vmax = 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
                 ['#ffffff', '#ffd700', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
 
-        sfig.matshow(
-            self.cmtx.T,
-            cmap=colors,
-            vmin=0.,
-            vmax=vmax,
-            )
-        if sfig.get_data_ratio() < 1.:
-            aratio = self.cmtx.shape[0] / 100.
-            sfig.set_aspect(aratio)
-        sfig.tick_params(axis='both', which='major', labelsize=6)
-        for lbls, lab_fx, tck_setter, deg in ((self.s1, sfig.set_xticklabels, sfig.xaxis, 90), (self.s2, sfig.set_yticklabels, sfig.yaxis, 0)):
-            mjr_loc = int(round(len(lbls)/50.)*50) / 50
-            if mjr_loc == 0: mjr_loc = 1
-            tck_setter.set_major_locator(matplotlib.ticker.MultipleLocator(mjr_loc))
-            lab_fx([''] + lbls[::mjr_loc], rotation=deg, fontsize=4)
+        for n, chunk in enumerate(chunks):
+            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :len(chunk)])
+            sfig.matshow(
+                self.cmtx.T[:,chunk],
+                cmap=colors,
+                vmin=0.,
+                vmax=vmax,
+                )
 
-        ax2 = matplotlib.pyplot.subplot(grid[1, 0])
-        cb = matplotlib.colorbar.ColorbarBase(ax2,
-                                cmap=colors,
-                                orientation='horizontal',
-                                boundaries=range(self.n + 1)
-                                )
+            if sfig.get_data_ratio() < 1.:
+                aratio = self.cmtx.shape[0] / 300.
+                sfig.set_aspect(aratio)
+            settings = (
+                        (list(numpy.array(self.s1)[chunk,]), sfig.xaxis, len(chunk)),
+                        (self.s2, sfig.yaxis, len(self.s2)),
+                        )
+            for lbls, tck_setter, n_tcks in settings:
+                nloc = break_long_x if break_long_x else 50
+                locator = matplotlib.ticker.MaxNLocator(min(nloc, n_tcks))
+                def fnc(lst):
+                    def fmt(x, p):
+                        try:
+                            return lst[int(numpy.ceil(x))]
+                        except IndexError:
+                            return ""
+                    return fmt
+                tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc((['', ] + lbls))))
+                tck_setter.set_major_locator(locator)
 
+            for tick in sfig.get_xticklabels():
+                tick.set_rotation(90)
+            sfig.tick_params(labelsize=label_size, bottom=False, top=True)
+
+        # colorbar
+        max_ticks = 15
+        n_ticks = min(max_ticks, vmax)
+        vls = numpy.linspace(0, vmax, n_ticks).astype(int)
+        ax2 = matplotlib.pyplot.subplot(grid[-1, :len(chunks[0])])
+        ax2.matshow(    vls.reshape(1, int(n_ticks)),
+                        cmap=colors,
+                        vmin=0,
+                        vmax=vmax,
+                        interpolation='bilinear',
+                        )
+        ax2.set_aspect(1 / float(len(chunks[0]) / vmax))
+        ax2.tick_params(axis='x', bottom=False, top=True, labelsize=label_size, direction='out')
+        ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
+        ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
+        ax2.xaxis.set_major_formatter(matplotlib.ticker.IndexFormatter(vls))
+
+        grid.tight_layout(fig)
         matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close()
 
@@ -191,11 +222,11 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname):
+    def save_all(self, fname, norm_n=False, break_long_x=50):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)
-        self.save_fig(fname)
+        self.save_fig(fname, norm_n=norm_n, break_long_x=break_long_x)
 
     def __add__(self, other):
         """Addition of cmaps sums their matrices.
