@@ -120,7 +120,7 @@ class CabsRun(Thread):
         nreps = config['replicas']
         inp = CabsRun.make_inp(config, nmols, CabsRun.FORCE_FIELD)
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-                      * nreps * config['mc_cycles'] * 20
+            * nreps * config['mc_cycles'] * config['mc_annealing']
 
         cabs_dir = join(config['work_dir'], '.CABS')
         if exists(cabs_dir):

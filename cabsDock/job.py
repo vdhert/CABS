@@ -25,86 +25,6 @@ from filter import Filter
 __all__ = ['Job']
 
 
-class Config(dict):
-    """
-    Smart dictionary that can append items with 'ligand' key instead of overwriting them.
-    TODO: universal list of associative options assigned to specific keywords: ligand, restraints etc.
-    """
-    def __init__(self, config):
-        dict.__init__(self, config)
-
-    def read_file(self, filename):
-        """Config file parser"""
-        patt = re.compile('(\w+)\s+=\s+([\w:.-]+)')
-        patt_start = re.compile('start_(\w+)', re.IGNORECASE)
-        patt_stop = re.compile('stop', re.IGNORECASE)
-        patt_lig = re.compile('ligand\s+=\s+(.*)', re.IGNORECASE)
-        with open(filename) as f:
-            lines = iter([re.sub('\s+', ' ', line.partition('#')[0]) for line in f.readlines()])
-
-        for line in lines:
-            match = re.match(patt_start, line)
-            if match:
-                key = match.group(1).lower()
-                self[key] = []
-                try:
-                    line = next(lines)
-                    while not re.match(patt_stop, line):
-                        self[key].append(line.strip())
-                        line = next(lines)
-                except StopIteration:
-                    pass
-            else:
-                match = re.match(patt_lig, line)
-                if match:
-                    lig = tuple(w.strip() for w in match.group(1).split(','))
-                    if 'ligand' not in self:
-                        self['ligand'] = []
-                    self['ligand'].append(lig)
-                else:
-                    match = re.match(patt, line)
-                    if match:
-                        key = match.group(1).lower()
-                        if '.' in match.group(2):
-                            try:
-                                val = float(match.group(2))
-                            except ValueError:
-                                val = match.group(2)
-                        else:
-                            try:
-                                val = int(match.group(2))
-                            except ValueError:
-                                if re.match('\A(yes|y|true|t)\Z', match.group(2), re.IGNORECASE):
-                                    val = True
-                                elif re.match('\A(no|n|false|f)\Z', match.group(2), re.IGNORECASE):
-                                    val = False
-                                else:
-                                    val = match.group(2)
-                        self[key] = val
-
-    def add_config(self, config):
-        """Parser for job parameters"""
-        if 'ligand' in config:
-            if 'ligand' not in self:
-                self['ligand'] = []
-            val = config['ligand']
-            if type(val) in (list, tuple):
-                self['ligand'].extend(val)
-            elif type(val) is str:
-                self['ligand'].append((val,))
-            del config['ligand']
-        self.update(config)
-        return self
-
-    def fix_ligands(self):
-        """Function that makes sure each ligand entry in config['ligand'] list is a 3-element tuple"""
-        if 'ligand' in self:
-            for i, ligand in enumerate(self['ligand']):
-                for j in range(len(ligand), 3):
-                    self['ligand'][i] += ('random',)
-        return self
-
-
 class Job:
     """
     Class representing single cabsDock job.
@@ -114,12 +34,6 @@ class Job:
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
     def __init__(self, **kwargs):
-        """
-        Job can be initialized by:
-        1. receptor=[receptor_input] The only required parameter, other taken from 'defaults'.
-        2. By providing location of the config file as in 'config=[path_to_file]'.
-        3. All parameters can be overwritten by specifying parameter=[value].
-        """
 
         defaults = {
             'work_dir': getcwd(),
@@ -135,7 +49,7 @@ class Job:
             'ligand_insertion_attempts': 1000,
             'ca_restraints_strength': 1.0,
             'sg_restraints_strength': 1.0,
-            'receptor_restraints': (4, 5.0, 15.0),  # sequence gap, min length, max length
+            'receptor_restraints': ('all', 4, 5.0, 15.0),  # sequence gap, min length, max length
             'dssp_command': 'mkdssp',
             'fortran_compiler': ('gfortran', '-O2'),  # build (command, flags)
             'filtering': 1000,  # number of models to filter
@@ -168,18 +82,8 @@ class Job:
         self.rmslst = {}
         self.results = None
 
-        # Config processing:
-        self.config = Config(defaults)
-
-        # check if config should be read from a file
-        if 'config' in kwargs:
-            if exists(kwargs['config']):
-                self.config.read_file(kwargs['config'])
-            else:
-                raise IOError('Config file: ' + kwargs['config'] + ' does not exist!')
-
-        # update config with kwargs
-        self.config.add_config(kwargs).fix_ligands()
+        self.config = defaults
+        self.config.update(kwargs)
 
         # Workdir processing:
         # making sure work_dir is abspath
@@ -192,6 +96,33 @@ class Job:
                 raise Exception('File %s already exists and is not a directory' % work_dir)
         else:
             mkdir(work_dir)
+
+    def prepare_restraints(self):
+
+        # generate receptor restraints
+        receptor_restraints = Restraints(
+            self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints'])
+        )
+
+        # additional restraints
+        add_restraints = Restraints()
+
+        if self.config['ca_rest_add']:
+            add_restraints += Restraints(self.config['ca_rest_add'])
+
+        if self.config['sg_rest_add']:
+            add_restraints += Restraints(self.config['sg_rest_add'], sg=True)
+
+        if self.config['ca_rest_file']:
+            for filename in self.config['ca_rest_file']:
+                add_restraints += Restraints(filename)
+
+        if self.config['sg_rest_file']:
+            for filename in self.config['sg_rest_file']:
+                add_restraints += Restraints(filename, sg=True)
+
+        receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
+        return receptor_restraints
 
     def cabsdock(self):
         ftraf = self.config['file_TRAF']
@@ -216,17 +147,8 @@ class Job:
         print(' ... done.')
 
     def setup_cabs_run(self):
-        # Generating the restraints
-        restraints = \
-            Restraints(self.initial_complex.receptor.generate_restraints(*self.config['receptor_restraints']))
-        add_restraints = Restraints(self.config.get('ca_restraints'))
-        add_restraints += Restraints(self.config.get('sg_restraints'), sg=True)
-        add_restraints += Restraints(self.config.get('ca_restraints_file'))
-        add_restraints += Restraints(self.config.get('ca_restraints_file'), sg=True)
-        restraints += add_restraints.update_id(self.initial_complex.new_ids)
-
         # Initializing CabsRun instance
-        self.cabsrun = CabsRun(self.initial_complex, restraints, self.config)
+        self.cabsrun = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
         return self.cabsrun
 
     def execute_cabs_run(self):
