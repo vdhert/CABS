@@ -148,6 +148,9 @@ class ContactMap(object):
             for lbls, tck_setter, n_tcks in settings:
                 nloc = break_long_x if break_long_x else 50
                 locator = matplotlib.ticker.MaxNLocator(min(nloc, n_tcks))
+                #TODO: maxnlocator overrites fixed postions of ticks.
+                # consider using picking up appropriate indexes with linspace
+                # and using multiple or fixed locator. may help with troublesom formatter.
                 def fnc(lst):
                     def fmt(x, p):
                         try:
@@ -163,9 +166,9 @@ class ContactMap(object):
             sfig.tick_params(labelsize=label_size, bottom=False, top=True)
 
         # colorbar
-        max_ticks = 15
+        max_ticks = 30
         n_ticks = min(max_ticks, vmax)
-        vls = numpy.linspace(0, vmax, n_ticks).astype(int)
+        vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
         ax2 = matplotlib.pyplot.subplot(grid[-1, :len(chunks[0])])
         ax2.matshow(    vls.reshape(1, int(n_ticks)),
                         cmap=colors,
@@ -173,7 +176,7 @@ class ContactMap(object):
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(1 / float(len(chunks[0]) / vmax))
+        ax2.set_aspect(3. / float(max_ticks))
         ax2.tick_params(axis='x', bottom=False, top=True, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
         ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
