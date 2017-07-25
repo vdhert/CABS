@@ -301,12 +301,16 @@ class Job:
             results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
             # Saving rmsd results
             if save:
-                with open(odir+'/rmsds_%s.txt' % pept_chain, 'w') as outfile:
+                with open(odir+'/lowest_rmsds_%s.txt' % pept_chain, 'w') as outfile:
                     outfile.write(
                         'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(results['lowest_all'],
                                                                                            results['lowest_filtered'],
                                                                                            results['lowest_medoids'], )
                     )
+                for type in ['all', 'filtered', 'medoids']:
+                    with open(odir + '/{0}_rmsds_{1}.txt'.format(type, pept_chain), 'w') as outfile:
+                        for rmsd in results['rmsds_' + type]:
+                            outfile.write(str(rmsd) + ';\n')
             all_results[pept_chain] = results
         return all_results
 
