@@ -321,6 +321,7 @@ class Job:
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                              [rmslst, rmslst[self.filtered_ndx,]],
+                             ['all models', 'top 1000 models'],
                              pltdir + '/E_RMSD_%s' % k)
                 plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
                             pltdir + '/RMSD_frame_%s' % k)
@@ -388,7 +389,10 @@ class Job:
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
-            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
+            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig, titles={ 0: 'Histogram of peptide contacts',
+                                                                                    1: 'Histogram of receptor contacts - detailed analysis',
+                                                                                    -1: 'Histogram of receptor contacts - summary analysis'
+                                                                                    })
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
             cmaps_top = cmf.mk_cmap(sc_med, thr)

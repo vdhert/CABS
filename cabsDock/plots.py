@@ -1,5 +1,6 @@
 import matplotlib.pyplot
 from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MultipleLocator
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import IndexFormatter
 from matplotlib.ticker import NullFormatter
@@ -10,6 +11,16 @@ from itertools import chain
 from cabsDock.utils import _chunk_lst
 
 matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+
+def set_fixed_ar(plt, ratio):
+    """
+    Arguments:
+    plt -- matplotlib subplot instance.
+    ratio -- aspect ratio to be set.
+    """
+    xvs = map(float, plt.get_xlim())
+    yvs = map(float, plt.get_ylim())
+    plt.set_aspect(ratio * ((xvs[1] - xvs[0]) / (yvs[1] - yvs[0])), adjustable='box')
 
 def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
     """
@@ -45,7 +56,7 @@ def drop_csv_file(fname, columns, fmts="%s"):
             f.write("\t".join([fmt % val for fmt, val in zip(fmts, vals)]))
             f.write('\n')
 
-def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
+def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
     """
     Creates energy(RMSD) plots.
 
@@ -63,9 +74,10 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
     """
     max_data = 5
     for ind, etp in zip((0, 1), ('total','interaction')):
-        grid = matplotlib.pyplot.GridSpec(42, 2)
-        plot = matplotlib.pyplot.subplot(grid[:-12, :])
-        histo = matplotlib.pyplot.subplot(grid[-10:, :])
+        fig = matplotlib.pyplot.figure(figsize=(9, 12))
+        grid = matplotlib.pyplot.GridSpec(2, 1)
+        plot = matplotlib.pyplot.subplot(grid[0, 0])
+        histo = matplotlib.pyplot.subplot(grid[1, 0])
 
         data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
         xlim = (0, max(chain((max_data,), *rmsds)))
@@ -74,19 +86,27 @@ def plot_E_RMSD(trajectories, rmsds, fname, fmt='svg'):
         drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
 
         #TODO histo is the same in both cases, could be done once at the beginning
-        for traj, rmsd_list in zip(trajectories, rmsds):
-            diff = numpy.max(rmsd_list) - numpy.min(rmsd_list)
-            n_bins = numpy.arange(0, max_data, 1) if diff < max_data else numpy.arange(0, int(diff), 1)
-            histo.hist(rmsd_list, n_bins)
+        for traj, rmsd_list, lab in zip(trajectories, rmsds, labels):
+            n_bins = numpy.arange(0, max(max_data, numpy.max(rmsd_list)), 1)
+            histo.hist(rmsd_list, n_bins, label=lab)
 
-        plot.xaxis.set_major_locator(MaxNLocator(10))
-        plot.xaxis.set_minor_locator(MaxNLocator(20))
-        plot.tick_params(labelbottom='off')
+        for sfig in (plot, histo):
+            sfig.xaxis.set_major_locator(MaxNLocator(10))
+            sfig.xaxis.set_minor_locator(MaxNLocator(20))
+
+        plot.set_xlabel('RMSD')
         plot.set_ylabel('%s energy' % etp.capitalize())
-        histo.set_xlabel('RMSD')
-        histo.xaxis.set_major_locator(MaxNLocator(10))
-        histo.xaxis.set_minor_locator(MaxNLocator(20))
+        plot.set_title('CABSdock %s energy vs. RMSD' % etp)
+        set_fixed_ar(plot, .75)
+
         histo.set_xlim(xlim)
+        histo.yaxis.set_major_formatter(IndexFormatter(range(int(histo.get_ylim()[1] + 1))))
+        histo.set_xlabel('RMSD')
+        histo.set_ylabel('Number of frames')
+        set_fixed_ar(histo, .75)
+
+        histo.legend(bbox_to_anchor=(0., -.202, 1., -.102), loc=3, ncol=len(labels), mode="expand", borderaxespad=0.)
+
         matplotlib.pyplot.savefig(fname + '_%s.' % etp + fmt, format=fmt)
         matplotlib.pyplot.close()
 
@@ -147,12 +167,13 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     matplotlib.pyplot.close(fig)
 
 
-def mk_histos_series(series, labels, fname, fmt='svg', n_y_ticks=5):
+def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
     labels -- corresponding ticks labels.
     fname -- file name to be created.
+    titles -- dict int: str; keys are indexes of histos, values are title to be set.
     fmt -- format of file to be created; 'svg' byt default.
     n_y_ticks -- int; maximal number of tickes on y axis.
     See matplotlib.pyplot.savefig for more formats.
@@ -176,6 +197,12 @@ def mk_histos_series(series, labels, fname, fmt='svg', n_y_ticks=5):
         sfigarr[n, 0].set_xticks(xloc)
         sfigarr[n, 0].set_xticklabels(ticks)
         sfigarr[n, 0].tick_params(labelsize=6)
+
+    try:
+        for k, title in titles.items():
+            sfigarr[k, 0].set_title(title)
+    except TypeError:
+        pass
 
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)

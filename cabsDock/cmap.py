@@ -186,12 +186,13 @@ class ContactMap(object):
         matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close()
 
-    def save_histo(self, fname, all_inds_stc2=True):
+    def save_histo(self, fname, titles=None, all_inds_stc2=True):
         """
         Saves histogram of contact counts for each atom.
 
         Arguments:
         fname -- str; name of file to be created.
+        titles -- dict int: str; keys are indexes of histos, values are title to be set.
         all_inds_stc2 -- bool; True by default
         """
         inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
@@ -212,7 +213,7 @@ class ContactMap(object):
         except IndexError:
             trg_lbls = [[""] * 15]
         lbls.extend(trg_lbls)
-        mk_histos_series(vls, lbls, fname)
+        mk_histos_series(vls, lbls, fname, titles=titles)
 
     def save_txt(self, stream):
         """Saves contact list in CSV format.
