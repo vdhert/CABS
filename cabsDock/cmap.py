@@ -119,18 +119,18 @@ class ContactMap(object):
         wdth = self.cmtx.shape[0]
         chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
         lngst = max(map(len, chunks))
-        label_size = lngst / 50. * 10
-        size = (lngst / 5., len(chunks) * len(self.s2) / 5. + 2)
+        label_size = min(lngst, 50) / 50. * 10
+        size = (min(lngst, 50) / 5., len(chunks) * min(len(self.s2), 50) / 5. + 2)
         fig = matplotlib.pyplot.figure(figsize=size)
-        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, lngst, height_ratios=([7 for i in chunks] + [1]))
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, min(lngst, 50), height_ratios=([min(len(self.s2), 50) + 2] + [min(len(self.s2), 50) for i in chunks[1:]] + [3]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
         if vmax < 5:
-            vmax = 5
+            vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
                 ['#ffffff', '#ffd700', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
 
         for n, chunk in enumerate(chunks):
-            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :len(chunk)])
+            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), 50)])
             sfig.matshow(
                 self.cmtx.T[:,chunk],
                 cmap=colors,
@@ -161,14 +161,32 @@ class ContactMap(object):
                 tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc((['', ] + lbls))))
                 tck_setter.set_major_locator(locator)
 
+            sfig.tick_params(labelsize=label_size, bottom=True, top=False, labelbottom=True,labeltop=False)
             for tick in sfig.get_xticklabels():
                 tick.set_rotation(90)
-            sfig.tick_params(labelsize=label_size, bottom=False, top=True)
 
         # colorbar
-        max_ticks = 30
-        n_ticks = min(max_ticks, vmax)
-        vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
+        """
+        vls = numpy.linspace(0., 1., 5)
+        ax2 = matplotlib.pyplot.subplot(grid[-1, :])
+        ax2.matshow(    vls.reshape(1, 5),
+                        cmap=colors,
+                        interpolation='bilinear')
+        ax2.set_aspect(1. / 20)
+        ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
+        ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
+        ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
+        ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
+        """
+        #for absolute frequency of contact 
+        if norm_n:
+            max_ticks = n_ticks = 5
+            vls = numpy.linspace(0., 1., 5)
+            vmax = 1.
+        else:
+            max_ticks = 30
+            n_ticks = min(max_ticks, vmax)
+            vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
         ax2 = matplotlib.pyplot.subplot(grid[-1, :len(chunks[0])])
         ax2.matshow(    vls.reshape(1, int(n_ticks)),
                         cmap=colors,
@@ -176,12 +194,17 @@ class ContactMap(object):
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(3. / float(max_ticks))
-        ax2.tick_params(axis='x', bottom=False, top=True, labelsize=label_size, direction='out')
+        ax2.set_aspect(.9 / min((len(chunks[0]), 50)))
+        ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
-        ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-        ax2.xaxis.set_major_formatter(matplotlib.ticker.IndexFormatter(vls))
+        if norm_n:
+            ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
+            ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
+        else:
+            ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
+            ax2.xaxis.set_major_formatter(matplotlib.ticker.IndexFormatter(vls))
 
+        fig.get_axes()[0].set_title('Contacts freuqency')
         grid.tight_layout(fig)
         matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close()
@@ -226,7 +249,7 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname, norm_n=False, break_long_x=50):
+    def save_all(self, fname, norm_n=True, break_long_x=50):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)
