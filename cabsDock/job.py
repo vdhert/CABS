@@ -91,8 +91,8 @@ class Job:
         return receptor_restraints
 
     def cabsdock(self):
-        ftraf = self.config['file_TRAF']
-        fseq = self.config['file_SEQ']
+        ftraf = self.config.get('file_TRAF')
+        fseq = self.config.get('file_SEQ')
         self.setup_job()
         withcabs = True if (ftraf is None or fseq is None) else False
         if withcabs:

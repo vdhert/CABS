@@ -55,10 +55,6 @@ def run_job():
     from cabsDock.job import Job
     job = Job(**config)
 
-    #uzupelnienie brakujacych argumentow
-    job.config['file_TRAF'] = False
-    job.config['file_SEQ'] = False
-
     #uruchomienie dokowania
     job.cabsdock()
     
