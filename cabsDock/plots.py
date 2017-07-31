@@ -145,7 +145,6 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
         mk_discrete_plot(plot, rmsds, data, xlim, ylim)
         drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
 
-        #TODO histo is the same in both cases, could be done once at the beginning
         for traj, rmsd_list, lab in zip(trajectories, rmsds, labels):
             n_bins = numpy.arange(0, max(max_data, numpy.max(rmsd_list)), 1)
             histo.hist(rmsd_list, n_bins, label=lab)
