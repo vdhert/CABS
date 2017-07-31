@@ -328,6 +328,10 @@ class Job:
 
         # Contact maps
         if self.config['contact_maps']:
+            #~ import pickle
+            #~ for n, i in enumerate((self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx)):
+                #~ with open('pickled_dtest_mk_maps_args_%i.pck' % n, 'w') as f:
+                    #~ pickle.dump(i, f)
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
@@ -389,10 +393,7 @@ class Job:
                 cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
             cmap10k = reduce(operator.add, cmaps)
             cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
-            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig, titles={ 0: 'Histogram of peptide contacts',
-                                                                                    1: 'Histogram of receptor contacts - detailed analysis',
-                                                                                    -1: 'Histogram of receptor contacts - summary analysis'
-                                                                                    })
+            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
             cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
             cmaps_top = cmf.mk_cmap(sc_med, thr)

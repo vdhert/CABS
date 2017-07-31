@@ -38,6 +38,66 @@ def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
         splot.set_ylim(ylim)
     return splot
 
+def mk_histo(sfig, vls, lbls, ylim=(0., 1.)):
+    """
+    """
+    try:
+        vls = _chunk_lst(vls, len(sfig))
+        lbls = _chunk_lst(lbls, len(sfig))
+    except TypeError:
+        sfig = [sfig]
+        vls = [vls]
+        lbls = [lbls]
+    for n, (vl, lb, sf) in enumerate(zip(vls, lbls, sfig)):
+        xloc = [.5 * i for i in range(len(lb))]
+        sf.set_ylim(*ylim)
+        sf.bar(xloc, vl, width=.51)
+        sf.set_xticks(xloc)
+        sf.set_xticklabels(lb)
+        sf.tick_params(labelsize=6)
+    return sfig
+
+def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5):
+    """
+    Arguments:
+    series -- list of sequences of data to be plotted.
+    labels -- corresponding ticks labels.
+    fname -- file name to be created.
+    titles -- dict int: str; keys are indexes of histos, values are title to be set.
+    fmt -- format of file to be created; 'svg' byt default.
+    n_y_ticks -- int; maximal number of tickes on y axis.
+    See matplotlib.pyplot.savefig for more formats.
+    """
+    fig, sfigarr = matplotlib.pyplot.subplots(len(series), squeeze=False)
+
+    try:
+        ylim = max(chain((n_y_ticks,), *series)) + 1
+    except ValueError:  # for empty series
+        ylim = n_y_ticks + 1
+    get_xloc = lambda x: [.5 * i for i in range(len(x))]
+
+    fig.set_figheight(len(series))
+
+    for n, (vls, ticks) in enumerate(zip(series, labels)):
+        xloc = get_xloc(ticks)
+        sfigarr[n, 0].set_ylim((0, ylim))
+        sfigarr[n, 0].bar(xloc, vls, width=.51)
+        #~ sfigarr[n, 0].yaxis.set_major_locator(MaxNLocator(n_y_ticks))
+        #~ sfigarr[n, 0].yaxis.set_major_formatter(FuncFormatter(lambda x, pos: "%i" % x))
+        sfigarr[n, 0].set_xticks(xloc)
+        sfigarr[n, 0].set_xticklabels(ticks)
+        sfigarr[n, 0].tick_params(labelsize=6)
+
+    try:
+        for k, title in titles.items():
+            sfigarr[k, 0].set_title(title)
+    except TypeError:
+        pass
+
+    matplotlib.pyplot.tight_layout()
+    matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
+    matplotlib.pyplot.close(fig)
+
 def drop_csv_file(fname, columns, fmts="%s"):
     """
     Creates *fname* csv file and writes given columns to this file.
@@ -81,7 +141,7 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
 
         data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
         xlim = (0, max(chain((max_data,), *rmsds)))
-        ylim = (min(chain(*data)), max(chain((max_data,), *data)))
+        ylim = (min(chain((-max_data,), *data)), max(chain(*data)))
         mk_discrete_plot(plot, rmsds, data, xlim, ylim)
         drop_csv_file(fname + "_%s" % etp, (rmsds[0], data[0]), fmts="%.3f")
 
@@ -163,47 +223,5 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     for tick in sfig.get_xticklabels():
         tick.set_rotation(90)
     fig.tight_layout()
-    matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
-    matplotlib.pyplot.close(fig)
-
-
-def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5):
-    """
-    Arguments:
-    series -- list of sequences of data to be plotted.
-    labels -- corresponding ticks labels.
-    fname -- file name to be created.
-    titles -- dict int: str; keys are indexes of histos, values are title to be set.
-    fmt -- format of file to be created; 'svg' byt default.
-    n_y_ticks -- int; maximal number of tickes on y axis.
-    See matplotlib.pyplot.savefig for more formats.
-    """
-    fig, sfigarr = matplotlib.pyplot.subplots(len(series), squeeze=False)
-
-    try:
-        ylim = max(chain((n_y_ticks,), *series)) + 1
-    except ValueError:  # for empty series
-        ylim = n_y_ticks + 1
-    get_xloc = lambda x: [.5 * i for i in range(len(x))]
-
-    fig.set_figheight(len(series))
-
-    for n, (vls, ticks) in enumerate(zip(series, labels)):
-        xloc = get_xloc(ticks)
-        sfigarr[n, 0].set_ylim((0, ylim))
-        sfigarr[n, 0].bar(xloc, vls, width=.51)
-        sfigarr[n, 0].yaxis.set_major_locator(MaxNLocator(n_y_ticks))
-        sfigarr[n, 0].yaxis.set_major_formatter(FuncFormatter(lambda x, pos: "%i" % x))
-        sfigarr[n, 0].set_xticks(xloc)
-        sfigarr[n, 0].set_xticklabels(ticks)
-        sfigarr[n, 0].tick_params(labelsize=6)
-
-    try:
-        for k, title in titles.items():
-            sfigarr[k, 0].set_title(title)
-    except TypeError:
-        pass
-
-    matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
     matplotlib.pyplot.close(fig)

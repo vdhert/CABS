@@ -6,10 +6,8 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
+from cabsDock.plots import mk_histo
 from cabsDock.utils import _chunk_lst
-from cabsDock.utils import _extend_last
-#~ from cabsDock.utils import _fmt_res_name
-from cabsDock.plots import mk_histos_series
 
 import matplotlib.pyplot
 import matplotlib.ticker
@@ -116,21 +114,23 @@ class ContactMap(object):
         norm_n -- bool; if True cmap will be normalized by cmap number of frames.
         break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
+        #TODO: taking min and max out of data + [50] should be done once
+        wdh_cnst = 50
         wdth = self.cmtx.shape[0]
         chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
         lngst = max(map(len, chunks))
-        label_size = min(lngst, 50) / 50. * 10
-        size = (min(lngst, 50) / 5., len(chunks) * min(len(self.s2), 50) / 5. + 2)
+        label_size = min(lngst, wdh_cnst) / float(wdh_cnst) * 10
+        size = (min(lngst, wdh_cnst) / 5., len(chunks) * min(len(self.s2), wdh_cnst) / 5. + 2)
         fig = matplotlib.pyplot.figure(figsize=size)
-        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, min(lngst, 50), height_ratios=([min(len(self.s2), 50) + 2] + [min(len(self.s2), 50) for i in chunks[1:]] + [3]))
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, min(lngst, wdh_cnst), height_ratios=([min(len(self.s2), wdh_cnst) + 2] + [min(len(self.s2), wdh_cnst) for i in chunks[1:]] + [3]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                ['#ffffff', '#ffd700', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
+                ['#ffffff', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
 
         for n, chunk in enumerate(chunks):
-            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), 50)])
+            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), wdh_cnst)])
             sfig.matshow(
                 self.cmtx.T[:,chunk],
                 cmap=colors,
@@ -146,7 +146,7 @@ class ContactMap(object):
                         (self.s2, sfig.yaxis, len(self.s2)),
                         )
             for lbls, tck_setter, n_tcks in settings:
-                nloc = break_long_x if break_long_x else 50
+                nloc = break_long_x if break_long_x else wdh_cnst
                 locator = matplotlib.ticker.MaxNLocator(min(nloc, n_tcks))
                 #TODO: maxnlocator overrites fixed postions of ticks.
                 # consider using picking up appropriate indexes with linspace
@@ -209,7 +209,7 @@ class ContactMap(object):
         matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
         matplotlib.pyplot.close()
 
-    def save_histo(self, fname, titles=None, all_inds_stc2=True):
+    def save_histo(self, fname, all_inds_stc2=True, fmt='svg'):
         """
         Saves histogram of contact counts for each atom.
 
@@ -218,25 +218,49 @@ class ContactMap(object):
         titles -- dict int: str; keys are indexes of histos, values are title to be set.
         all_inds_stc2 -- bool; True by default
         """
+        max_bars = 15
+
         inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
         if all_inds_stc2:
             inds2 = range(self.cmtx.shape[1])
-        inds1lst = _chunk_lst(inds1, 15)
-        trg_vls = [[numpy.sum(self.cmtx[i,:]) for i in inds] for inds in inds1lst]
-        vls = [[numpy.sum(self.cmtx[:,i]) for i in inds2]]
-        try:
-            _extend_last(trg_vls, 15, 0)
-        except IndexError:
-            trg_vls = [[0.] * 15]
-        vls.extend(trg_vls)
-        lbls = [[self.s2[i] for i in inds2]]
-        trg_lbls = [[self.s1[i] for i in inds] for inds in inds1lst]
-        try:
-            _extend_last(trg_lbls, 15, "")
-        except IndexError:
-            trg_lbls = [[""] * 15]
-        lbls.extend(trg_lbls)
-        mk_histos_series(vls, lbls, fname, titles=titles)
+
+        trg_vls_all = [numpy.sum(i) / self.n for i in self.cmtx]
+
+        trg_vls = list(numpy.array(trg_vls_all)[inds1,])
+        trg_lbls = list(numpy.array(self.s1)[inds1,])
+
+        pep_vls = [numpy.sum(self.cmtx[:,i]) / self.n for i in inds2]
+        pep_lbls = [self.s2[i] for i in inds2]
+
+        max_y = max([.05] + trg_vls_all)
+
+        chunks = int(numpy.ceil(len(trg_vls) / float(max_bars)))
+        grid = matplotlib.pyplot.GridSpec(2 + chunks, 1)
+        size = (10, 3 * chunks)
+        fig = matplotlib.pyplot.figure(figsize=size)
+
+        peptH = mk_histo(matplotlib.pyplot.subplot(grid[0, 0]), pep_vls, pep_lbls, ylim=(0, max([.05] + pep_vls)))[0]
+        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, chunks + 2)]
+        targBH = mk_histo(sbplts, trg_vls, trg_lbls, ylim=(0, max_y))
+        targAH = mk_histo(matplotlib.pyplot.subplot(grid[-1, 0]), trg_vls_all, self.s1, ylim=(0, max_y))[0]
+
+        peptH.set_title('Histogram of peptide contacts')
+        targBH[0].set_title('Histogram of receptor contacts - detailed analysis')
+        targAH.set_title('Histogram of receptor contacts - summary analysis')
+
+        for sfig in targBH + [peptH, targAH]:
+            sfig.set_ylabel('Contact frequency')
+            sfig.set_xlabel('Residue id')
+
+        xloc = targAH.get_xticks()
+        if len(xloc) > max_bars:
+            inds = numpy.linspace(0, len(xloc) - 1, max_bars).astype(int)
+            targAH.set_xticks(xloc[inds,])
+            targAH.set_xticklabels(numpy.array(self.s1)[inds,])
+
+        grid.tight_layout(fig)
+        matplotlib.pyplot.savefig(fname + '.' + fmt, format=fmt)
+        matplotlib.pyplot.close()
 
     def save_txt(self, stream):
         """Saves contact list in CSV format.
