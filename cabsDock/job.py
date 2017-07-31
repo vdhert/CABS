@@ -244,12 +244,17 @@ class Job:
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                              [rmslst, rmslst[self.filtered_ndx,]],
+                             ['all models', 'top 1000 models'],
                              pltdir + '/E_RMSD_%s' % k)
                 plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
                             pltdir + '/RMSD_frame_%s' % k)
 
         # Contact maps
         if self.config['contact_maps']:
+            #~ import pickle
+            #~ for n, i in enumerate((self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx)):
+                #~ with open('pickled_dtest_mk_maps_args_%i.pck' % n, 'w') as f:
+                    #~ pickle.dump(i, f)
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
@@ -303,7 +308,7 @@ class Job:
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all')
+        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0)
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
