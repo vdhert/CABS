@@ -34,40 +34,8 @@ class Job:
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
     def __init__(self, **kwargs):
-
-        defaults = {
-            'work_dir': getcwd(),
-            'replicas': 10,
-            'mc_cycles': 50,
-            'mc_steps': 50,
-            'mc_anneal': 20,
-            't_init': 2.0,
-            't_final': 1.0,
-            'replicas_dtemp': 0.5,
-            'initial_separation': 20.0,
-            'ligand_insertion_clash': 0.5,
-            'ligand_insertion_attempts': 1000,
-            'ca_restraints_strength': 1.0,
-            'sg_restraints_strength': 1.0,
-            'receptor_restraints': ('all', 4, 5.0, 15.0),  # sequence gap, min length, max length
-            'dssp_command': 'mkdssp',
-            'fortran_compiler': ('gfortran', '-O2'),  # build (command, flags)
-            'filtering': 1000,  # number of models to filter
-            'clustering_nmedoids': 10,
-            'clustering_niterations': 100,  # number of clusters, iterations
-            'benchmark': False,
-            'AA_rebuild': True,
-            'contact_maps': True,
-            'reference_pdb': None,
-            'save_replicas': True,
-            'save_topn': True,
-            'save_clusters': True,
-            'save_medoids': 'AA', #'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
-            'align': 'SW',
-            'reference_alignment': None,
-            'file_TRAF': None,
-            'file_SEQ': None,
-        }
+        # TODO: jak job jest importowany to nie ma defaults.
+        self.config = kwargs
 
         # Job attributes collected.
         self.initial_complex = None
@@ -82,9 +50,6 @@ class Job:
         self.rmslst = {}
         self.results = None
 
-        self.config = defaults
-        self.config.update(kwargs)
-
         # Workdir processing:
         # making sure work_dir is abspath
         self.config['work_dir'] = abspath(self.config['work_dir'])
@@ -96,6 +61,7 @@ class Job:
                 raise Exception('File %s already exists and is not a directory' % work_dir)
         else:
             mkdir(work_dir)
+
 
     def prepare_restraints(self):
 

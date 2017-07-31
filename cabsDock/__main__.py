@@ -54,9 +54,7 @@ def run_job():
 
     from cabsDock.job import Job
     job = Job(**config)
-    print job
-
-    # TODO insert here calls to Job's procedures.
-
+    job.cabsdock()
+    
 if __name__ == '__main__':
     run_job()
