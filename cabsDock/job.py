@@ -38,6 +38,7 @@ class Job:
             replicas=10,
             mc_cycles=50,
             mc_steps=50,
+            mc_annealing=20,
             t_init=2.0,
             t_final=1.0,
             replicas_dtemp=0.5,
@@ -52,10 +53,10 @@ class Job:
             receptor_restraints=('all', 4, 5.0, 15.0),
             dssp_command='mkdssp',
             fortran_compiler=('gfortran', '-O2'),  # build (command, flags)
-            filtering=1000,  # number of models to filter
+            filtering_number=1000,  # number of models to filter
             filtering_fromeach=True,
-            clustering_nmedoids=10,
-            clustering_niterations=100,
+            clustering_medoids=10,
+            clustering_iterations=100,
             benchmark=False,
             AA_rebuild=True,
             contact_maps=True,
@@ -64,11 +65,13 @@ class Job:
             save_topn=True,
             save_clusters=True,
             save_medoids='AA',  # AA or CG. AA option requires MODELLER to be installed.
-            file_TRAF=None,
-            file_SEQ=None,
+            load_cabs_files=(None, None),
+            # file_TRAF=None,
+            # file_SEQ=None,
             align='SW',
             reference_alignment=None,
-            save_config=True,
+            save_config_file=True,
+            image_file_format='svg'
     ):
 
         # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
@@ -79,6 +82,7 @@ class Job:
             'replicas': replicas,
             'mc_cycles': mc_cycles,
             'mc_steps': mc_steps,
+            'mc_annealing': mc_annealing,
             't_init': t_init,
             't_final': t_final,
             'replicas_dtemp': replicas_dtemp,
@@ -93,10 +97,10 @@ class Job:
             'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
             'dssp_command': dssp_command,
             'fortran_compiler': fortran_compiler,  # build (command, flags)
-            'filtering': filtering,  # number of models to filter
+            'filtering': filtering_number,  # number of models to filter
             'filtering_fromeach': filtering_fromeach,
-            'clustering_nmedoids': clustering_nmedoids,
-            'clustering_niterations': clustering_niterations,  # number of clusters, iterations
+            'clustering_nmedoids': clustering_medoids,
+            'clustering_niterations': clustering_iterations,  # number of clusters, iterations
             'benchmark': benchmark,
             'AA_rebuild': AA_rebuild,
             'contact_maps': contact_maps,
@@ -105,11 +109,12 @@ class Job:
             'save_topn': save_topn,
             'save_clusters': save_clusters,
             'save_medoids': save_medoids,  # 'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
-            'file_TRAF': file_TRAF,
-            'file_SEQ': file_SEQ,
+            'file_TRAF': load_cabs_files[0],
+            'file_SEQ': load_cabs_files[1],
             'align': align,
             'reference_alignment': reference_alignment,
-            'save_config': save_config,
+            'save_config_file': save_config_file,
+            'image_file_format': image_file_format,
         }
 
         if receptor is None:
@@ -185,7 +190,7 @@ class Job:
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
 
     def save_config(self):
-        if self.config['save_config']:
+        if self.config['save_config_file']:
             with open(self.config['work_dir']+'/output_data/config.ini', 'w') as configfile:
                 for k in self.config:
                     peptide_counter = 0
