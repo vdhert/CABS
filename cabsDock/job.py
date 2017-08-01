@@ -68,6 +68,7 @@ class Job:
             file_SEQ=None,
             align='SW',
             reference_alignment=None,
+            save_config=True,
     ):
 
         # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
@@ -108,6 +109,7 @@ class Job:
             'file_SEQ': file_SEQ,
             'align': align,
             'reference_alignment': reference_alignment,
+            'save_config': save_config,
         }
 
         if receptor is None:
@@ -165,6 +167,7 @@ class Job:
         return receptor_restraints
 
     def cabsdock(self):
+        self.save_config()
         ftraf = self.config.get('file_TRAF')
         fseq = self.config.get('file_SEQ')
         self.setup_job()
@@ -180,6 +183,30 @@ class Job:
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
+
+    def save_config(self):
+        if self.config['save_config']:
+            with open(self.config['work_dir']+'/output_data/config.ini', 'w') as configfile:
+                for k in self.config:
+                    peptide_counter = 0
+                    value = self.config[k]
+                    line = str(k)+': '
+                    if k == 'ligand':
+                        for lgnd in value:
+                            if peptide_counter==0:
+                                line = 'peptide: '
+                            else:
+                                line += '\nadd-peptide: '
+                            for element in lgnd:
+                                line += str(element)+' '
+                            peptide_counter += 1
+                    elif isinstance(value, tuple):
+                        line = str(k) + ': '
+                        for item in value:
+                            line += str(item)+' '
+                    else:
+                        line = str(k) + ': '+str(value)
+                    configfile.write('\n'+line)
 
     def setup_job(self):
         print('CABS-docking job {0}'.format(self.config['receptor']))
