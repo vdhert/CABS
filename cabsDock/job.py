@@ -2,25 +2,21 @@
 Module for running cabsDock jobs.
 """
 
-import re
 import operator
 from os import getcwd, mkdir
-from os.path import exists, isdir, join, abspath
+from os.path import exists, isdir, abspath
 
-from cabsDock.cluster import Clustering
-from protein import ProteinComplex
-from restraints import Restraints
 from cabs import CabsRun
-from utils import ProgressBar
-from cabsDock.utils import SCModeler
-from cabsDock.utils import _chunk_lst
+from cabsDock.cluster import Clustering
+from cabsDock.cmap import ContactMapFactory
+from cabsDock.plots import graph_RMSF
 from cabsDock.plots import plot_E_RMSD
 from cabsDock.plots import plot_RMSD_N
-from cabsDock.plots import graph_RMSF
-from utils import check_peptide_sequence
-from trajectory import Trajectory
-from cabsDock.cmap import ContactMapFactory
+from cabsDock.utils import SCModeler
 from filter import Filter
+from protein import ProteinComplex
+from restraints import Restraints
+from trajectory import Trajectory
 
 __all__ = ['Job']
 
@@ -33,10 +29,89 @@ class Job:
     def __repr__(self):
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
-    def __init__(self, **kwargs):
-        # TODO: jak job jest importowany to nie ma defaults.
-        self.config = kwargs
+    def __init__(
+            # TODO KEEP THE DEFAULTS UPDATED FOR TESTING.
+            self,
+            receptor=None,
+            ligand=None,
+            work_dir=getcwd(),
+            replicas=10,
+            mc_cycles=50,
+            mc_steps=50,
+            t_init=2.0,
+            t_final=1.0,
+            replicas_dtemp=0.5,
+            separation=20.0,
+            ligand_insertion_clash=0.5,
+            ligand_insertion_attempts=1000,
+            ca_restraints_strength=1.0,
+            ca_rest_add=None,
+            ca_rest_file=None,
+            ca_rest_weight=1.0,
+            sg_restraints_strength=1.0,
+            receptor_restraints=('all', 4, 5.0, 15.0),
+            dssp_command='mkdssp',
+            fortran_compiler=('gfortran', '-O2'),  # build (command, flags)
+            filtering=1000,  # number of models to filter
+            filtering_fromeach=True,
+            clustering_nmedoids=10,
+            clustering_niterations=100,
+            benchmark=False,
+            AA_rebuild=True,
+            contact_maps=True,
+            reference_pdb=None,
+            save_replicas=True,
+            save_topn=True,
+            save_clusters=True,
+            save_medoids='AA',  # AA or CG. AA option requires MODELLER to be installed.
+            file_TRAF=None,
+            file_SEQ=None,
+            align='SW',
+            reference_alignment=None,
+    ):
 
+        # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
+        self.config = {
+            'receptor': receptor,
+            'ligand': ligand,
+            'work_dir': work_dir,
+            'replicas': replicas,
+            'mc_cycles': mc_cycles,
+            'mc_steps': mc_steps,
+            't_init': t_init,
+            't_final': t_final,
+            'replicas_dtemp': replicas_dtemp,
+            'initial_separation': separation,
+            'ligand_insertion_clash': ligand_insertion_clash,
+            'ligand_insertion_attempts': ligand_insertion_attempts,
+            'ca_restraints_strength': ca_restraints_strength,
+            'ca_rest_add': ca_rest_add,
+            'ca_rest_file': ca_rest_file,
+            'ca_rest_weight': ca_rest_weight,
+            'sg_restraints_strength': sg_restraints_strength,
+            'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
+            'dssp_command': dssp_command,
+            'fortran_compiler': fortran_compiler,  # build (command, flags)
+            'filtering': filtering,  # number of models to filter
+            'filtering_fromeach': filtering_fromeach,
+            'clustering_nmedoids': clustering_nmedoids,
+            'clustering_niterations': clustering_niterations,  # number of clusters, iterations
+            'benchmark': benchmark,
+            'AA_rebuild': AA_rebuild,
+            'contact_maps': contact_maps,
+            'reference_pdb': reference_pdb,
+            'save_replicas': save_replicas,
+            'save_topn': save_topn,
+            'save_clusters': save_clusters,
+            'save_medoids': save_medoids,  # 'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
+            'file_TRAF': file_TRAF,
+            'file_SEQ': file_SEQ,
+            'align': align,
+            'reference_alignment': reference_alignment,
+        }
+
+        if receptor is None:
+            raise Exception('Docking cannot be performed without a receptor.')
         # Job attributes collected.
         self.initial_complex = None
         self.restraints = None
@@ -62,7 +137,6 @@ class Job:
         else:
             mkdir(work_dir)
 
-
     def prepare_restraints(self):
 
         # generate receptor restraints
@@ -71,7 +145,7 @@ class Job:
         )
 
         # additional restraints
-        add_restraints = Restraints()
+        add_restraints = Restraints('')
 
         if self.config['ca_rest_add']:
             add_restraints += Restraints(self.config['ca_rest_add'])
@@ -99,11 +173,13 @@ class Job:
             self.setup_cabs_run()
             self.execute_cabs_run()
         self.load_output(ftraf, fseq)
-        self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'], number_of_iterations=self.config['clustering_niterations'])
+        self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'],
+                           number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
         self.draw_plots()
-        self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'], clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
+        self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
+                         clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
 
     def setup_job(self):
         print('CABS-docking job {0}'.format(self.config['receptor']))
@@ -125,8 +201,6 @@ class Job:
     def load_output(self, ftraf=None, fseq=None):
         """
         Method for loading previously done simulation results. Stores the results to self.trajectory.
-        :param number_of_peptides:
-        :param old_ids:
         :param ftraf: path to TRAF file
         :param fseq: path to SEQ file
         :return: returns trajectory.Trajectory instance
@@ -153,7 +227,6 @@ class Job:
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
 
-
     def calculate_rmsd(self, reference_pdb=None, save=True):
         print('calculate_rmsd')
         if save:
@@ -164,13 +237,8 @@ class Job:
                 pass
         all_results = {}
         for pept_chain in self.initial_complex.ligand_chains:
-            aln_path = None if not save else self.config['work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
-            #~ self.trajectory.rmsd_to_native_test(
-                #~ reference_pdb,
-                #~ self.initial_complex.receptor_chains,
-                #~ pept_chain,
-                #~ pept_chain,
-                #~ )
+            aln_path = None if not save else self.config[
+                                                 'work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
                 self.initial_complex.receptor_chains,
                 ref_pdb=reference_pdb,
@@ -189,7 +257,7 @@ class Job:
             results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
             # Saving rmsd results
             if save:
-                with open(odir+'/lowest_rmsds_%s.txt' % pept_chain, 'w') as outfile:
+                with open(odir + '/lowest_rmsds_%s.txt' % pept_chain, 'w') as outfile:
                     outfile.write(
                         'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(results['lowest_all'],
                                                                                            results['lowest_filtered'],
@@ -220,22 +288,18 @@ class Job:
         if self.config['reference_pdb']:
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
-                             [rmslst, rmslst[self.filtered_ndx,]],
-                             ['all models', 'top 1000 models'],
-                             pltdir + '/E_RMSD_%s' % k)
+                            [rmslst, rmslst[self.filtered_ndx,]],
+                            ['all models', 'top 1000 models'],
+                            pltdir + '/E_RMSD_%s' % k)
                 plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
                             pltdir + '/RMSD_frame_%s' % k)
 
         # Contact maps
         if self.config['contact_maps']:
-            #~ import pickle
-            #~ for n, i in enumerate((self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx)):
-                #~ with open('pickled_dtest_mk_maps_args_%i.pck' % n, 'w') as f:
-                    #~ pickle.dump(i, f)
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
-        #output folder
+        # output folder
         output_folder = self.config['work_dir'] + '/output_pdbs'
         try:
             mkdir(output_folder)
