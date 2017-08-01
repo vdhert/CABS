@@ -62,6 +62,37 @@ def save_csv(fname, stcs, aligned_mers):
         for mrs in aligned_mers:
             f.write("\t".join(map(fmt_csv, mrs)) + '\n')
 
+def save_fasta(fname, stcs_names, stcs, aligned_mers):
+    """Saves fasta file with alignment.
+
+    Arguments:
+    fname -- str; name of the file to be created.
+    stcs_names -- tuple of strings; names of structures to be saved.
+    stcs -- cabsDock.Atoms instances with atoms attribute. Full aligned structures.
+    aligned_mers -- sequence of tuples containing only aligned cabsDock.atoms.Atom instances.
+    """
+    it1, it2 = map(iter, [i.atoms for i in stcs])
+    txt1 = ''
+    txt2 = ''
+    for mrs in aligned_mers:
+        while True:
+            mer = it1.next()
+            txt1 += aa_to_short(mer.resname)
+            if mer not in mrs:
+                txt2 += '-'
+                continue
+            break
+        while True:
+            mer = it2.next()
+            txt2 += aa_to_short(mer.resname)
+            if mer not in mrs:
+                txt1 += '-'
+                continue
+            break
+    with open(fname, 'w') as f:
+        for name, seq in zip(stcs_names, (txt1, txt2)):
+            f.write(">%s\n%s\n" % (name, seq))
+
 def load_csv(fname, *stcs):
     """Loads pairwise alignment in csv format.
 
@@ -69,10 +100,10 @@ def load_csv(fname, *stcs):
     fname -- filelike object; stream containing alignment in csv format.
     stcs -- cabsDock.atom.Atoms instances.
     """
-    dcts = [{fmt_csv(atm): atm for atm in stc.atoms.select('name CA and not HETERO')} for stc in stcs]
+    dcts = [{fmt_csv(atm): atm for atm in stc.select('name CA and not HETERO')} for stc in stcs]
 
     res = []
-    for line in fname.split('\n')[1:]:
+    for line in fname.read().split('\n')[1:]:
         if line.strip() == '': continue
         ms = line.split('\t')
         res.append([dct[mer] for mer, dct in zip(ms, dcts)])
@@ -109,6 +140,21 @@ class TrivialAlign(AbstractAlignMethod):
 
     def execute(self, atoms1, atoms2, **kwargs):
         return tuple(zip(atoms1.atoms, atoms2.atoms))
+
+
+#~ class LoadCSVAlign(AbstractAlignMethod):
+
+    #~ methodname = 'load_csv'
+
+    #~ def execute(self, atoms1, atoms2, fname, **kwargs):
+        #~ try:
+            #~ with open(fname) as f:
+                #~ nms1, nms2 = zip(*[i.split('\t') for i in map(str.strip, f.readlines()[1:])])
+        #~ except TypeError:
+            #~ raise AlignError("No alignment file was given.")
+        #~ ats1 = [i for i in atoms1 if fmt_csv(i) in nms1]
+        #~ ats2 = [i for i in atoms1 if fmt_csv(i) in nms2]
+        #~ return zip(ats1, ats2)
 
 class BLASTpAlign(AbstractAlignMethod):
 

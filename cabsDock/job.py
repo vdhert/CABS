@@ -245,7 +245,9 @@ class Job:
                 pept_chain=pept_chain,
                 align_mth=self.config['align'],
                 alignment=self.config['reference_alignment'],
-                path=aln_path
+                path=aln_path,
+                pept_align_kwargs={'fname': self.config['reference_alignment']},
+                target_align_kwargs={'fname': self.config['reference_alignment']}
             )
             rmsds = [header.rmsd for header in self.medoids.headers]
             results = {}

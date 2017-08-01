@@ -14,6 +14,7 @@ from utils import ProgressBar
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
+from align import save_fasta
 from align import load_csv
 import warnings
 
@@ -313,6 +314,7 @@ class Trajectory(object):
         #saving alignment
         if path and not alignment:
             save_csv(path, ('ref', 'cabs'), best_alg)
+            save_fasta(path.replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), best_alg)
 
         ref_target_mers, temp_target_mers = zip(*best_alg)
         structure = Atoms(arg=list(ref_target_mers))
