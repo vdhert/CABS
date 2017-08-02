@@ -39,21 +39,20 @@ class Job:
             mc_annealing=20,
             mc_cycles=50,
             mc_steps=50,
-            mc_annealing=20,
-            t_init=2.0,
-            t_final=1.0,
+            temperature=(2.0, 1.0),
             replicas_dtemp=0.5,
             separation=20.0,
-            ligand_insertion_clash=0.5,
-            ligand_insertion_attempts=1000,
-            ca_restraints_strength=1.0,
+            insertion_clash=0.5,
+            insertion_attempts=1000,
             ca_rest_add=None,
             ca_rest_file=None,
             ca_rest_weight=1.0,
-            sg_restraints_strength=1.0,
+            sc_rest_add=None,
+            sc_rest_file=None,
+            sc_rest_weight=1.0,
             receptor_restraints=('all', 4, 5.0, 15.0),
             dssp_command='mkdssp',
-            fortran_compiler=('gfortran', '-O2'),  # build (command, flags)
+            fortran_command=('gfortran', '-O2'),  # build (command, flags)
             filtering_number=1000,  # number of models to filter
             filtering_fromeach=True,
             clustering_medoids=10,
@@ -66,14 +65,31 @@ class Job:
             save_topn=True,
             save_clusters=True,
             save_medoids='AA',  # AA or CG. AA option requires MODELLER to be installed.
-            load_cabs_files=(None, None),
-            # file_TRAF=None,
-            # file_SEQ=None,
+            load_cabs_files=None,
             align='SW',
             reference_alignment=None,
             save_config_file=True,
-            image_file_format='svg'
+            image_file_format='svg',
+            verbose=None,
+            stride_command='stride',
+            receptor_flexibility=None,
+            exclude=None,
+            save_cabs_files=None,
+            output_clusters=False,
+            peptide=None,
+            add_peptide=None,
+            random_seed=None,
+            output_trajectories=None,
+            config=None,
+            no_aa_rebuild=False,
+            excluding_distance=5.0,
+            modeller_iterations=3,
+            output_models=10
     ):
+        if load_cabs_files and len(load_cabs_files) is 2:
+            file_TRAF, file_SEQ = load_cabs_files
+        else:
+            file_TRAF = file_SEQ = None
 
         # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
         self.config = {
@@ -84,20 +100,21 @@ class Job:
             'mc_cycles': mc_cycles,
             'mc_steps': mc_steps,
             'mc_annealing': mc_annealing,
-            't_init': t_init,
-            't_final': t_final,
+            't_init': temperature[0],
+            't_final': temperature[1],
             'replicas_dtemp': replicas_dtemp,
             'initial_separation': separation,
-            'ligand_insertion_clash': ligand_insertion_clash,
-            'ligand_insertion_attempts': ligand_insertion_attempts,
-            'ca_restraints_strength': ca_restraints_strength,
+            'ligand_insertion_clash': insertion_clash,
+            'ligand_insertion_attempts': insertion_attempts,
             'ca_rest_add': ca_rest_add,
             'ca_rest_file': ca_rest_file,
             'ca_rest_weight': ca_rest_weight,
-            'sg_restraints_strength': sg_restraints_strength,
+            'sg_rest_add': sc_rest_add,
+            'sg_rest_file': sc_rest_file,
+            'sg_rest_weight': sc_rest_weight,
             'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
             'dssp_command': dssp_command,
-            'fortran_compiler': fortran_compiler,  # build (command, flags)
+            'fortran_compiler': fortran_command,  # build (command, flags)
             'filtering': filtering_number,  # number of models to filter
             'filtering_fromeach': filtering_fromeach,
             'clustering_nmedoids': clustering_medoids,
@@ -110,8 +127,8 @@ class Job:
             'save_topn': save_topn,
             'save_clusters': save_clusters,
             'save_medoids': save_medoids,  # 'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
-            'file_TRAF': load_cabs_files[0],
-            'file_SEQ': load_cabs_files[1],
+            'file_TRAF': file_TRAF,
+            'file_SEQ': file_SEQ,
             'align': align,
             'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
