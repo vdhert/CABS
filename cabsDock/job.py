@@ -36,6 +36,7 @@ class Job:
             ligand=None,
             work_dir=getcwd(),
             replicas=10,
+            mc_annealing=20,
             mc_cycles=50,
             mc_steps=50,
             mc_annealing=20,

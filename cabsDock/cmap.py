@@ -158,7 +158,7 @@ class ContactMap(object):
                         except IndexError:
                             return ""
                     return fmt
-                tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc((['', ] + lbls))))
+                tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc(lbls)))
                 tck_setter.set_major_locator(locator)
 
             sfig.tick_params(labelsize=label_size, bottom=True, top=False, labelbottom=True,labeltop=False)
@@ -166,7 +166,7 @@ class ContactMap(object):
                 tick.set_rotation(90)
 
         # colorbar
-        """
+        """#for relative frequency
         vls = numpy.linspace(0., 1., 5)
         ax2 = matplotlib.pyplot.subplot(grid[-1, :])
         ax2.matshow(    vls.reshape(1, 5),
@@ -194,7 +194,7 @@ class ContactMap(object):
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(.9 / min((len(chunks[0]), 50)))
+        ax2.set_aspect(.8 / min((len(chunks[0]), 50)))
         ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
         if norm_n:
