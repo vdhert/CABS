@@ -160,7 +160,7 @@ class Ligand(Atoms):
                 atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
                 atoms.update_sec(pdb.dssp())
             except InvalidPdbCode:
-                seq, sec = self.name.split(':')
+                seq = self.name.split(':')[0]
                 check_peptide_sequence(seq)
                 atoms = Atoms(self.name)
         atoms.set_bfac(0.0)

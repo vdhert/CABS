@@ -218,7 +218,7 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     sfig.set_ylabel('RMSF')
     sfig.set_xlabel('Residue index')
     sfig.xaxis.set_major_locator(MaxNLocator(25, integer=True))
-    sfig.xaxis.set_major_formatter(FuncFormatter(lambda x, p: labels[int(x)]))
+    sfig.xaxis.set_major_formatter(FuncFormatter(lambda x, p: labels[min(int(x), len(labels) - 1)]))
     for tick in sfig.get_xticklabels():
         tick.set_rotation(90)
     fig.tight_layout()

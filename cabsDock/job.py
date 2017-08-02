@@ -109,9 +109,9 @@ class Job:
             'ca_rest_add': ca_rest_add,
             'ca_rest_file': ca_rest_file,
             'ca_rest_weight': ca_rest_weight,
-            'sg_rest_add': sc_rest_add,
-            'sg_rest_file': sc_rest_file,
-            'sg_rest_weight': sc_rest_weight,
+            'sc_rest_add': sc_rest_add,
+            'sc_rest_file': sc_rest_file,
+            'sc_rest_weight': sc_rest_weight,
             'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
             'dssp_command': dssp_command,
             'fortran_compiler': fortran_command,  # build (command, flags)
@@ -175,15 +175,15 @@ class Job:
         if self.config['ca_rest_add']:
             add_restraints += Restraints(self.config['ca_rest_add'])
 
-        if self.config['sg_rest_add']:
-            add_restraints += Restraints(self.config['sg_rest_add'], sg=True)
+        if self.config['sc_rest_add']:
+            add_restraints += Restraints(self.config['sc_rest_add'], sg=True)
 
         if self.config['ca_rest_file']:
             for filename in self.config['ca_rest_file']:
                 add_restraints += Restraints(filename)
 
-        if self.config['sg_rest_file']:
-            for filename in self.config['sg_rest_file']:
+        if self.config['sc_rest_file']:
+            for filename in self.config['sc_rest_file']:
                 add_restraints += Restraints(filename, sg=True)
 
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
