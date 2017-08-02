@@ -191,7 +191,7 @@ class Job:
 
     def save_config(self):
         if self.config['save_config_file']:
-            with open(self.config['work_dir']+'/output_data/config.ini', 'w') as configfile:
+            with open(self.config['work_dir']+'/config.ini', 'w') as configfile:
                 for k in self.config:
                     peptide_counter = 0
                     value = self.config[k]
