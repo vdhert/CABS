@@ -89,7 +89,7 @@ class ContactMapFactory(object):
 
 
 class ContactMap(object):
-    def __init__(self, mtx, atoms1, atoms2, n):
+    def __init__(self, mtx, nms1, nms2, n):
         """Contact map init.
 
         Arguments:
@@ -98,8 +98,8 @@ class ContactMap(object):
         n -- number of frames.
         """
         self.cmtx = mtx
-        self.s1 = atoms1
-        self.s2 = atoms2
+        self.s1 = nms1
+        self.s2 = nms2
         self.n = n
 
     def zero_diagonal(self):
