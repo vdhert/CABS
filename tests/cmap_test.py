@@ -12,16 +12,7 @@ import random
 import tempfile
 from argparse import ArgumentParser as AP
 
-def skip_on_fast(cls):
-    ory_setUp = cls.setUpClass
-    def wrapped_setUp(*a, **kw):
-        if cla.fast:
-            raise SkipTest('skipped')
-        cls.ory_setUp(*a, **kw)
-    cls.setUpClass = wrapped_setUp
-    return cls
 
-@skip_on_fast
 class CMapMakerTest(TestCase):
 
     @classmethod
@@ -40,8 +31,8 @@ class CMapMakerTest(TestCase):
             )
         cls.j.cabsdock()
 
-    #~ def test_contact_frequencies(self):
-        #~ pass
+    def test_contact_frequencies(self):
+        pass
 
 class SCModelerTest(TestCase):
 

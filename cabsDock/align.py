@@ -4,7 +4,6 @@ from abc import abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
-
 from utils import aa_to_short
 
 
@@ -46,8 +45,10 @@ def raise_aerror_on(*errors):
         return wrapped_mth
     return wrapper
 
+
 def fmt_csv(atm):
     return "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
+
 
 def save_csv(fname, stcs, aligned_mers):
     """Creates csv alignment file.
@@ -61,6 +62,7 @@ def save_csv(fname, stcs, aligned_mers):
         f.write("\t".join(stcs) + "\n")
         for mrs in aligned_mers:
             f.write("\t".join(map(fmt_csv, mrs)) + '\n')
+
 
 def save_fasta(fname, stcs_names, stcs, aligned_mers):
     """Saves fasta file with alignment.
@@ -93,6 +95,7 @@ def save_fasta(fname, stcs_names, stcs, aligned_mers):
         for name, seq in zip(stcs_names, (txt1, txt2)):
             f.write(">%s\n%s\n" % (name, seq))
 
+
 def load_csv(fname, *stcs):
     """Loads pairwise alignment in csv format.
 
@@ -113,6 +116,7 @@ def load_csv(fname, *stcs):
 class AlignError(Exception):
     pass
 
+
 class AlnMeta(ABCMeta):
     def __init__(self, *args, **kwargs):
         super(AlnMeta, self).__init__(*args, **kwargs)
@@ -120,6 +124,7 @@ class AlnMeta(ABCMeta):
             self.methodname
         except AttributeError:
             self.methodname = self.__name__.lower()
+
 
 class AbstractAlignMethod(object):
 
@@ -133,6 +138,7 @@ class AbstractAlignMethod(object):
     @classmethod
     def get_subclass_dict(cls):
         return {i.methodname: i() for i in cls.__subclasses__()}
+
 
 class TrivialAlign(AbstractAlignMethod):
 
