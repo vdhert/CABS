@@ -108,6 +108,7 @@ class ParserFactory:
             kwargs['metavar'] = usage[0]
             if len(default) == 1:
                 kwargs['default'] = string_cast(default[0])
+                kwargs['type'] = type(kwargs['default'])
         else:
             pass
 
