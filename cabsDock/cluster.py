@@ -35,7 +35,7 @@ class Clustering(object):
         m, n = distance_matrix.shape
         if k > n:
             raise Exception(
-                'The number of medoids {0} exceeds the number of structures to be clustered{1}'.format(
+                'The number of medoids {0} exceeds the number of structures to be clustered {1}'.format(
                     k, n
                 )
             )
