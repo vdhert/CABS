@@ -6,7 +6,7 @@ import time
 from subprocess import call
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={}, name=''):
+    def __init__(self, benchmark_file, options={}, name='', benchdir='../run'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
@@ -25,7 +25,7 @@ class BenchmarkRunner(object):
             mkdir(benchdir)
         except OSError:
             pass
-        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
+        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs', benchdir=benchdir)
 
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
