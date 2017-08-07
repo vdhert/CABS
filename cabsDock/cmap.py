@@ -128,7 +128,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                ['#ffffff', '#e80915', '#666666', '#564714', '#000000'])
+                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#e80915', '#666666', '#4b8f24', '#000000']))
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
@@ -179,28 +179,27 @@ class ContactMap(object):
         #for absolute frequency of contact 
         if norm_n:
             max_ticks = n_ticks = 5
-            vls = numpy.linspace(0., 1., 5)
+            vls = numpy.linspace(0., 1., 256)
+            tcks = numpy.linspace(0., 1., max_ticks)
             vmax = 1.
         else:
             max_ticks = 30
             n_ticks = min(max_ticks, vmax)
-            vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
+            vls = range(int(vmax))
+            tcks = numpy.linspace(0, len(vls) - 1, n_ticks)
+        tcks_loc = numpy.linspace(0., len(vls) - 1, max_ticks).astype(int)
         ax2 = matplotlib.pyplot.subplot(grid[-1, 0])
-        ax2.matshow(    vls.reshape(1, int(n_ticks)),
+        ax2.matshow(    vls.reshape(1, len(vls)),
                         cmap=colors,
                         vmin=0,
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(2. / min(lngst, 50))
+        ax2.set_aspect(len(vls) / 50.)
         ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
-        if norm_n:
-            ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
-            ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
-        else:
-            ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-            ax2.xaxis.set_major_formatter(matplotlib.ticker.IndexFormatter(vls))
+        ax2.set_xticks(tcks_loc)
+        ax2.set_xticklabels(tcks)
 
         fig.get_axes()[0].set_title('Contacts freuqency')
         grid.tight_layout(fig)
