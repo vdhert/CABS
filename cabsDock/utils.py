@@ -5,9 +5,6 @@ from sys import stderr
 from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
-import matplotlib.pyplot
-from itertools import chain
-from matplotlib.ticker import MaxNLocator
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
@@ -802,33 +799,6 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
-def plot_E_rmsds(trajectories, rmsds, energies, fname, _format='svg'):
-    #energies should be a list of modes as in energy calculation method header.get_energy(mode=...)
-    fig, sfigarr = matplotlib.pyplot.subplots(3)
-    for i, energy_mode in zip((0, 1), energies):
-        #color fixes problem with older matplotlib version on Dworkowa
-        for traj, rmsd_list, color in zip(trajectories, rmsds, ['blue','orange']):
-            sfigarr[i].stem(rmsd_list, [h.get_energy(mode=energy_mode, number_of_peptides=traj.number_of_peptides) for h in traj.headers], color=color)
-            # sfigarr[i].scatter(rmsd_list, [h.energy[i, i] for h in traj.headers])
-        sfigarr[i].set_ylabel(energy_mode)
-    for traj, rmsd_list in zip(trajectories, rmsds):
-        sfigarr[2].hist(rmsd_list, int(np.max(rmsd_list) - np.min(rmsd_list)))
-    fig.get_axes()[-1].set_xlabel('RMSD')
-    matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname + '.'+_format, format=_format)
-    matplotlib.pyplot.close(fig)
-
-def plot_rmsd_N(rmsds, fname, _format='svg'):
-    for n, rmsd_lst in enumerate(rmsds):
-        fig, sfig = matplotlib.pyplot.subplots(1)
-        sfig.stem(range(len(rmsd_lst)), rmsd_lst)
-        fig.get_axes()[0].set_ylabel('RMSD')
-        fig.get_axes()[0].set_xlabel('frame')
-        fig.get_axes()[0].yaxis.set_major_locator(MaxNLocator(integer=True))
-        matplotlib.pyplot.tight_layout()
-        matplotlib.pyplot.savefig(fname + '_replica_%i' % n + '.' + _format, format=_format)
-        matplotlib.pyplot.close(fig)
-
 def _chunk_lst(lst, sl_len, extend_last=None):
     """ Slices given list for slices of given len.
 
@@ -848,30 +818,5 @@ def _chunk_lst(lst, sl_len, extend_last=None):
 def _extend_last(sseries, slen, token):
     sseries[-1].extend([token] * (slen - len(sseries[-1])))
 
-def mk_histos_series(series, labels, fname, _format='svg'):
-    """
-    Arguments:
-    series -- list of sequences of data to be plotted.
-    labels -- corresponding ticks labels.
-    """
-    fig, sfigarr = matplotlib.pyplot.subplots(len(series), squeeze=False)
-
-    try:
-        ylim = max(chain(*series))
-    except ValueError:  # for empty series
-        ylim = 5
-    get_xloc = lambda x: [.5 * i for i in range(len(x))]
-
-    fig.set_figheight(len(series))
-
-    for n, (vls, ticks) in enumerate(zip(series, labels)):
-        xloc = get_xloc(ticks)
-        sfigarr[n].bar(xloc, vls, width=.51, color='orange')
-        sfigarr[n].set_ylim([0, ylim])
-        sfigarr[n].set_yticklabels(["0.00", "%.2f" % ylim], fontsize=6)
-        sfigarr[n].set_xticks(xloc)
-        sfigarr[n].set_xticklabels(ticks, fontsize=6)
-
-    matplotlib.pyplot.tight_layout()
-    matplotlib.pyplot.savefig(fname + '.' + _format, format=_format)
-    matplotlib.pyplot.close(fig)
+def _fmt_res_name(atom):
+    return (atom.chid + str(atom.resnum) + atom.icode).strip()

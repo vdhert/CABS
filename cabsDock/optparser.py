@@ -38,11 +38,13 @@ class ParserFactory:
         ParserFactory.FIELDS['default'] = fields[3] - 1
         ParserFactory.FIELDS['action'] = fields[4] - 1
 
+        self.defaults = {}
+
         with open(filecsv) as f:
             lines = [l for l in csv.reader(f, delimiter=sep)]
         p, g = ParserFactory._parse_csv(lines)
         self.parser = ParserFactory._build_parser(p)
-        ParserFactory._populate_parser(g, self.parser)
+        self._populate_parser(g, self.parser)
 
     @staticmethod
     def _parse_csv(lines):
@@ -75,22 +77,19 @@ class ParserFactory:
         d = {l[0]: l[1] for l in lines[1:]}
         return argparse.ArgumentParser(formatter_class=CustomFormatter, **d)
 
-    @staticmethod
-    def _populate_parser(_groups, _parser):
+    def _populate_parser(self, _groups, _parser):
         for g in _groups:
-            ParserFactory._add_group(g, _parser)
+            self._add_group(g, _parser)
 
-    @staticmethod
-    def _add_group(lines, _parser):
+    def _add_group(self, lines, _parser):
         group = _parser.add_argument_group(
             title=lines[0][1],
             description=lines[0][2]
         )
         for line in lines[1:]:
-            ParserFactory._add_arg(line, group)
+            self._add_arg(line, group)
 
-    @staticmethod
-    def _add_arg(line, _group):
+    def _add_arg(self, line, _group):
 
         name = [n.strip() for n in line[ParserFactory.FIELDS['name']].split(',')]
         usage = line[ParserFactory.FIELDS['usage']].split()
@@ -109,6 +108,7 @@ class ParserFactory:
             kwargs['metavar'] = usage[0]
             if len(default) == 1:
                 kwargs['default'] = string_cast(default[0])
+                kwargs['type'] = type(kwargs['default'])
         else:
             pass
 
@@ -119,34 +119,4 @@ class ParserFactory:
         _group.add_argument(*name, **kwargs)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        prog='OptParserGenerator',
-        description='This program reads a csv file exported from Google Drive\'s sheet and generates '
-                    'a populated argparse.ArgumentParser object'
-    )
-
-    parser.add_argument(
-        'inputfile',
-        help='parse csv file with arguments for parser'
-    )
-
-    parser.add_argument(
-        '-s', '--separator',
-        metavar='SEP',
-        help='set field separator to %(metavar)s, default is comma \',\'',
-        default=','
-    )
-
-    parser.add_argument(
-        '-f', '--fields',
-        nargs=5,
-        type=int,
-        metavar=('NAME', 'USAGE', 'HELP', 'DEFULT', 'ACTION'),
-        help='read field numbers for option name, usage, and field, default is 1, 2, 3, 4, 5',
-        default=[1, 2, 3, 4, 5]
-    )
-
-    args = parser.parse_args()
-    pf = ParserFactory(args.inputfile, args.fields, args.separator)
-    p = pf.parser
-    p.parse_args(['-h'])
+   pass

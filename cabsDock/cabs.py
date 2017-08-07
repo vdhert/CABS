@@ -113,14 +113,14 @@ class CabsRun(Thread):
 
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
         restr, maxres = CabsRun.load_restraints(
-            restraints.update_id(ids), config['ca_restraints_strength'], config['sg_restraints_strength']
+            restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
         inp = CabsRun.make_inp(config, nmols, CabsRun.FORCE_FIELD)
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-                      * nreps * config['mc_cycles'] * 20
+            * nreps * config['mc_cycles'] * config['mc_annealing']
 
         cabs_dir = join(config['work_dir'], '.CABS')
         if exists(cabs_dir):
@@ -244,7 +244,7 @@ class CabsRun(Thread):
     def make_inp(config, nmols, force_field):
         return '%i\n%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
             randint(999, 10000),
-            config['mc_anneal'],
+            config['mc_annealing'],
             config['mc_cycles'],
             config['mc_steps'],
             config['replicas'],

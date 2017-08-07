@@ -2,14 +2,14 @@ from setuptools import setup
 
 setup(
     name='cabsDock',
-    version='0.99',
+    version='1.0',
     packages=['cabsDock'],
-    url='https://github.com/mkurc/pyCabsDock',
-    license='GNU GENERAL PUBLIC LICENSE v.3',
-    author='Mateusz Kurcinski',
-    author_email='mkurc@chem.uw.edu.pl',
+    url='https://bitbucket.org/lcbio/cabsdock',
+    license='free for non-commercial users',
+    author='Laboratory of Computational Biology',
+    author_email='mkurc@cnbc.uw.edu.pl',
     description='CABSDock in python',
-    requires=['numpy'],
+    requires=['numpy', 'matplotlib'],
     entry_points={'console_scripts': ['cabsDock = cabsDock.__main__:run_job']},
     package_data={'cabsDock': ['data/*.dat']}
 )

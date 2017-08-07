@@ -5,8 +5,8 @@ from cabsDock.trajectory import Trajectory
 
 class Clustering(object):
     def __init__(self, trajectory, selection):
-        """Clustering is a class for performing structural clustering of the models according to similarity of selected atom subset.
-        If selection is not provided, whole model is used.
+        """Clustering is a class for performing structural clustering of the models according to similarity of selected
+        atom subset. If selection is not provided, whole model is used.
         :param trajectory: :class:'trajectory.Trajectory' instance
         :param selection: string representing the selection (i.e. 'chain A and chain B')
         """
@@ -35,7 +35,7 @@ class Clustering(object):
         m, n = distance_matrix.shape
         if k > n:
             raise Exception(
-                'The number of medoids {0} exceeds the number of structures to be clustered{1}'.format(
+                'The number of medoids {0} exceeds the number of structures to be clustered {1}'.format(
                     k, n
                 )
             )
@@ -65,15 +65,16 @@ class Clustering(object):
         # return results
         return medoid_ndx, clusters
 
-    def cabs_clustering(self):
+    def cabs_clustering(self, number_of_medoids, number_of_iterations):
         """
-        Performs default cabs-dock clustering (10-medoids) and returns clusters as list of 10 trajectory.Trajectory object with
-        trajectory.coordinates.shape = [1, n_models_in_cluster, n_atoms, 3] and medoids as a trajectory.Trajectory object with
-        trajectory.coordinates.shape = [1, 10, n_atoms, 3].
-        :return: trajectory.Trajectory representing medoids, dictionary representing the cluster indeces, list of trajectory.Trajectory instances representing the clusters.
+        Performs default cabs-dock clustering (10-medoids) and returns clusters as list of 10 trajectory.
+        Trajectory object with trajectory.coordinates.shape = [1, n_models_in_cluster, n_atoms, 3] and medoids as
+        a trajectory.Trajectory object with trajectory.coordinates.shape = [1, 10, n_atoms, 3].
+        :return: trajectory.Trajectory representing medoids, dictionary representing the cluster indeces, list of
+        trajectory.Trajectory instances representing the clusters.
         """
         self.calculate_distance_matrix()
-        medoid_ndx, clusters = self.k_medoids(10)
+        medoid_ndx, clusters = self.k_medoids(number_of_medoids, tmax=number_of_iterations)
         model_length = len(self.trajectory.template)
         models = self.trajectory.coordinates.reshape(-1, model_length, 3)
         medoids = Trajectory(
@@ -112,8 +113,8 @@ class Cluster(Trajectory):
 
     def get_score(self, method='density'):
         """
-        Method for cluster scoring. For future development. Now supports two cluster density definitions, based on maximal
-        dissimilarity within the cluster (standard) and standard deviation of the dissimilarity (stdev).
+        Method for cluster scoring. For future development. Now supports two cluster density definitions, based on
+        maximal dissimilarity within the cluster (standard) and standard deviation of the dissimilarity (stdev).
         :param method:
         :return:
         """

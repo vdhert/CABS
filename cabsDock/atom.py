@@ -68,7 +68,7 @@ class Atom:
             if arg in self.__dict__:
                 self.__dict__[arg] = kwargs[arg]
 
-    def __repr__(self):
+    def __str__(self):
         line = "ATOM  "
         if self.hetatm:
             line = "HETATM"
@@ -89,6 +89,12 @@ class Atom:
                 self.tail
         )
         return line
+
+    def __repr__(self):
+        return "<Atom: %s %s>" % (self.fmt(), self.resname)
+
+    def fmt(self):
+        return "%s%i%s" % (self.chid, self.resnum, self.icode.strip())
 
     def same_model(self, other):
         """

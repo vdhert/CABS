@@ -7,9 +7,12 @@ from copy import deepcopy
 from os.path import exists, join, isfile
 from random import randint
 
+from cabsDock.utils import check_peptide_sequence
+from cabsDock.utils import AA_NAMES
+
 from atom import Atoms
 from pdb import Pdb, InvalidPdbCode
-from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue
+from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from vector3d import Vector3d
 
 
@@ -30,6 +33,7 @@ class Receptor(Atoms):
             m = re.match(r'.{4}:([A-Z]*)', name)
             if m:
                 selection += ' and chain ' + ','.join(m.group(1))
+                # TODO move to Pdb
         atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
 
         if 'receptor_flexibility' in config:
@@ -52,7 +56,7 @@ class Receptor(Atoms):
                 else:
                     raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
         else:
-            atoms.set_bfac(1)
+            atoms.set_bfac(1.0)
 
         self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
         # self.new_ids = {v: k for k, v in self.old_ids.items()}
@@ -106,14 +110,20 @@ class Receptor(Atoms):
                         d[str(i) + ':' + c1] = val
             return d, def_val
 
-    def generate_restraints(self, gap, min_d, max_d):
+    def generate_restraints(self, mode, gap, min_d, max_d):
         restr = []
         l = len(self.atoms)
 
         for i in range(l):
             a1 = self.atoms[i]
+            ssi = int(a1.occ) % 2
+            if mode == 'ss2' and ssi:
+                continue
             for j in range(i + gap + 1, l):
                 a2 = self.atoms[j]
+                ssj = int(a2.occ) % 2
+                if (mode == 'ss2' and ssj) or (mode == 'ss1' and ssi * ssj):
+                    continue
                 d = (a1.coord - a2.coord).length()
                 if min_d < d < max_d:
                     if a1.bfac < a2.bfac:
@@ -150,9 +160,14 @@ class Ligand(Atoms):
                 atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
                 atoms.update_sec(pdb.dssp())
             except InvalidPdbCode:
+                seq = self.name.split(':')[0]
+                check_peptide_sequence(seq)
                 atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
+        # checks the input peptide sequence for non-standard amino acids.
+        rev_dct = dict(map(reversed, AA_NAMES.items()))
+        [check_peptide_sequence(rev_dct[peptide.resname]) for peptide in atoms.atoms]
 
     def random_conformation(self, lib=RANDOM_LIGAND_LIBRARY):
         length = len(self)
