@@ -27,7 +27,8 @@ class CMapMakerTest(TestCase):
             mc_cycles=20,
             mc_steps=50,
             replicas=10,
-            load_cabs_files=(cla.data_path + '1klu/TRAF', cla.data_path + '1klu/SEQ')
+            load_cabs_files=(cla.data_path + '1klu/TRAF', cla.data_path + '1klu/SEQ'),
+            AA_rebuild=False
             )
         cls.j.cabsdock()
 

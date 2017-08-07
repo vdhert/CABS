@@ -127,7 +127,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                ['#ffffff', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
+                ['#ffffff', '#e80915', '#666666', '#564714', '#000000'])
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), wdh_cnst)])
@@ -139,7 +139,7 @@ class ContactMap(object):
                 )
 
             if sfig.get_data_ratio() < 1.:
-                aratio = self.cmtx.shape[0] / 300.
+                aratio = self.cmtx.shape[0] / 250.
                 sfig.set_aspect(aratio)
             settings = (
                         (list(numpy.array(self.s1)[chunk,]), sfig.xaxis, len(chunk)),
