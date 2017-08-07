@@ -3,7 +3,7 @@ from os.path import exists, isdir
 
 
 class PbsGenerator(object):
-    def __init__(self, benchmark_list='', nonstandard_options_dict={}):
+    def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}):
         self.benchmark_list = benchmark_list
         self.options_dict = nonstandard_options_dict
         self.cases = []
@@ -20,8 +20,13 @@ class PbsGenerator(object):
 
                 )
             )
+        if exists(rundir):
+            if not isdir(rundir):
+                raise Exception()
+        else:
+            mkdir(rundir)
 
-        self.standard_header='#!/bin/bash\ncd ~/cabsDock/benchmark/\n'
+        self.standard_header='#!/bin/bash\ncd {}\n'.format(rundir)
 
     def pbs_script(self, scriptdir):
         if exists(scriptdir):

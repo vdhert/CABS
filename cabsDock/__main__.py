@@ -3,6 +3,8 @@ from pkg_resources import resource_filename
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 from sys import argv
+import matplotlib
+matplotlib.use('Agg')
 
 
 class Config(dict):
