@@ -1,18 +1,16 @@
 from glob import glob
 from os import mkdir
+from shutil import copyfile
 
 from cabsDock.pbsgen import PbsGenerator
 import time
 from subprocess import call
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={}, name='', benchdir='../run'):
+    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--work-dir':'./'}, name=''):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
-        self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=options, rundir=benchdir)
-
-
 
     def setup(self):
         if self.name == '':
@@ -25,6 +23,8 @@ class BenchmarkRunner(object):
             mkdir(benchdir)
         except OSError:
             pass
+        self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=self.options,
+                                   rundir=self.benchdir+'/run')
         self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
 
     def save_log(self):
@@ -37,7 +37,7 @@ class BenchmarkRunner(object):
             cases_as_str = '\n'.join([case.work_dir for case in self.pbsgen.cases])
             logfile.write('\n#Cases:\n'+cases_as_str)
 
-    def run_benchmark(self, test=False, qsub_options={'-l walltime':'30:00:00'}):
+    def run_benchmark(self, test=False, qsub_options={'-l walltime':'60:00:00'}):
         self.setup()
         self.save_log()
         options_as_str = ' '.join([str(key)+' '+str(val) for (key, val) in qsub_options.items()])
@@ -116,13 +116,21 @@ class BenchmarkAnalyser(object):
             message = 'Statistics for {}:\n'.format(key)+'High quality: {}\nMedium quality {}\nLow quality {}\n'.format(*[element/self.successful_runs for element in val])
             print message
 
+    def sort_pictures(self):
+        mkdir('./plots')
+        for dir in ['E_RMSD', 'RMSD_frame', 'RMSF']:
+            mkdir('./plots'+dir)
+
+        for case in self.cases:
+            for rzecz in ['E_RMSD', 'RMSD_frame', 'RMSF']:
+                copyfile(glob('./'+case+'/plots/'+'*.csv'), './plots/'+rzecz)
 
 
 
-# br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt', options={'--mc-cycles':20, '--work-dir':'./'})
-# br.run_benchmark(test=True)
-# # print br.benchdir
-# ba = BenchmarkAnalyser('./benchbench')
-# ba.read_rmsds()
-# ba.get_statistics()
-# ba.print_summary()
+br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt')
+br.run_benchmark(test=True)
+# print br.benchdir
+ba = BenchmarkAnalyser('./benchbench')
+ba.read_rmsds()
+ba.get_statistics()
+ba.print_summary()
