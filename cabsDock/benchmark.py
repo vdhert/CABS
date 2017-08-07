@@ -10,7 +10,7 @@ class BenchmarkRunner(object):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
-        self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=options)
+        self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=options, rundir=benchdir)
 
 
 
@@ -25,7 +25,7 @@ class BenchmarkRunner(object):
             mkdir(benchdir)
         except OSError:
             pass
-        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs', benchdir=benchdir)
+        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
 
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
