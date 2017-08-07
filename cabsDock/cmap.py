@@ -122,7 +122,8 @@ class ContactMap(object):
         label_size = min(lngst, wdh_cnst) / float(wdh_cnst) * 10
         size = (min(lngst, wdh_cnst) / 5., len(chunks) * min(len(self.s2), wdh_cnst) / 5. + 2)
         fig = matplotlib.pyplot.figure(figsize=size)
-        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, min(lngst, wdh_cnst), height_ratios=([min(len(self.s2), wdh_cnst) + 2] + [min(len(self.s2), wdh_cnst) for i in chunks[1:]] + [3]))
+        grid_wdth = min(lngst, wdh_cnst)
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, 1, height_ratios=([len(self.s2) for i in chunks] + [3]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
         if vmax < 5:
             vmax = 1 if norm_n else 5
@@ -130,9 +131,14 @@ class ContactMap(object):
                 ['#ffffff', '#e80915', '#666666', '#564714', '#000000'])
 
         for n, chunk in enumerate(chunks):
-            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), wdh_cnst)])
+            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
+            mtx = self.cmtx.T[:,chunk]
+            if mtx.shape[1] < grid_wdth:
+                zrs = numpy.zeros((mtx.shape[0], grid_wdth))
+                zrs[:, :len(chunk)] = mtx
+                mtx = zrs
             sfig.matshow(
-                self.cmtx.T[:,chunk],
+                mtx,
                 cmap=colors,
                 vmin=0.,
                 vmax=vmax,
@@ -142,24 +148,16 @@ class ContactMap(object):
                 aratio = self.cmtx.shape[0] / 250.
                 sfig.set_aspect(aratio)
             settings = (
-                        (list(numpy.array(self.s1)[chunk,]), sfig.xaxis, len(chunk)),
-                        (self.s2, sfig.yaxis, len(self.s2)),
+                        (list(numpy.array(self.s1)[chunk,]), len(chunk), sfig.set_xticks, sfig.set_xticklabels),
+                        (self.s2, len(self.s2), sfig.set_yticks, sfig.set_yticklabels),
                         )
-            for lbls, tck_setter, n_tcks in settings:
+            for lbls, n_tcks, tck_loc, tck_lab in settings:
                 nloc = break_long_x if break_long_x else wdh_cnst
-                locator = matplotlib.ticker.MaxNLocator(min(nloc, n_tcks))
-                #TODO: maxnlocator overrites fixed postions of ticks.
-                # consider using picking up appropriate indexes with linspace
-                # and using multiple or fixed locator. may help with troublesom formatter.
-                def fnc(lst):
-                    def fmt(x, p):
-                        try:
-                            return lst[int(numpy.ceil(x))]
-                        except IndexError:
-                            return ""
-                    return fmt
-                tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc(lbls)))
-                tck_setter.set_major_locator(locator)
+                ntcks = min(nloc, n_tcks)
+                inds = numpy.linspace(0, len(lbls) -1, ntcks).astype(int)
+                locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
+                tck_loc(inds)
+                tck_lab(list(numpy.array(lbls)[inds,]))
 
             sfig.tick_params(labelsize=label_size, bottom=True, top=False, labelbottom=True,labeltop=False)
             for tick in sfig.get_xticklabels():
@@ -187,14 +185,14 @@ class ContactMap(object):
             max_ticks = 30
             n_ticks = min(max_ticks, vmax)
             vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
-        ax2 = matplotlib.pyplot.subplot(grid[-1, :len(chunks[0])])
+        ax2 = matplotlib.pyplot.subplot(grid[-1, 0])
         ax2.matshow(    vls.reshape(1, int(n_ticks)),
                         cmap=colors,
                         vmin=0,
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(.8 / min((len(chunks[0]), 50)))
+        ax2.set_aspect(2. / min(lngst, 50))
         ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
         if norm_n:
