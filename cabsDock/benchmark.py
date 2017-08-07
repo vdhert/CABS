@@ -119,10 +119,10 @@ class BenchmarkAnalyser(object):
 
 
 
-br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt', options={'--mc-cycles':20, '--work-dir':'./'})
-br.run_benchmark(test=True)
-# print br.benchdir
-ba = BenchmarkAnalyser('./benchbench')
-ba.read_rmsds()
-ba.get_statistics()
-ba.print_summary()
+# br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt', options={'--mc-cycles':20, '--work-dir':'./'})
+# br.run_benchmark(test=True)
+# # print br.benchdir
+# ba = BenchmarkAnalyser('./benchbench')
+# ba.read_rmsds()
+# ba.get_statistics()
+# ba.print_summary()
