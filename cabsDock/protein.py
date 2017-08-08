@@ -59,7 +59,7 @@ class Receptor(Atoms):
             atoms.set_bfac(1.0)
 
         self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
-        # self.new_ids = {v: k for k, v in self.old_ids.items()}
+        self.new_ids = {v: k for k, v in self.old_ids.items()}
         Atoms.__init__(self, atoms)
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
