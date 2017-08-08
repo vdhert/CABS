@@ -190,7 +190,6 @@ class Job:
         return receptor_restraints
 
     def cabsdock(self):
-        self.save_config()
         ftraf = self.config.get('file_TRAF')
         fseq = self.config.get('file_SEQ')
         self.setup_job()
@@ -203,6 +202,7 @@ class Job:
                            number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+        self.save_config()
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
