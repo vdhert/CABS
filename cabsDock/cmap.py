@@ -123,7 +123,7 @@ class ContactMap(object):
         size = (min(lngst, wdh_cnst) / 5., len(chunks) * min(len(self.s2), wdh_cnst) / 5. + 2)
         fig = matplotlib.pyplot.figure(figsize=size)
         grid_wdth = min(lngst, wdh_cnst)
-        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, 1, height_ratios=([len(self.s2) for i in chunks] + [3]))
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, 1, height_ratios=([len(self.s2) for i in chunks] + [len(self.s2) * .25]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
         if vmax < 5:
             vmax = 1 if norm_n else 5
@@ -145,8 +145,8 @@ class ContactMap(object):
                 )
 
             if sfig.get_data_ratio() < 1.:
-                aratio = self.cmtx.shape[0] / 250.
-                sfig.set_aspect(aratio)
+                aratio = float.__div__(*map(float, mtx.shape))
+                sfig.set_aspect(sfig.get_data_ratio() ** -1 * aratio)
             settings = (
                         (list(numpy.array(self.s1)[chunk,]), len(chunk), sfig.set_xticks, sfig.set_xticklabels),
                         (self.s2, len(self.s2), sfig.set_yticks, sfig.set_yticklabels),
@@ -195,7 +195,7 @@ class ContactMap(object):
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(len(vls) / 50.)
+        ax2.set_aspect(ax2.get_data_ratio() ** -1 * .5 / grid_wdth)
         ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
         ax2.set_xticks(tcks_loc)
@@ -237,7 +237,7 @@ class ContactMap(object):
         fig = matplotlib.pyplot.figure(figsize=size)
 
         peptH = mk_histo(matplotlib.pyplot.subplot(grid[0, 0]), pep_vls, pep_lbls, ylim=(0, max([.05] + pep_vls)))[0]
-        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, chunks + 2)]
+        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, chunks + 1)]
         targBH = mk_histo(sbplts, trg_vls, trg_lbls, ylim=(0, max_y))
         targAH = mk_histo(matplotlib.pyplot.subplot(grid[-1, 0]), trg_vls_all, self.s1, ylim=(0, max_y))[0]
 
