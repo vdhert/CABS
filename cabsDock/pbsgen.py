@@ -4,6 +4,7 @@ from os.path import exists, isdir
 
 class PbsGenerator(object):
     def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}):
+        self.rundir = rundir
         self.benchmark_list = benchmark_list
         self.options_dict = nonstandard_options_dict
         self.cases = []
@@ -30,24 +31,28 @@ class PbsGenerator(object):
 
 
 
-        if exists(rundir):
-            if not isdir(rundir):
+        if exists(self.rundir):
+            if not isdir(self.rundir):
                 raise Exception()
         else:
-            mkdir(rundir)
+            mkdir(self.rundir)
 
-        self.standard_header='#!/bin/bash\ncd {}\n'.format(rundir)
+        self.standard_header='#!/bin/bash\ncd {}\n'.format(self.rundir)
+        self.standard_err_out='#PBS -o {}/out\n#PBS -e {}/err\n'
 
     def pbs_script(self, scriptdir):
         if exists(scriptdir):
             if not isdir(scriptdir):
-                raise Exception('File %s already exists and is not a directory' % work_dir)
+                raise Exception('File %s already exists and is not a directory' % scriptdir)
         else:
             mkdir(scriptdir)
         additional_options = ' '.join(['{} {}'.format(key, value) for (key, value) in self.options_dict.items()])
         for case in self.cases:
-            with open(scriptdir+'/{}.pbs'.format(case.receptor.split(':')[0]), 'w') as scriptfile:
+            name = case.receptor.split(':')[0]
+            print name
+            with open(scriptdir+'/{}.pbs'.format(name), 'w') as scriptfile:
                 scriptfile.write(self.standard_header)
+                scriptfile.write(self.standard_err_out.format(self.rundir+'/{}'.format(name), self.rundir+'/{}'.format(name)))
                 scriptfile.write(case.run_command()+' '+additional_options+'\n')
 
 class Case(object):

@@ -7,7 +7,7 @@ import time
 from subprocess import call
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--work-dir':'./'}, name=''):
+    def __init__(self, benchmark_file, options={'--image-file-format':'png'}, name=''):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
