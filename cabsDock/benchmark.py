@@ -1,5 +1,5 @@
 from glob import glob
-from os import mkdir
+from os import mkdir, getcwd
 from shutil import copyfile
 
 from cabsDock.pbsgen import PbsGenerator
@@ -14,7 +14,7 @@ class BenchmarkRunner(object):
 
     def setup(self):
         if self.name == '':
-            benchdir = './benchrun_'
+            benchdir = getcwd()+'/benchrun_'
         else:
             benchdir = self.name
         benchdir+=time.strftime("%c").replace(' ','_')+''
@@ -40,7 +40,7 @@ class BenchmarkRunner(object):
     def run_benchmark(self, test=False, qsub_options={'-l walltime':'60:00:00'}):
         self.setup()
         self.save_log()
-        options_as_str = ' '.join([str(key)+' '+str(val) for (key, val) in qsub_options.items()])
+        options_as_str = ' '.join([str(key)+'='+str(val) for (key, val) in qsub_options.items()])
         command = 'for f in {}/pbs/*.pbs; do qsub {} $f; done'.format(self.benchdir, options_as_str)
         if test:
             print command
