@@ -334,7 +334,7 @@ class Job:
         else:
             pltdir = plots_dir
 
-        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
+        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF', fmt=self.config['image_file_format'])
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
@@ -342,9 +342,11 @@ class Job:
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                             [rmslst, rmslst[self.filtered_ndx,]],
                             ['all models', 'top 1000 models'],
-                            pltdir + '/E_RMSD_%s' % k)
+                            pltdir + '/E_RMSD_%s' % k,
+                            fmt=self.config['image_file_format'])
                 plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
-                            pltdir + '/RMSD_frame_%s' % k)
+                            pltdir + '/RMSD_frame_%s' % k,
+                            fmt=self.config['image_file_format'])
 
         # Contact maps
         if self.config['contact_maps']:

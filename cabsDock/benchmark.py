@@ -76,28 +76,28 @@ class BenchmarkAnalyser(object):
 
 
     def read_rmsds(self):
-        print self.cases
         benchmark_results = {
             'lowest_10k': [],
             'lowest_1k': [],
             'lowest_10': [],
         }
         self.successful_runs = 0.
-        for case in self.cases:
-            lowest_rmsd_files = glob(self.done_benchdir + '/run/' + case + '/output_data/lowest_rmsds*')
-            print lowest_rmsd_files
-            try:
-                lowest_rmsds = open(lowest_rmsd_files[0])
-            except:
-                print('invalid rmsd file for case {}'.format(case))
-                continue
-            self.successful_runs+=1
-            lowest_rmsds.readline()
-            rmsds = lowest_rmsds.readline().split(';')
-            benchmark_results['lowest_10k'].append(rmsds[0])
-            benchmark_results['lowest_1k'].append(rmsds[1])
-            benchmark_results['lowest_10'].append(rmsds[2])
-        print benchmark_results
+        with open(self.done_benchdir+'/lowest_rmsds_benchmark.txt') as outfile:
+            for case in self.cases:
+                lowest_rmsd_files = glob(self.done_benchdir + '/run/' + case + '/output_data/lowest_rmsds*')
+                try:
+                    lowest_rmsds = open(lowest_rmsd_files[0])
+                except:
+                    print('invalid rmsd file for case {}'.format(case))
+                    continue
+                self.successful_runs+=1
+                lowest_rmsds.readline()
+                rmsds = lowest_rmsds.readline().split(';')
+                outfile.write(';'.join([case, rmsds[0], rmsds[1], rmsds[2]]))
+                benchmark_results['lowest_10k'].append(rmsds[0])
+                benchmark_results['lowest_1k'].append(rmsds[1])
+                benchmark_results['lowest_10'].append(rmsds[2])
+
         self.benchmark_results = benchmark_results
 
     def get_statistics(self):
