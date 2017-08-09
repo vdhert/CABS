@@ -41,21 +41,21 @@ class BenchmarkRunner(object):
         self.setup()
         self.save_log()
         options_as_str = ' '.join([str(key)+' '+str(val) for (key, val) in qsub_options.items()])
-        command = 'for f in *.pbs; do qsub {} $f; done'.format(options_as_str)
+        command = 'for f in {}/pbs/*.pbs; do qsub {} $f; done'.format(self.benchdir, options_as_str)
         if test:
             print command
         else:
             call(command)
 
 class BenchmarkAnalyser(object):
-    def __init__(self, benchdict):
-        self.benchdict = benchdict
+    def __init__(self, done_benchdir):
+        self.done_benchdir = done_benchdir
         self.cases = []
         self.read_log()
 
 
     def read_log(self):
-        benchlog = glob(self.benchdict+'/logfile')
+        benchlog = glob(self.done_benchdir+'/logfile')
         if len(benchlog) != 1:
             print benchlog
             raise Exception('Broken or missing (or multiple!) logfile.')
@@ -84,7 +84,7 @@ class BenchmarkAnalyser(object):
         }
         self.successful_runs = 0.
         for case in self.cases:
-            lowest_rmsd_files = glob(self.benchdict + '/' + case + '/output_data/lowest_rmsds*')
+            lowest_rmsd_files = glob(self.done_benchdir + '/run/' + case + '/output_data/lowest_rmsds*')
             print lowest_rmsd_files
             try:
                 lowest_rmsds = open(lowest_rmsd_files[0])
@@ -117,18 +117,20 @@ class BenchmarkAnalyser(object):
             print message
 
     def sort_pictures(self):
-        mkdir('./plots')
+        self.plots_dir = '{}/plots'.format(self.done_benchdir)
+        mkdir(self.plots_dir)
         for dir in ['E_RMSD', 'RMSD_frame', 'RMSF']:
-            mkdir('./plots'+dir)
+            mkdir(self.plots_dir+'/'+dir)
 
         for case in self.cases:
             for rzecz in ['E_RMSD', 'RMSD_frame', 'RMSF']:
-                copyfile(glob('./'+case+'/plots/'+'*.csv'), './plots/'+rzecz)
+                copyfile(glob('{}/run/{}/plots/*.svg'.format(self.done_benchdir, case)), '{}/plots/{}'.format(self.done_benchdir, rzecz))
 
 
 
-# br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt')
-# br.run_benchmark(test=True)
+br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt')
+br.run_benchmark(test=True)
 # # print br.benchdir
 # ba = BenchmarkAnalyser('./benchbench')
 # ba.read_rmsds()

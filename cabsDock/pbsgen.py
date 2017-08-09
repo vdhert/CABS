@@ -13,13 +13,23 @@ class PbsGenerator(object):
 
         for line in lines:
             row = line.split()
-            self.cases.append(Case(
-                    receptor = str(row[0])+':'+str(row[1]),
-                    ligand = str(row[3]+':'+str(row[4])),
-                    reference_pdb = str(row[0])
-
+            receptor = str(row[0]) + ':' + str(row[1])
+            ligand = str(row[3] + ':' + str(row[4]))
+            reference_pdb = str(row[0])
+            sc_rests = []
+            if len(row) > 5:
+                sc_rests = (str(row[5]), str(row[6]))
+            self.cases.append(
+                Case(
+                    receptor = receptor,
+                    ligand = ligand,
+                    reference_pdb = reference_pdb,
+                    sc_rests=sc_rests
+                    )
                 )
-            )
+
+
+
         if exists(rundir):
             if not isdir(rundir):
                 raise Exception()
@@ -46,19 +56,23 @@ class Case(object):
             receptor=None,
             ligand=None,
             reference_pdb=None,
+            sc_rests=[],
             ):
         super(Case, self).__init__()
         self.receptor = receptor
         self.ligand = ligand
         self.work_dir = str(receptor.split(':')[0])
         self.reference_pdb = reference_pdb
+        self.sc_rests = sc_rests
 
     def __str__(self):
-        return str(self.receptor)+' '+str(self.ligand)+' '+str(self.work_dir)+' '+str(self.reference_pdb)
+        return ' '.join([str(self.receptor), str(self.ligand), str(self.work_dir), str(self.reference_pdb)])
 
     def run_command(self):
-        return 'cabsDock -r {} -p {} --work-dir {} --reference-pdb {}'.format(self.receptor, self.ligand, self.work_dir, self.reference_pdb)
-
+        command = 'cabsDock -r {} -p {} --work-dir {} --reference-pdb {}'.format(self.receptor, self.ligand, self.work_dir, self.reference_pdb)
+        if self.sc_rests:
+            command += '--sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1])
+        return command
 #usage
 # pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_cases.txt')
 # pbsgntr.pbs_script('pbs')
