@@ -17,6 +17,8 @@ class CMapMakerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        if cla.fast:
+            raise SkipTest
         ddir = tempfile.gettempdir() + "/tmpCABS/"
         try: os.mkdir(ddir)
         except OSError: pass
