@@ -81,11 +81,10 @@ class ContactMapFactory(object):
 
         Calculates distances between atoms from given chains.
         """
-        mtx = numpy.empty(self.dims, dtype=numpy.float)
-        for d1, at1 in enumerate(vec[self.inds1,]):
-            for d2, at2 in enumerate(vec[self.inds2,]):
-                mtx[d1, d2] = numpy.linalg.norm(at1 - at2)
-        return mtx
+        m1 = vec[self.inds1,].reshape(-1, 1, 3)[:, self.dims[1] * (0,)]
+        m2 = vec[self.inds2,].reshape(1, -1, 3)[self.dims[0] * (0,), :]
+        mtx = m1 - m2
+        return (mtx * mtx).sum(axis=2) ** .5
 
 
 class ContactMap(object):
@@ -163,31 +162,16 @@ class ContactMap(object):
             for tick in sfig.get_xticklabels():
                 tick.set_rotation(90)
 
-        # colorbar
-        """#for relative frequency
-        vls = numpy.linspace(0., 1., 5)
-        ax2 = matplotlib.pyplot.subplot(grid[-1, :])
-        ax2.matshow(    vls.reshape(1, 5),
-                        cmap=colors,
-                        interpolation='bilinear')
-        ax2.set_aspect(1. / 20)
-        ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
-        ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
-        ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
-        ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
-        """
-        #for absolute frequency of contact 
         if norm_n:
-            max_ticks = n_ticks = 5
+            n_ticks = 5
             vls = numpy.linspace(0., 1., 256)
-            tcks = numpy.linspace(0., 1., max_ticks)
+            tcks = numpy.linspace(0., 1., n_ticks)
             vmax = 1.
         else:
-            max_ticks = 30
-            n_ticks = min(max_ticks, vmax)
-            vls = range(int(vmax))
-            tcks = numpy.linspace(0, len(vls) - 1, n_ticks)
-        tcks_loc = numpy.linspace(0., len(vls) - 1, max_ticks).astype(int)
+            vls = numpy.arange(0, int(vmax), 1)
+            n_ticks = 15 if len(vls) > 30 else int(vmax)
+            tcks = numpy.linspace(0, len(vls) - 1, n_ticks).astype(int)
+        tcks_loc = numpy.linspace(0., len(vls) - 1, n_ticks).astype(int)
         ax2 = matplotlib.pyplot.subplot(grid[-1, 0])
         ax2.matshow(    vls.reshape(1, len(vls)),
                         cmap=colors,
@@ -231,14 +215,14 @@ class ContactMap(object):
 
         max_y = max([.05] + trg_vls_all)
 
-        chunks = int(numpy.ceil(len(trg_vls) / float(max_bars)))
-        grid = matplotlib.pyplot.GridSpec(2 + chunks, 1)
-        size = (10, 3 * chunks)
+        chunks = _chunk_lst(trg_vls, max_bars)
+        grid = matplotlib.pyplot.GridSpec(2 + len(chunks), 1)
+        size = (10, 3 * len(chunks))
         fig = matplotlib.pyplot.figure(figsize=size)
 
         peptH = mk_histo(matplotlib.pyplot.subplot(grid[0, 0]), pep_vls, pep_lbls, ylim=(0, max([.05] + pep_vls)))[0]
-        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, chunks + 1)]
-        targBH = mk_histo(sbplts, trg_vls, trg_lbls, ylim=(0, max_y))
+        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, len(chunks) + 1)]
+        targBH = mk_histo(sbplts, chunks, _chunk_lst(trg_lbls, max_bars), ylim=(0, max_y))
         targAH = mk_histo(matplotlib.pyplot.subplot(grid[-1, 0]), trg_vls_all, self.s1, ylim=(0, max_y))[0]
 
         peptH.set_title('Histogram of peptide contacts')
@@ -270,7 +254,7 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname, norm_n=True, break_long_x=50):
+    def save_all(self, fname, norm_n=False, break_long_x=50):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)

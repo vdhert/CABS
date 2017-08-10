@@ -401,7 +401,7 @@ class Job:
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0)
+        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0, norm_n=True)
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
