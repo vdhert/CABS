@@ -3,6 +3,7 @@ Module for running cabsDock jobs.
 """
 
 import operator
+import time
 from os import getcwd, mkdir
 from os.path import exists, isdir, abspath
 
@@ -18,22 +19,19 @@ from protein import ProteinComplex
 from restraints import Restraints
 from trajectory import Trajectory
 
+from abc import ABCMeta, abstractmethod
+
 __all__ = ['Job']
 
 
-class Job:
-    """
-    Class representing single cabsDock job.
-    """
+class CABSTask(object):
+    """Abstract CABS job instance."""
 
-    def __repr__(self):
-        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+    __metaclass__ = ABCMeta
 
     def __init__(
             # TODO KEEP THE DEFAULTS UPDATED FOR TESTING.
             self,
-            receptor=None,
-            ligand=None,
             work_dir=getcwd(),
             replicas=10,
             mc_annealing=20,
@@ -60,14 +58,11 @@ class Job:
             benchmark=False,
             AA_rebuild=True,
             contact_maps=True,
-            reference_pdb=None,
             save_replicas=True,
             save_topn=True,
             save_clusters=True,
             save_medoids='AA',  # AA or CG. AA option requires MODELLER to be installed.
             load_cabs_files=None,
-            align='SW',
-            reference_alignment=None,
             save_config_file=True,
             image_file_format='svg',
             verbose=None,
@@ -84,8 +79,7 @@ class Job:
             no_aa_rebuild=False,
             excluding_distance=5.0,
             modeller_iterations=3,
-            output_models=10
-    ):
+            output_models=10):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
         else:
@@ -93,8 +87,6 @@ class Job:
 
         # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
         self.config = {
-            'receptor': receptor,
-            'ligand': ligand,
             'work_dir': work_dir,
             'replicas': replicas,
             'mc_cycles': mc_cycles,
@@ -122,21 +114,17 @@ class Job:
             'benchmark': benchmark,
             'AA_rebuild': AA_rebuild,
             'contact_maps': contact_maps,
-            'reference_pdb': reference_pdb,
             'save_replicas': save_replicas,
             'save_topn': save_topn,
             'save_clusters': save_clusters,
             'save_medoids': save_medoids,  # 'AA' or 'CG'. 'AA' option requires MODELLER to be installed.
             'file_TRAF': file_TRAF,
             'file_SEQ': file_SEQ,
-            'align': align,
-            'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
+            'verbose': verbose,
         }
 
-        if receptor is None:
-            raise Exception('Docking cannot be performed without a receptor.')
         # Job attributes collected.
         self.initial_complex = None
         self.restraints = None
@@ -161,6 +149,40 @@ class Job:
                 raise Exception('File %s already exists and is not a directory' % work_dir)
         else:
             mkdir(work_dir)
+
+    def run(self):
+        ftraf = self.config.get('file_TRAF')
+        fseq = self.config.get('file_SEQ')
+        self.setup_job()
+        withcabs = True if (ftraf is None or fseq is None) else False
+        if withcabs:
+            self.setup_cabs_run()
+            self.execute_cabs_run()
+        self.load_output(ftraf, fseq)
+        self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'],
+                           number_of_iterations=self.config['clustering_niterations'])
+        if self.config['reference_pdb']:
+            self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+        self.save_config()
+        self.draw_plots()
+        self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
+                         clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
+
+    @abstractmethod
+    def setup_job(self):
+        pass
+
+    @abstractmethod
+    def calculate_rmsd(self):
+        pass
+
+    @abstractmethod
+    def draw_plots(self):
+        pass
+
+    @abstractmethod
+    def mk_cmaps(self):
+        pass
 
     def prepare_restraints(self):
 
@@ -189,24 +211,6 @@ class Job:
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
         return receptor_restraints
 
-    def cabsdock(self):
-        ftraf = self.config.get('file_TRAF')
-        fseq = self.config.get('file_SEQ')
-        self.setup_job()
-        withcabs = True if (ftraf is None or fseq is None) else False
-        if withcabs:
-            self.setup_cabs_run()
-            self.execute_cabs_run()
-        self.load_output(ftraf, fseq)
-        self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'],
-                           number_of_iterations=self.config['clustering_niterations'])
-        if self.config['reference_pdb']:
-            self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
-        self.save_config()
-        self.draw_plots()
-        self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
-                         clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
-
     def save_config(self):
         if self.config['save_config_file']:
             with open(self.config['work_dir']+'/config.ini', 'w') as configfile:
@@ -231,22 +235,16 @@ class Job:
                         line = str(k) + ': '+str(value)
                     configfile.write('\n'+line)
 
-    def setup_job(self):
-        print('CABS-docking job {0}'.format(self.config['receptor']))
-        # Preparing the initial complex
-        print(' Building complex...')
-        self.initial_complex = ProteinComplex(self.config)
-        print(' ... done.')
-
     def setup_cabs_run(self):
         # Initializing CabsRun instance
         self.cabsrun = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
         return self.cabsrun
 
     def execute_cabs_run(self):
-        print('CABS simulation starts.')
+        stime = time.time()
         self.cabsrun.run()
-        print('CABS simuation is DONE.')
+        if self.config['verbose']:
+            print('CABS simuation is done in %.2f sec.' % (time.time() - stime))
 
     def load_output(self, ftraf=None, fseq=None):
         """
@@ -255,7 +253,8 @@ class Job:
         :param fseq: path to SEQ file
         :return: returns trajectory.Trajectory instance
         """
-        print("load_output")
+        if self.config['verbose']:
+            print("load_output")
         if ftraf is not None and fseq is not None:
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
@@ -266,7 +265,8 @@ class Job:
         return self.trajectory
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        print("score_results")
+        if self.config['verbose']:
+            print("score_results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
@@ -277,8 +277,73 @@ class Job:
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
 
+    def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
+        # output folder
+        output_folder = self.config['work_dir'] + '/output_pdbs'
+        try:
+            mkdir(output_folder)
+        except OSError:
+            pass
+        if self.config['verbose']:
+            print('save_models')
+        # Saving the trajectory to PDBs:
+        if replicas:
+            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
+        # Saving top1000 models to PDB:
+        if topn:
+            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+        # Saving clusters in CA representation
+        if clusters:
+            for i, cluster in enumerate(self.clusters):
+                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
+        # Saving top10 models:
+        if medoids == 'CA':
+            # Saving top 10 models in CA representation:
+            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
+        elif medoids == 'AA':
+            # Saving top 10 models in AA representation:
+            pdb_medoids = self.medoids.to_pdb()
+            if self.config['AA_rebuild']:
+                from cabsDock.ca2all import ca2all
+                for i, fname in enumerate(pdb_medoids):
+                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
+                           verbose=False)
+
+
+class DockTask(CABSTask):
+    """Class representing single cabsDock job."""
+
+    def __init__(   self,
+                    receptor,
+                    ligand,
+                    reference_pdb=None,
+                    align='SW',
+                    reference_alignment=None,
+                    **kwargs):
+        super(DockTask, self).__init__(**kwargs)
+        conf = {    'receptor': receptor,
+                    'ligand': ligand,
+                    'reference_pdb': reference_pdb,
+                    'align': align,
+                    'reference_alignment': reference_alignment,}
+        self.config.update(conf)
+
+    def __repr__(self):
+        return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
+
+    def setup_job(self):
+        if self.config['verbose']:
+            print('CABS-docking job {0}'.format(self.config['receptor']))
+        # Preparing the initial complex
+        if self.config['verbose']:
+            print(' Building complex...')
+        self.initial_complex = ProteinComplex(self.config)
+        if self.config['verbose']:
+            print(' ... done.')
+
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        print('calculate_rmsd')
+        if self.config['verbose']:
+            print('calculate_rmsd')
         if save:
             odir = self.config['work_dir'] + '/output_data'
             try:
@@ -323,7 +388,8 @@ class Job:
         return all_results
 
     def draw_plots(self, plots_dir=None):
-        print('draw_plots')
+        if self.config['verbose']:
+            print('draw_plots')
         # set the plots dir
         if plots_dir is None:
             pltdir = self.config['work_dir'] + '/plots'
@@ -349,37 +415,6 @@ class Job:
         # Contact maps
         if self.config['contact_maps']:
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
-
-    def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
-        # output folder
-        output_folder = self.config['work_dir'] + '/output_pdbs'
-        try:
-            mkdir(output_folder)
-        except OSError:
-            pass
-        print('save_models')
-        # Saving the trajectory to PDBs:
-        if replicas:
-            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
-        # Saving top1000 models to PDB:
-        if topn:
-            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
-        # Saving clusters in CA representation
-        if clusters:
-            for i, cluster in enumerate(self.clusters):
-                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
-        # Saving top10 models:
-        if medoids == 'CA':
-            # Saving top 10 models in CA representation:
-            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
-        elif medoids == 'AA':
-            # Saving top 10 models in AA representation:
-            pdb_medoids = self.medoids.to_pdb()
-            if self.config['AA_rebuild']:
-                from cabsDock.ca2all import ca2all
-                for i, fname in enumerate(pdb_medoids):
-                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                           verbose=False)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)
@@ -418,3 +453,22 @@ class Job:
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+
+
+class FlexTask(CABSTask):
+    """Class of CABSFlex jobs."""
+
+    def __init__(   self,
+                    structure,
+                    **kwargs):
+        super(FlexTask, self).__init__(**kwargs)
+        conf = {    'structure': structure,
+                    '': None}
+        self.config.update(conf)
+
+    def setup_job(self):
+        if self.config['verbose']:
+            print('CABS-Flex working on {0}'.format(self.config['structure']))
+        # Preparing the initial complex
+        self.initial_complex = ProteinComplex(self.config)
+
