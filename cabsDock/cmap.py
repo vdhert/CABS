@@ -215,14 +215,14 @@ class ContactMap(object):
 
         max_y = max([.05] + trg_vls_all)
 
-        chunks = _chunk_lst(trg_vls, max_bars)
+        chunks = _chunk_lst(trg_vls, max_bars, extend_last=0.)
         grid = matplotlib.pyplot.GridSpec(2 + len(chunks), 1)
         size = (10, 3 * len(chunks))
         fig = matplotlib.pyplot.figure(figsize=size)
 
         peptH = mk_histo(matplotlib.pyplot.subplot(grid[0, 0]), pep_vls, pep_lbls, ylim=(0, max([.05] + pep_vls)))[0]
         sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, len(chunks) + 1)]
-        targBH = mk_histo(sbplts, chunks, _chunk_lst(trg_lbls, max_bars), ylim=(0, max_y))
+        targBH = mk_histo(sbplts, chunks, _chunk_lst(trg_lbls, max_bars, extend_last=''), ylim=(0, max_y))
         targAH = mk_histo(matplotlib.pyplot.subplot(grid[-1, 0]), trg_vls_all, self.s1, ylim=(0, max_y))[0]
 
         peptH.set_title('Histogram of peptide contacts')
