@@ -43,7 +43,7 @@ class Pdb:
                 self.selection += kwargs['selection']
             if 'remove_alternative_locations' in kwargs:
                 self.remove_alternative_locations = kwargs['remove_alternative_locations']
-        else:
+        if not self.file_name and not self.pdb_code:
             raise Exception('Cannot create a Pdb object with no arguments!!!')
 
         if self.file_name:
