@@ -4,8 +4,7 @@ import re
 import os
 from os.path import exists, expanduser
 from gzip import GzipFile
-from urllib2 import urlopen, HTTPError
-from StringIO import StringIO
+from urllib2 import urlopen, HTTPError, URLError
 from subprocess import Popen, PIPE
 
 from atom import Atom, Atoms
@@ -129,6 +128,8 @@ def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
             gz_string = urlopen('http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz').read()
         except HTTPError:
             raise InvalidPdbCode(pdb_code)
+        except URLError:
+            raise CannotConnectToPdb()
         with open(fname, 'w') as fobj:
             fobj.write(gz_string)
     file_ = open(fname)
@@ -152,6 +153,10 @@ class InvalidPdbCode(Exception):
     def __str__(self):
         return self.pdbCode + ' is not a valid pdb code!!!'
 
+class CannotConnectToPdb(Exception):
+    """Exception raised when the PDB database is not accessible"""
+    def __str__(self):
+        return 'Cannot connect to the PDB database!!!'
 
 if __name__ == '__main__':
     pass

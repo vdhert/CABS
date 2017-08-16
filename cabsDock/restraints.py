@@ -27,15 +27,21 @@ class Restraint:
 
 class Restraints:
     """Container for Restraint(s)"""
-    def __init__(self, arg, sg=False):
+    def __init__(self, restraints, sg=False):
         self.data = []
-        if arg and type(arg) is list:
-            self.data.extend([Restraint(str(line), sg) for line in arg])
-        elif arg and type(arg) is str:
-            with open(arg) as f:
-                self.data.extend(Restraint(line, sg) for line in f)
-        elif arg and arg.__class__.__name__ == 'Restraints':
-            self.data = copy(arg.data)
+        if restraints:
+            self.data.extend(Restraint(line, sg) for line in restraints)
+
+    @classmethod
+    def from_parser(cls, restraints, sg=False):
+        as_strings = [' '.join(str(w) for w in r) for r in restraints]
+        return cls(as_strings, sg)
+
+    @classmethod
+    def from_file(cls, filename, sg=False):
+        with open(filename) as f:
+            as_strings = [line for line in f]
+        return cls(as_strings, sg)
 
     def __repr__(self):
         return '\n'.join(str(r) for r in self.data)
