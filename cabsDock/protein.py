@@ -25,16 +25,12 @@ class Receptor(Atoms):
         name = config['receptor']
         selection = 'name CA and not HETERO'
         if isfile(name):
-            pdb = Pdb(pdb_file=name)
+            pdb = Pdb(pdb_file=name,selection=selection)
         elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name))
+            pdb = Pdb(pdb_file=join(config['work_dir'], name),selection=selection)
         else:
-            pdb = Pdb(pdb_code=name[:4])
-            m = re.match(r'.{4}:([A-Z]*)', name)
-            if m:
-                selection += ' and chain ' + ','.join(m.group(1))
-                # TODO move to Pdb
-        atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_code=name,selection=selection)
+        atoms = pdb.atoms.models()[0]
 
         if 'receptor_flexibility' in config:
             token = config['receptor_flexibility']
@@ -144,20 +140,18 @@ class Ligand(Atoms):
         self.name, self.conformation, self.location = config['ligand'][num]
         selection = 'name CA and not HETERO'
         if exists(self.name):
-            pdb = Pdb(pdb_file=self.name)
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_file=self.name,selection=selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
         elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name))
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_file=join(config['work_dir'], self.name),selection=selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
         else:
             try:
-                pdb = Pdb(pdb_code=self.name[:4])
-                m = re.match(r'.{4}:([A-Z]*)', self.name)
-                if m:
-                    selection += ' and chain ' + ','.join(m.group(1))
-                atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+                pdb = Pdb(pdb_code=self.name ,selection=selection)
+
+                atoms = pdb.atoms.models()[0]
                 atoms.update_sec(pdb.dssp())
             except InvalidPdbCode:
                 seq = self.name.split(':')[0]
