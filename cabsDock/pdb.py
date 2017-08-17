@@ -30,7 +30,7 @@ class Pdb:
 
 
         if args and len(args) == 1:
-            if exists(re.split(":",args[0])[0]):
+            if os.path.isfile(re.split(":",args[0])[0]):
                 self.file_name = args[0]
             else:
                 self.pdb_code = args[0]
