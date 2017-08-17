@@ -84,7 +84,8 @@ class Job:
             no_aa_rebuild=False,
             excluding_distance=5.0,
             modeller_iterations=3,
-            output_models=10
+            output_models=10,
+            output_modeller = False
     ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
@@ -133,6 +134,7 @@ class Job:
             'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
+            'output_modeller': output_modeller
         }
 
         if receptor is None:
@@ -379,7 +381,8 @@ class Job:
                 from cabsDock.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                           verbose=False)
+                           output_modeller=self.config['output_modeller'],
+                            out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)
