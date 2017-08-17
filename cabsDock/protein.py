@@ -24,17 +24,8 @@ class Receptor(Atoms):
     def __init__(self, config):
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        if isfile(name):
-            pdb = Pdb(pdb_file=name)
-        elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name))
-        else:
-            pdb = Pdb(pdb_code=name[:4])
-            m = re.match(r'.{4}:([A-Z]*)', name)
-            if m:
-                selection += ' and chain ' + ','.join(m.group(1))
-                # TODO move to Pdb
-        atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+        pdb = Pdb(name,selection=selection)
+        atoms = pdb.atoms.models()[0]
 
         if 'receptor_flexibility' in config:
             token = config['receptor_flexibility']
@@ -59,7 +50,7 @@ class Receptor(Atoms):
             atoms.set_bfac(1.0)
 
         self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
-        # self.new_ids = {v: k for k, v in self.old_ids.items()}
+        self.new_ids = {v: k for k, v in self.old_ids.items()}
         Atoms.__init__(self, atoms)
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
@@ -142,27 +133,15 @@ class Ligand(Atoms):
 
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
-        selection = 'name CA and not HETERO'
-        if exists(self.name):
-            pdb = Pdb(pdb_file=self.name)
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+        self.selection = 'name CA and not HETERO'
+        try:
+            pdb = Pdb(self.name,selection=self.selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
-        elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name))
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
-            atoms.update_sec(pdb.dssp())
-        else:
-            try:
-                pdb = Pdb(pdb_code=self.name[:4])
-                m = re.match(r'.{4}:([A-Z]*)', self.name)
-                if m:
-                    selection += ' and chain ' + ','.join(m.group(1))
-                atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
-                atoms.update_sec(pdb.dssp())
-            except InvalidPdbCode:
-                seq = self.name.split(':')[0]
-                check_peptide_sequence(seq)
-                atoms = Atoms(self.name)
+        except InvalidPdbCode:
+            seq = self.name.split(':')[0]
+            check_peptide_sequence(seq)
+            atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
         # checks the input peptide sequence for non-standard amino acids.
