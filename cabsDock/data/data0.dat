@@ -2717,6 +2717,9 @@ c       geometry
 
         RETURN
         END
+
+c     *****************************************************************
+
         FUNCTION erestr(ibegin, iend)
 
         implicit integer (i - z)
@@ -2916,6 +2919,9 @@ c	SG-SG restraints between chains
 
         return
         end
+
+c     *****************************************************************
+
         FUNCTION ESHORT(iiii,jjjj)
 
         IMPLICIT INTEGER(I-Z)
@@ -3167,6 +3173,9 @@ c       bias to predicted secondary structure geometry
 
         RETURN
         END
+
+C       ***************************************************************
+
         FUNCTION LOOK(jj,kk)
 
         IMPLICIT INTEGER(I-Z)

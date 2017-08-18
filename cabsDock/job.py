@@ -133,7 +133,9 @@ class Job:
             'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
-            'receptor_flexibility': receptor_flexibility
+            'receptor_flexibility': receptor_flexibility,
+            'exclude': exclude,
+            'modeller_iterations': modeller_iterations
         }
 
         # Job attributes collected.

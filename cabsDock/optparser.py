@@ -1,5 +1,6 @@
 import csv
 import argparse
+import re
 
 
 class CustomFormatter(argparse.RawTextHelpFormatter):
@@ -120,6 +121,30 @@ class ParserFactory:
             kwargs['type'] = float
 
         _group.add_argument(*name, **kwargs)
+
+
+class ConfigFileParser:
+
+    OPTIONRE = re.compile(
+        r'(?P<option>[^:=]*)'
+        r'[:=]'
+        r'(?P<value>.*)$'
+    )
+
+    def __init__(self, filename):
+        self.args = []
+        with open(filename) as f:
+            for line in f:
+                if line == '' or line[0] in ';#\n':
+                    continue
+                match = self.OPTIONRE.match(line)
+                if match:
+                    option, value = match.groups()
+                    self.args.append('--' + option.strip())
+                    self.args.extend(value.split('#')[0].split(';')[0].split())
+                else:
+                    self.args.extend(line.split('#')[0].split(';')[0].split())
+
 
 if __name__ == '__main__':
     pass

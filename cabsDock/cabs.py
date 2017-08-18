@@ -11,8 +11,9 @@ from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
 
-from vector3d import Vector3d
-from trajectory import Trajectory
+from cabsDock.vector3d import Vector3d
+from cabsDock.trajectory import Trajectory
+from cabsDock.utils import PEPtoPEP1 as PP
 
 
 class CabsLattice:
@@ -139,7 +140,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr + '0 0')
+            f.write(inp + restr + self.load_excluding(protein_complex, config))
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
@@ -197,7 +198,7 @@ class CabsRun(Thread):
         return ''.join(fchains), seq, cabs_ids
 
     @staticmethod
-    def load_restraints(restraints, ca_weight=1.0, sg_weight=0.0):
+    def load_restraints(restraints, ca_weight=1.0, sg_weight=1.0):
         max_r = 0
 
         rest = [r for r in restraints.data if not r.sg]
@@ -223,6 +224,24 @@ class CabsRun(Thread):
             restr += ''.join(rest)
 
         return restr, max_r
+
+    def load_excluding(self, protein_complex, config):
+        token = config['exclude']
+        excl = {}
+        if token:
+            for line in token:
+                words = line.split('@')
+                if len(words) == 1:
+                    key='all'
+                else:
+                    key = PP(words[-1])
+                if key in excl:
+                    excl[key] += words[0]
+                else:
+                    excl[key] = words[0]
+
+        print excl
+        exit(1)
 
     @staticmethod
     def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):

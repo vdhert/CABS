@@ -881,3 +881,10 @@ def _extend_last(sseries, slen, token):
 
 def _fmt_res_name(atom):
     return (atom.chid + str(atom.resnum) + atom.icode).strip()
+
+
+def PEPtoPEP1(id):
+    if re.search('PEP$', id):
+        return id + '1'
+    else:
+        return id

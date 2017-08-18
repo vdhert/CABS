@@ -1,14 +1,14 @@
 """Module for handling distance restraints"""
 
-from copy import copy
+from cabsDock.utils import PEPtoPEP1 as PP
 
 
 class Restraint:
     """Class represents single distance restraint"""
     def __init__(self, line, is_side_chain=False):
         i1, i2, d, w = line.split()
-        self.id1 = i1
-        self.id2 = i2
+        self.id1 = PP(i1)
+        self.id2 = PP(i2)
         self.distance = float(d)
         self.weight = float(w)
         self.sg = is_side_chain
@@ -54,6 +54,7 @@ class Restraints:
         for restr in self.data:
             restr.update_id(ids)
         return self
+
 
 if __name__ == '__main__':
     pass
