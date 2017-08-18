@@ -139,14 +139,14 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr + '0, 0')
+            f.write(inp + restr + '0 0')
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('cabsDock', 'data/data0.dat'),
             exe='cabs',
-            build_command=config['fortran_compiler'][0],
-            build_flags=config['fortran_compiler'][1],
+            build_command=config['fortran_compiler'],
+            build_flags='-O2',
             destination=cabs_dir
         )
 
