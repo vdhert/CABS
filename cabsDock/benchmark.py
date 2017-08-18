@@ -6,6 +6,59 @@ from cabsDock.pbsgen import PbsGenerator
 import time
 from subprocess import call
 
+class CommandGenerator(object):
+    option_dictionary = {
+        '-r': ('2gb1', 'aaaa'),
+        '-p': None,
+        '-e': None,
+        '--excluding': None,
+        '-f': None,
+        '-R': None,
+        '-P': None,
+        '--separation': None,
+        '--insertion-clash': None,
+        '--insertion-attempts': None,
+        '--ca-rest-add': None,
+        '--sc-rest-add': None,
+        '--ca-rest-weight': None,
+        '-sc-rest-weight': None,
+        '--ca-rest-file': None,
+        '--sc-rest-file': None,
+        '--mc-annealing': None,
+        '--mc-cycles': None,
+        '--mc-steps': None,
+        '--replicas': None,
+        '--replicas-dtemp': None,
+        '--temperature': None,
+        '-s': None,
+        '--no-aa-rebuild': None,
+        '--modeller-iterations': None,
+        '--reference-pdb': None,
+        '--clustering-iterations': None,
+        '--filtering-number': None,
+        '--clustering-medoids': None,
+        '--load-cabs-files': None,
+        '--contact-maps': None,
+        '--align': None,
+        '--reference-alignment': None,
+        '--output-models': None,
+        '--output-clusters': None,
+        '--output-trajectories': None,
+        '-c': None,
+        '--image-file-format': None,
+        '--work-dir': None,
+        '--dssp-command': None,
+        '--stride-command': None,
+        '--fortran-command': None,
+        '--save-config-file': None,
+        '--save-cabs-files': None,
+        '-V': None,
+
+    }
+    def __init__(self):
+        pass
+
+
 class BenchmarkRunner(object):
     def __init__(self, benchmark_file, options={'--image-file-format':'png'}, name=''):
         self.benchmark_file = benchmark_file
