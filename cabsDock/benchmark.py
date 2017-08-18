@@ -60,10 +60,11 @@ class CommandGenerator(object):
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png'}, name=''):
+    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='standard'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
+        self.runtype = runtype
 
     def setup(self):
         if self.name == '':
@@ -77,15 +78,13 @@ class BenchmarkRunner(object):
         except OSError:
             pass
         self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=self.options,
-                                   rundir=self.benchdir+'/run')
+                                   rundir=self.benchdir+'/run', runtype=self.runtype)
         self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
 
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
             logfile.write('#Run started: '+time.strftime("%c"))
-            print self.options
             options_as_str = '\n'.join([str(key)+' = '+str(val) for (key,val) in self.options.items()])
-            print options_as_str
             logfile.write('\n#Used options:\n'+options_as_str)
             cases_as_str = '\n'.join([case.work_dir for case in self.pbsgen.cases])
             logfile.write('\n#Cases:\n'+cases_as_str)
@@ -95,8 +94,9 @@ class BenchmarkRunner(object):
         self.save_log()
         options_as_str = ' '.join([str(key)+'='+str(val) for (key, val) in qsub_options.items()])
         command = 'for f in {}/pbs/*.pbs; do qsub {} $f; done'.format(self.benchdir, options_as_str)
+        print command
         if test:
-            print command
+           pass
         else:
             call(command)
 
@@ -183,8 +183,9 @@ class BenchmarkAnalyser(object):
 
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
-#br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt')
-#br.run_benchmark(test=True)
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_1.txt')
+br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
+br.run_benchmark(test=True)
 # # print br.benchdir
 # ba = BenchmarkAnalyser('./benchbench')
 # ba.read_rmsds()

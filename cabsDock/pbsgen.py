@@ -3,7 +3,7 @@ from os.path import exists, isdir
 
 
 class PbsGenerator(object):
-    def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}):
+    def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}, runtype='standard'):
         self.rundir = rundir
         self.benchmark_list = benchmark_list
         self.options_dict = nonstandard_options_dict
@@ -13,12 +13,19 @@ class PbsGenerator(object):
 
         for line in lines:
             row = line.split()
-            receptor = str(row[0]) + ':' + str(row[1])
-            ligand = str(row[3] + ':' + str(row[4]))
-            reference_pdb = str(row[0])
-            sc_rests = []
-            if len(row) > 5:
-                sc_rests = (str(row[5]), str(row[6]))
+            if runtype=='standard':
+                receptor = str(row[0]) + ':' + str(row[1])
+                ligand = str(row[2] + ':' + str(row[3]))
+                reference_pdb = str(row[0])
+                sc_rests = []
+                if len(row) > 4:
+                    sc_rests = (str(row[4]), str(row[5]))
+            elif runtype=='unbound':
+                receptor = str(row[0]) + ':' + str(row[1])
+                ligand = str(row[2] + ':' + str(row[3]))
+                reference_pdb = str(row[4])
+                sc_rests = []
+
             self.cases.append(
                 Case(
                     receptor = receptor,
@@ -84,5 +91,5 @@ class Case(object):
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
 #usage
-# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_cases.txt')
+# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
 # pbsgntr.pbs_script('pbs')
