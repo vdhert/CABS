@@ -183,7 +183,7 @@ class BenchmarkAnalyser(object):
 
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
-#br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_1.txt')
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
 br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_unbound_1.txt', runtype='unbound')
 br.run_benchmark(test=True)
 # # print br.benchdir
