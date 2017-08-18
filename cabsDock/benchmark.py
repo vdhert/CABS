@@ -135,21 +135,22 @@ class BenchmarkAnalyser(object):
             'lowest_10': [],
         }
         self.successful_runs = 0.
-        with open(self.done_benchdir+'/lowest_rmsds_benchmark.txt') as outfile:
+        with open(self.done_benchdir+'/lowest_rmsds_benchmark.txt', 'w') as outfile:
             for case in self.cases:
                 lowest_rmsd_files = glob(self.done_benchdir + '/run/' + case + '/output_data/lowest_rmsds*')
                 try:
                     lowest_rmsds = open(lowest_rmsd_files[0])
                 except:
                     print('invalid rmsd file for case {}'.format(case))
+                    outfile.write(';'.join([case, '---', '---', '---'])+'\n')
                     continue
                 self.successful_runs+=1
                 lowest_rmsds.readline()
                 rmsds = lowest_rmsds.readline().split(';')
-                outfile.write(';'.join([case, rmsds[0], rmsds[1], rmsds[2]]))
-                benchmark_results['lowest_10k'].append(rmsds[0])
-                benchmark_results['lowest_1k'].append(rmsds[1])
-                benchmark_results['lowest_10'].append(rmsds[2])
+                outfile.write(';'.join([case, rmsds[0], rmsds[1], rmsds[2]])+'\n')
+                benchmark_results['lowest_10k'].append(float(rmsds[0]))
+                benchmark_results['lowest_1k'].append(float(rmsds[1]))
+                benchmark_results['lowest_10'].append(float(rmsds[2]))
 
         self.benchmark_results = benchmark_results
 
@@ -181,9 +182,9 @@ class BenchmarkAnalyser(object):
 
 
 
-br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_cases.txt')
-br.run_benchmark(test=True)
+#br.run_benchmark(test=True)
 # # print br.benchdir
 # ba = BenchmarkAnalyser('./benchbench')
 # ba.read_rmsds()
