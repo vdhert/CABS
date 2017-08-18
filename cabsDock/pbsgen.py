@@ -13,7 +13,10 @@ class PbsGenerator(object):
 
         for line in lines:
             row = line.split()
+            if row[0] =='-':
+                continue
             if runtype=='standard':
+                print row
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
                 reference_pdb = str(row[0])
@@ -25,6 +28,9 @@ class PbsGenerator(object):
                 ligand = str(row[2] + ':' + str(row[3]))
                 reference_pdb = str(row[4])
                 sc_rests = []
+                print row
+                if len(row) > 5:
+                    sc_rests = (str(row[5]), str(row[6]))
 
             self.cases.append(
                 Case(
