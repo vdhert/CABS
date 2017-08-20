@@ -50,7 +50,7 @@ class CABSTask(object):
             sc_rest_weight=1.0,
             receptor_restraints=('all', 4, 5.0, 15.0),
             dssp_command='mkdssp',
-            fortran_command=('gfortran', '-O2'),  # build (command, flags)
+            fortran_command='gfortran',
             filtering_number=1000,  # number of models to filter
             filtering_fromeach=True,
             clustering_medoids=10,
@@ -106,7 +106,7 @@ class CABSTask(object):
             'sc_rest_weight': sc_rest_weight,
             'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
             'dssp_command': dssp_command,
-            'fortran_compiler': fortran_command,  # build (command, flags)
+            'fortran_compiler': fortran_command, # build (command, flags)
             'filtering': filtering_number,  # number of models to filter
             'filtering_fromeach': filtering_fromeach,
             'clustering_nmedoids': clustering_medoids,
@@ -122,7 +122,11 @@ class CABSTask(object):
             'file_SEQ': file_SEQ,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
+<<<<<<< HEAD
             'verbose': verbose,
+=======
+            'receptor_flexibility': receptor_flexibility
+>>>>>>> 719a5aad1991e1168fe6951c5cc14eaa69e03de7
         }
 
         # Job attributes collected.
@@ -195,18 +199,18 @@ class CABSTask(object):
         add_restraints = Restraints('')
 
         if self.config['ca_rest_add']:
-            add_restraints += Restraints(self.config['ca_rest_add'])
+            add_restraints += Restraints.from_parser(self.config['ca_rest_add'])
 
         if self.config['sc_rest_add']:
-            add_restraints += Restraints(self.config['sc_rest_add'], sg=True)
+            add_restraints += Restraints.from_parser(self.config['sc_rest_add'], sg=True)
 
         if self.config['ca_rest_file']:
             for filename in self.config['ca_rest_file']:
-                add_restraints += Restraints(filename)
+                add_restraints += Restraints.from_file(filename)
 
         if self.config['sc_rest_file']:
             for filename in self.config['sc_rest_file']:
-                add_restraints += Restraints(filename, sg=True)
+                add_restraints += Restraints.from_file(filename, sg=True)
 
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
         return receptor_restraints

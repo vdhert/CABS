@@ -27,12 +27,10 @@ class Config(dict):
 
 
 def run_job():
-    parser = ParserFactory(
-        filecsv=resource_filename('cabsDock', 'data/data3.dat'),
-        fields=(1, 2, 3, 4, 5),
-        sep=','
-    ).parser
 
+    parser = ParserFactory(
+        filecsv=resource_filename('cabsDock', 'data/data3.dat')
+    ).parser
     args = parser.parse_args()
 
     cfg_args = []
@@ -46,14 +44,24 @@ def run_job():
                 cfg_args.append('--' + k)
                 cfg_args.extend(v.split())
 
+    parser = ParserFactory(
+        filecsv=resource_filename('cabsDock', 'data/data3.dat'), required=['receptor']
+    ).parser
+
     args = parser.parse_args(cfg_args + argv[1:])
     config = Config(args)
 
     from cabsDock.job import Job
     job = Job(**config)
 
+    # tutaj dopisac warunek na cabsflexa
+
+    # wypisz config
+    # print job
+
     # start docking
     job.cabsdock()
+
     
 if __name__ == '__main__':
     run_job()

@@ -11,7 +11,7 @@ from cabsDock.utils import check_peptide_sequence
 from cabsDock.utils import AA_NAMES
 
 from atom import Atoms
-from pdb import Pdb, InvalidPdbCode
+from pdb import Pdb, InvalidPdbCode, CannotConnectToPdb
 from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from vector3d import Vector3d
 
@@ -25,28 +25,27 @@ class Receptor(Atoms):
         name = config['receptor']
         selection = 'name CA and not HETERO'
         if isfile(name):
-            pdb = Pdb(pdb_file=name)
+            pdb = Pdb(pdb_file=name,selection=selection)
         elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name))
+            pdb = Pdb(pdb_file=join(config['work_dir'], name),selection=selection)
         else:
-            pdb = Pdb(pdb_code=name[:4])
-            m = re.match(r'.{4}:([A-Z]*)', name)
-            if m:
-                selection += ' and chain ' + ','.join(m.group(1))
-                # TODO move to Pdb
-        atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_code=name,selection=selection)
+        atoms = pdb.atoms.models()[0]
 
-        if 'receptor_flexibility' in config:
-            token = config['receptor_flexibility']
+        token = config.get('receptor_flexibility')
+        if token:
             try:
                 bfac = float(token)
                 atoms.set_bfac(bfac)
             except ValueError:
-                if token.lower() == 'bfac':
+                if token.lower() == 'bf':
                     pass
-                elif token.lower() == 'bfac_inv':
+                elif token.lower() == 'bfi':
                     for a in atoms:
-                        a.bfac = 1. - 0.01 * a.bfac
+                        if a.bfac > 1. :
+                            a.bfac = 0.
+                        else:
+                            a.bfac = 1. - a.bfac
                 elif exists(token):
                     d, de = self.read_flexibility(token)
                     atoms.update_bfac(d, de)
@@ -54,7 +53,12 @@ class Receptor(Atoms):
                     d, de = self.read_flexibility(join(config['work_dir'], token))
                     atoms.update_bfac(d, de)
                 else:
-                    raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
+                    try:
+                        a, b = self.read_flexibility(token)
+                        print a
+                        print b
+                    except IOError:
+                        raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
         else:
             atoms.set_bfac(1.0)
 
@@ -87,27 +91,36 @@ class Receptor(Atoms):
 
     @staticmethod
     def read_flexibility(filename):
-        patt = re.compile(r'(.*)WEIGHT(.*)', re.IGNORECASE)
+
+        key = r'[0-9A-Z]+:[A-Z]'
+        val = r'[0-9.]+'
+
+        patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
+        patt_single = re.compile('(%s) +(%s)' % (key, val))
 
         with open(filename) as f:
             d = {}
-            def_val = None
+            def_val = 1.0
             for line in f:
-                if not def_val:
-                    def_val = float(line)
-                match = re.match(patt, line)
-                if match:
-                    key = match.group(1).strip()
-                    val = float(match.group(2))
-                    k1, k2 = key.split('-')
-                    n1, c1 = k1.strip().split(':')
-                    n2, c2 = k2.strip().split(':')
-                    n1 = int(n1)
-                    n2 = int(n2)
-                    if c1 != c2 or n1 > n2:
-                        raise Exception('Invalid range: \'%s\' in file: %s!!!' % (key, filename))
-                    for i in range(n1, n2 + 1):
-                        d[str(i) + ':' + c1] = val
+                if re.search('default', line):
+                    def_val = float(line.split()[-1])
+                else:
+                    match = re.search(patt_range, line)
+                    if match:
+                        n1, c1 = match.group(1).split(':')
+                        n2, c2 = match.group(2).split(':')
+                        n1 = int(n1)
+                        n2 = int(n2)
+                        if c1 != c2 or n1 > n2:
+                            raise Exception('Invalid range: \'%s\' in file: %s!!!' % (line, filename))
+                        for i in range(n1, n2 + 1):
+                            d[str(i) + ':' + c1] = float(match.group(3))
+                    else:
+                        match = re.search(patt_single, line)
+                        if match:
+                            d[match.group(1)] = float(match.group(2))
+                        else:
+                            raise Exception('Invalid syntax in flexibility file!!!')
             return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
@@ -144,26 +157,23 @@ class Ligand(Atoms):
         self.name, self.conformation, self.location = config['ligand'][num]
         selection = 'name CA and not HETERO'
         if exists(self.name):
-            pdb = Pdb(pdb_file=self.name)
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_file=self.name,selection=selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
         elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name))
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+            pdb = Pdb(pdb_file=join(config['work_dir'], self.name), selection=selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
         else:
             try:
-                pdb = Pdb(pdb_code=self.name[:4])
-                m = re.match(r'.{4}:([A-Z]*)', self.name)
-                if m:
-                    selection += ' and chain ' + ','.join(m.group(1))
-                atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+                pdb = Pdb(pdb_code=self.name, selection=selection)
+                atoms = pdb.atoms.models()[0]
                 atoms.update_sec(pdb.dssp())
-            except InvalidPdbCode:
+            except:
                 seq = self.name.split(':')[0]
                 check_peptide_sequence(seq)
                 atoms = Atoms(self.name)
-        atoms.set_bfac(0.0)
+        atoms.set_bfac(1.0)
         Atoms.__init__(self, atoms)
         # checks the input peptide sequence for non-standard amino acids.
         rev_dct = dict(map(reversed, AA_NAMES.items()))

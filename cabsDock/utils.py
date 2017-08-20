@@ -9,7 +9,7 @@ import warnings
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
 
-#sidechains relative coords
+# sidechains relative coords
 SIDECNT = { 'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
             'GLN': (-0.095, -1.674, 2.612, 0.047, -0.886, 2.991),
             'ILE': (0.094, -1.416, 1.836, -0.105, -0.659, 2.219),
@@ -821,6 +821,7 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
+
 def check_peptide_sequence(sequence):
     """
     Checks the peptide sequence for non-standard AAs.
@@ -856,6 +857,7 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
+
 def _chunk_lst(lst, sl_len, extend_last=None):
     """ Slices given list for slices of given len.
 
@@ -872,8 +874,10 @@ def _chunk_lst(lst, sl_len, extend_last=None):
         _extend_last(slists, sl_len, extend_last)
     return slists
 
+
 def _extend_last(sseries, slen, token):
     sseries[-1].extend([token] * (slen - len(sseries[-1])))
+
 
 def _fmt_res_name(atom):
     return (atom.chid + str(atom.resnum) + atom.icode).strip()
