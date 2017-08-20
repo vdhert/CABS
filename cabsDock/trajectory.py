@@ -266,7 +266,7 @@ class Trajectory(object):
         target_align_kwargs -- as above, but used when aligning target protein.
         """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        ref_stc = Pdb(pdb_code=ref_pdb).atoms.select('name CA and not HETERO')
+        ref_stc = Pdb(ref_pdb,selection='name CA and not HETERO').atoms
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
