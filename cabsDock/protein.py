@@ -24,12 +24,7 @@ class Receptor(Atoms):
     def __init__(self, config):
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        if isfile(name):
-            pdb = Pdb(pdb_file=name,selection=selection)
-        elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name),selection=selection)
-        else:
-            pdb = Pdb(pdb_code=name,selection=selection)
+        pdb = Pdb(name,selection=selection)
         atoms = pdb.atoms.models()[0]
 
         token = config.get('receptor_flexibility')
@@ -156,24 +151,15 @@ class Ligand(Atoms):
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         selection = 'name CA and not HETERO'
-        if exists(self.name):
-            pdb = Pdb(pdb_file=self.name,selection=selection)
+        try:
+            pdb = Pdb(self.name,selection=selection)
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
-        elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name), selection=selection)
-            atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp())
-        else:
-            try:
-                pdb = Pdb(pdb_code=self.name, selection=selection)
-                atoms = pdb.atoms.models()[0]
-                atoms.update_sec(pdb.dssp())
-            except:
-                seq = self.name.split(':')[0]
-                check_peptide_sequence(seq)
-                atoms = Atoms(self.name)
-        atoms.set_bfac(1.0)
+        except InvalidPdbCode:
+            seq = self.name.split(':')[0]
+            check_peptide_sequence(seq)
+            atoms = Atoms(self.name)
+        atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
         # checks the input peptide sequence for non-standard amino acids.
         rev_dct = dict(map(reversed, AA_NAMES.items()))
