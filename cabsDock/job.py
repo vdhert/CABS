@@ -122,11 +122,8 @@ class CABSTask(object):
             'file_SEQ': file_SEQ,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
-<<<<<<< HEAD
             'verbose': verbose,
-=======
             'receptor_flexibility': receptor_flexibility
->>>>>>> 719a5aad1991e1168fe6951c5cc14eaa69e03de7
         }
 
         # Job attributes collected.
