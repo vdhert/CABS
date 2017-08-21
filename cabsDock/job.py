@@ -473,3 +473,11 @@ class FlexTask(CABSTask):
         # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
 
+    def calculate_rmsd(self):
+        pass
+
+    def draw_plots(self):
+        pass
+
+    def mk_cmaps(self):
+        pass

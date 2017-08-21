@@ -3,7 +3,7 @@ from unittest import main
 from unittest import SkipTest
 from cabsDock.utils import SCModeler
 from cabsDock.utils import SIDECNT
-from cabsDock.job import Job
+from cabsDock.job import DockTask
 import pickle
 import numpy
 import sys
@@ -22,7 +22,7 @@ class CMapMakerTest(TestCase):
         ddir = tempfile.gettempdir() + "/tmpCABS/"
         try: os.mkdir(ddir)
         except OSError: pass
-        cls.j = Job(
+        cls.j = DockTask(
             work_dir=ddir,
             receptor='1klu:AB',
             ligand=[['GELIGTLNAAKVPAD:CCCEEEECCEECCCC', 'random', 'random']],
@@ -30,9 +30,10 @@ class CMapMakerTest(TestCase):
             mc_steps=50,
             replicas=10,
             load_cabs_files=(cla.data_path + '1klu/TRAF', cla.data_path + '1klu/SEQ'),
-            AA_rebuild=False
+            AA_rebuild=False,
+            verbose=False
             )
-        cls.j.cabsdock()
+        cls.j.run()
 
     def test_contact_frequencies(self):
         pass
