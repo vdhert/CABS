@@ -60,7 +60,7 @@ class CommandGenerator(object):
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='standard'):
+    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='bound'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
@@ -184,7 +184,7 @@ class BenchmarkAnalyser(object):
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
-br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_unbound_1.txt', runtype='unbound')
+br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
 br.run_benchmark(test=True)
 # # print br.benchdir
 # ba = BenchmarkAnalyser('./benchbench')

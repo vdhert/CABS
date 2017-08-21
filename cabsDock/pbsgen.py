@@ -15,22 +15,22 @@ class PbsGenerator(object):
             row = line.split()
             if row[0] =='-':
                 continue
-            if runtype=='standard':
+            if runtype=='bound':
                 print row
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[0])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[4])
                 sc_rests = []
-                if len(row) > 4:
-                    sc_rests = (str(row[4]), str(row[5]))
+                if len(row) > 5:
+                    sc_rests = (str(row[5]), str(row[6]))
             elif runtype=='unbound':
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[4])
+                reference_pdb = str(row[4]) + ':' + str(row[5])+str(row[6])
                 sc_rests = []
                 print row
-                if len(row) > 5:
-                    sc_rests = (str(row[5]), str(row[6]))
+                if len(row) > 7:
+                    sc_rests = (str(row[7]), str(row[8]))
 
             self.cases.append(
                 Case(
