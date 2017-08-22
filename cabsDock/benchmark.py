@@ -184,8 +184,8 @@ class BenchmarkAnalyser(object):
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
-br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
-br.run_benchmark(test=True)
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
+#br.run_benchmark(test=True)
 # # print br.benchdir
 # ba = BenchmarkAnalyser('./benchbench')
 # ba.read_rmsds()
