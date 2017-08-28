@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE, check_output
 from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
+from collections import OrderedDict
 
 from cabsDock.vector3d import Vector3d
 from cabsDock.trajectory import Trajectory
@@ -113,9 +114,15 @@ class CabsRun(Thread):
         Thread.__init__(self)
 
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
+
         restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
+
+        exclude = CabsRun.load_excluding(
+            protein_complex.receptor.exclude, config['excluding_distance'], ids
+        )
+
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
@@ -140,7 +147,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr + self.load_excluding(protein_complex, config))
+            f.write(inp + restr + exclude)
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
@@ -164,7 +171,7 @@ class CabsRun(Thread):
     def load_structure(protein_complex):
         fchains = None
         seq = ''
-        cabs_ids = {}
+        cabs_ids = OrderedDict()
         for model in protein_complex.models():
             chains = model.chains()
             if not fchains:
@@ -225,23 +232,11 @@ class CabsRun(Thread):
 
         return restr, max_r
 
-    def load_excluding(self, protein_complex, config):
-        token = config['exclude']
-        excl = {}
-        if token:
-            for line in token:
-                words = line.split('@')
-                if len(words) == 1:
-                    key='all'
-                else:
-                    key = PP(words[-1])
-                if key in excl:
-                    excl[key] += words[0]
-                else:
-                    excl[key] = words[0]
-
-        print excl
-        exit(1)
+    @staticmethod
+    def load_excluding(excl, dist, cabs_ids):
+        return '%i %f\n' % (len(excl), dist) + '\n'.join(
+            '%i %i %i %i' % (cabs_ids[i] + cabs_ids[j]) for i, j in excl
+        )
 
     @staticmethod
     def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):

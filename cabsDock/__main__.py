@@ -49,10 +49,10 @@ def run_job():
     # tutaj dopisac warunek na cabsflexa
 
     # wypisz config
-    print job
+    #print job
 
     # start docking
-    #job.cabsdock()
+    job.cabsdock()
 
     
 if __name__ == '__main__':

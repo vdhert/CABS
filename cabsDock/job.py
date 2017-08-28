@@ -12,7 +12,7 @@ from cabsDock.cmap import ContactMapFactory
 from cabsDock.plots import graph_RMSF
 from cabsDock.plots import plot_E_RMSD
 from cabsDock.plots import plot_RMSD_N
-from cabsDock.utils import SCModeler
+from cabsDock.utils import SCModeler, PEPtoPEP1 as PP
 from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
@@ -135,7 +135,8 @@ class Job:
             'image_file_format': image_file_format,
             'receptor_flexibility': receptor_flexibility,
             'exclude': exclude,
-            'modeller_iterations': modeller_iterations
+            'modeller_iterations': modeller_iterations,
+            'excluding_distance': excluding_distance
         }
 
         # Job attributes collected.

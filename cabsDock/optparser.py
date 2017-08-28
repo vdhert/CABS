@@ -6,7 +6,6 @@ import re
 class CustomFormatter(argparse.RawTextHelpFormatter):
     def __init__(self, *args, **kwargs):
         argparse.HelpFormatter.__init__(self, indent_increment=1, max_help_position=4, *args, **kwargs)
-    # TODO zawijanie dlugich lini, indent dla list
 
 
 def string_cast(string):
