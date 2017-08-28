@@ -201,16 +201,18 @@ class ContactMap(object):
         """
         max_bars = 15
 
-        inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
+        trg_vls_all = self.cmtx.sum(axis=1) / float(self.n)
+        pep_vls = self.cmtx.sum(axis=0) / float(self.n)
+
+        inds1 = numpy.nonzero(trg_vls_all)[0]
         if all_inds_stc2:
             inds2 = range(self.cmtx.shape[1])
-
-        trg_vls_all = [numpy.sum(i) / self.n for i in self.cmtx]
+        else:
+            inds2 = numpy.nonzero(pep_vls)[0]
 
         trg_vls = list(numpy.array(trg_vls_all)[inds1,])
         trg_lbls = list(numpy.array(self.s1)[inds1,])
 
-        pep_vls = [numpy.sum(self.cmtx[:,i]) / self.n for i in inds2]
         pep_lbls = [self.s2[i] for i in inds2]
 
         max_y = max([.05] + trg_vls_all)
