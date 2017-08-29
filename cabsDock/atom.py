@@ -757,6 +757,19 @@ class Atoms:
             a.tail = ''
         return self
 
+    def atom_range(self, first, last):
+        atoms = []
+        add = False
+        for a in self.atoms:
+            ar = a.resid_id()
+            if ar == first:
+                add = True
+            if add:
+                atoms.append(ar)
+            if ar == last:
+                return atoms
+        return []
+
 
 class Selection:
     """

@@ -2,7 +2,7 @@
 
 import re
 import os
-from os.path import exists, expanduser
+from os.path import expanduser
 from gzip import GzipFile
 from urllib2 import urlopen, HTTPError, URLError
 from subprocess import Popen, PIPE
@@ -153,6 +153,7 @@ class InvalidPdbCode(Exception):
 
     def __str__(self):
         return self.pdbCode + ' is not a valid pdb code! (perhaps you specified a file that does not exist)'
+
 
 class CannotConnectToPdb(Exception):
     """Exception raised when the PDB database is not accessible"""

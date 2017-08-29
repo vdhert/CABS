@@ -10,9 +10,11 @@ from subprocess import Popen, PIPE, check_output
 from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
+from collections import OrderedDict
 
-from vector3d import Vector3d
-from trajectory import Trajectory
+from cabsDock.vector3d import Vector3d
+from cabsDock.trajectory import Trajectory
+from cabsDock.utils import PEPtoPEP1 as PP
 
 
 class CabsLattice:
@@ -112,9 +114,15 @@ class CabsRun(Thread):
         Thread.__init__(self)
 
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
+
         restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
+
+        exclude = CabsRun.load_excluding(
+            protein_complex.receptor.exclude, config['excluding_distance'], ids
+        )
+
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
@@ -139,7 +147,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr + '0 0')
+            f.write(inp + restr + exclude)
 
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
@@ -163,7 +171,7 @@ class CabsRun(Thread):
     def load_structure(protein_complex):
         fchains = None
         seq = ''
-        cabs_ids = {}
+        cabs_ids = OrderedDict()
         for model in protein_complex.models():
             chains = model.chains()
             if not fchains:
@@ -197,7 +205,7 @@ class CabsRun(Thread):
         return ''.join(fchains), seq, cabs_ids
 
     @staticmethod
-    def load_restraints(restraints, ca_weight=1.0, sg_weight=0.0):
+    def load_restraints(restraints, ca_weight=1.0, sg_weight=1.0):
         max_r = 0
 
         rest = [r for r in restraints.data if not r.sg]
@@ -223,6 +231,12 @@ class CabsRun(Thread):
             restr += ''.join(rest)
 
         return restr, max_r
+
+    @staticmethod
+    def load_excluding(excl, dist, cabs_ids):
+        return '%i %f\n' % (len(excl), dist) + '\n'.join(
+            '%i %i %i %i' % (cabs_ids[i] + cabs_ids[j]) for i, j in excl
+        )
 
     @staticmethod
     def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):

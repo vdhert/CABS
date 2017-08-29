@@ -1,8 +1,7 @@
-from cabsDock.optparser import ParserFactory
+from cabsDock.optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
-from ConfigParser import SafeConfigParser
-from StringIO import StringIO
 from sys import argv
+from collections import OrderedDict
 
 
 class Config(dict):
@@ -35,14 +34,7 @@ def run_job():
 
     cfg_args = []
     if args.config:
-        with open(args.config) as f:
-            f = StringIO('[config]\n' + f.read())
-            config_parser = SafeConfigParser(allow_no_value=True)
-            # config_parser.optionxform = lambda x: x
-            config_parser.readfp(f)
-            for k, v in config_parser.items('config'):
-                cfg_args.append('--' + k)
-                cfg_args.extend(v.split())
+        cfg_args = ConfigFileParser(args.config).args
 
     parser = ParserFactory(
         filecsv=resource_filename('cabsDock', 'data/data3.dat'), required=['receptor']
@@ -57,7 +49,7 @@ def run_job():
     # tutaj dopisac warunek na cabsflexa
 
     # wypisz config
-    # print job
+    #print job
 
     # start docking
     job.cabsdock()
