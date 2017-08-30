@@ -3,17 +3,15 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
+
 from copy import deepcopy
 from os.path import exists, join, isfile
 from random import randint
 
-from cabsDock.utils import check_peptide_sequence
-from cabsDock.utils import AA_NAMES
-
-from atom import Atoms
-from pdb import Pdb, InvalidPdbCode, CannotConnectToPdb
-from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
-from vector3d import Vector3d
+from cabsDock.atom import Atoms
+from cabsDock.pdb import Pdb, InvalidPdbCode
+from cabsDock.vector3d import Vector3d
+from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 
 
 class Receptor(Atoms):
@@ -24,12 +22,7 @@ class Receptor(Atoms):
     def __init__(self, config):
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        if isfile(name):
-            pdb = Pdb(pdb_file=name,selection=selection)
-        elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name),selection=selection)
-        else:
-            pdb = Pdb(pdb_code=name,selection=selection)
+        pdb = Pdb(name,selection=selection)
         atoms = pdb.atoms.models()[0]
 
         token = config.get('receptor_flexibility')
@@ -53,12 +46,7 @@ class Receptor(Atoms):
                     d, de = self.read_flexibility(join(config['work_dir'], token))
                     atoms.update_bfac(d, de)
                 else:
-                    try:
-                        a, b = self.read_flexibility(token)
-                        print a
-                        print b
-                    except IOError:
-                        raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
+                    raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
         else:
             atoms.set_bfac(1.0)
 
@@ -155,25 +143,16 @@ class Ligand(Atoms):
 
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
-        selection = 'name CA and not HETERO'
-        if exists(self.name):
-            pdb = Pdb(pdb_file=self.name,selection=selection)
+        self.selection = 'name CA and not HETERO'
+        try:
+            pdb = Pdb(self.name,selection=self.selection)
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
-        elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name), selection=selection)
-            atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp())
-        else:
-            try:
-                pdb = Pdb(pdb_code=self.name, selection=selection)
-                atoms = pdb.atoms.models()[0]
-                atoms.update_sec(pdb.dssp())
-            except:
-                seq = self.name.split(':')[0]
-                check_peptide_sequence(seq)
-                atoms = Atoms(self.name)
-        atoms.set_bfac(1.0)
+        except InvalidPdbCode:
+            seq = self.name.split(':')[0]
+            check_peptide_sequence(seq)
+            atoms = Atoms(self.name)
+        atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
         # checks the input peptide sequence for non-standard amino acids.
         rev_dct = dict(map(reversed, AA_NAMES.items()))
@@ -217,7 +196,7 @@ class ProteinComplex(Atoms):
                 self.ligand_chains += l[0].chid
                 print(ligand)
                 ligands.append(l)
-                self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
+                self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
