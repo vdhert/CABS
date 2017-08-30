@@ -5,13 +5,15 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 import re
 
 from copy import deepcopy
-from os.path import exists, join, isfile
+from os.path import exists, join
 from random import randint
+from string import ascii_uppercase
 
 from cabsDock.atom import Atoms
 from cabsDock.pdb import Pdb, InvalidPdbCode
 from cabsDock.vector3d import Vector3d
 from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
+from cabsDock.utils import PEPtoPEP1 as PP
 
 
 class Receptor(Atoms):
@@ -20,39 +22,72 @@ class Receptor(Atoms):
     """
 
     def __init__(self, config):
+
+        Atoms.__init__(self)
+
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        pdb = Pdb(name,selection=selection)
-        atoms = pdb.atoms.models()[0]
+        pdb = Pdb(name, selection=selection)
+        self.atoms = pdb.atoms.models()[0]
 
         token = config.get('receptor_flexibility')
         if token:
             try:
                 bfac = float(token)
-                atoms.set_bfac(bfac)
+                self.atoms.set_bfac(bfac)
             except ValueError:
                 if token.lower() == 'bf':
                     pass
                 elif token.lower() == 'bfi':
-                    for a in atoms:
-                        if a.bfac > 1. :
+                    for a in self.atoms:
+                        if a.bfac > 1.:
                             a.bfac = 0.
                         else:
                             a.bfac = 1. - a.bfac
                 elif exists(token):
                     d, de = self.read_flexibility(token)
-                    atoms.update_bfac(d, de)
+                    self.atoms.update_bfac(d, de)
                 elif exists(join(config['work_dir'], token)):
                     d, de = self.read_flexibility(join(config['work_dir'], token))
-                    atoms.update_bfac(d, de)
+                    self.atoms.update_bfac(d, de)
                 else:
                     raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
         else:
-            atoms.set_bfac(1.0)
+            self.atoms.set_bfac(1.0)
 
-        self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
+        self.exclude = {}
+        token = config.get('exclude')
+        if token:
+            for s in token:
+                words = s.split('@')
+                if len(words) == 1:
+                    key = 'ALL'
+                else:
+                    key = PP(words[-1])
+                if key in self.exclude:
+                    self.exclude[key] += '+' + words[0]
+                else:
+                    self.exclude[key] = words[0]
+
+            for k, v in self.exclude.items():
+                self.exclude[k] = []
+                for word in v.split('+'):
+                    if ':' in word:
+                        if '-' in word:
+                            beg, end = word.split('-')
+                            self.exclude[k].extend(self.atoms.atom_range(beg, end))
+                        else:
+                            self.exclude[k].append(word)
+                    else:
+                        chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
+                        self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
+
+        self.old_ids = self.atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
-        Atoms.__init__(self, atoms)
+
+        for key, val in self.exclude.items():
+            self.exclude[key] = [self.new_ids[r] for r in val]
+
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
@@ -145,7 +180,7 @@ class Ligand(Atoms):
         self.name, self.conformation, self.location = config['ligand'][num]
         self.selection = 'name CA and not HETERO'
         try:
-            pdb = Pdb(self.name,selection=self.selection)
+            pdb = Pdb(self.name, selection=self.selection)
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
         except InvalidPdbCode:
@@ -200,6 +235,16 @@ class ProteinComplex(Atoms):
                 self.chain_list.update(l.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
+        exclude = []
+        for key, value in receptor.exclude.items():
+            if key == 'ALL':
+                kword = 'PEP'
+            else:
+                kword = key
+            keys = [v for k, v in self.new_ids.items() if re.search(kword, k)]
+            exclude.extend((r1, r2) for r1 in keys for r2 in value)
+        receptor.exclude = list(set(exclude))
+
         for i in range(config['replicas']):
             model = deepcopy(receptor)
             model.set_model_number(i + 1)
@@ -209,7 +254,7 @@ class ProteinComplex(Atoms):
                     if model.min_distance(ligand) > config['ligand_insertion_clash']:
                         ligand = deepcopy(ligand)
                         ligand.set_model_number(i + 1)
-                        model.extend(ligand)
+                        model.atoms.extend(ligand)
                         break
                 else:
                     raise Exception('Maximum number of attempts to insert ligand %s reached!!!' % ligand.name)
