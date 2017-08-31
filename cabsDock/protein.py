@@ -11,7 +11,7 @@ from cabsDock.utils import check_peptide_sequence
 from cabsDock.utils import AA_NAMES
 
 from atom import Atoms
-from pdb import Pdb, InvalidPdbCode, CannotConnectToPdb
+from PDBlib import Pdb, InvalidPdbCode, CannotConnectToPdb
 from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from vector3d import Vector3d
 

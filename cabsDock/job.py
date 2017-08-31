@@ -32,11 +32,11 @@ class CABSTask(object):
     def __init__(
             # TODO KEEP THE DEFAULTS UPDATED FOR TESTING.
             self,
-            work_dir=getcwd(),
             replicas=10,
-            mc_annealing=20,
+            mc_annealing=1,
             mc_cycles=50,
             mc_steps=50,
+            work_dir=getcwd(),
             temperature=(2.0, 1.0),
             replicas_dtemp=0.5,
             separation=20.0,
@@ -177,13 +177,55 @@ class CABSTask(object):
     def calculate_rmsd(self):
         pass
 
-    @abstractmethod
-    def draw_plots(self):
-        pass
+    def draw_plots(self, plots_dir=None):
+        if self.config['verbose']:
+            print('draw_plots')
+        # set the plots dir
+        if plots_dir is None:
+            pltdir = self.config['work_dir'] + '/plots'
+            try:
+                mkdir(pltdir)
+            except OSError:
+                pass
+        else:
+            pltdir = plots_dir
+
+        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
+
+        # RMSD-based graphs
+        if self.config['reference_pdb']:
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
+                            [rmslst, rmslst[self.filtered_ndx,]],
+                            ['all models', 'top 1000 models'],
+                            pltdir + '/E_RMSD_%s' % k)
+                print rmslst.shape
+                print rmslst.reshape(self.config['replicas'], -1).shape
+                print self.config['replicas']
+                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
+                            pltdir + '/RMSD_frame_%s' % k)
+
+        # Contact maps
+        if self.config['contact_maps']:
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+
 
     @abstractmethod
-    def mk_cmaps(self):
-        pass
+    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
+        scmodeler = SCModeler(ca_traj.template)
+        sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
+        sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
+        shp = sc_med.shape
+        sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
+
+        cmapdir = self.config['work_dir'] + '/contact_maps'
+        try:
+            mkdir(cmapdir)
+        except OSError:
+            pass
+
+        return sc_traj_full, sc_traj_1k, sc_med, cmapdir
 
     def prepare_restraints(self):
 
@@ -247,6 +289,7 @@ class CABSTask(object):
         if self.config['verbose']:
             print('CABS simuation is done in %.2f sec.' % (time.time() - stime))
 
+    @abstractmethod
     def load_output(self, ftraf=None, fseq=None):
         """
         Method for loading previously done simulation results. Stores the results to self.trajectory.
@@ -260,23 +303,13 @@ class CABSTask(object):
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
             self.trajectory = self.cabsrun.get_trajectory()
-        self.trajectory.number_of_peptides = len(self.config['ligand'])
         self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         self.trajectory.align_to(self.initial_complex.receptor)
         return self.trajectory
 
+    @abstractmethod
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        if self.config['verbose']:
-            print("score_results")
-        # Filtering the trajectory
-        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
-        # Clustering the trajectory
-        self.medoids, self.clusters_dict, self.clusters = Clustering(
-            self.filtered_trajectory,
-            'chain ' + ','.join(
-                self.initial_complex.ligand_chains,
-            )
-        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+        pass
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
         # output folder
@@ -317,11 +350,12 @@ class DockTask(CABSTask):
     def __init__(   self,
                     receptor,
                     ligand,
+                    mc_annealing=20,
                     reference_pdb=None,
                     align='SW',
                     reference_alignment=None,
                     **kwargs):
-        super(DockTask, self).__init__(**kwargs)
+        super(DockTask, self).__init__(mc_annealing=mc_annealing, **kwargs)
         conf = {    'receptor': receptor,
                     'ligand': ligand,
                     'reference_pdb': reference_pdb,
@@ -341,6 +375,17 @@ class DockTask(CABSTask):
         self.initial_complex = ProteinComplex(self.config)
         if self.config['verbose']:
             print(' ... done.')
+
+    def load_output(self, ftraf=None, fseq=None):
+        """
+        Method for loading previously done simulation results. Stores the results to self.trajectory.
+        :param ftraf: path to TRAF file
+        :param fseq: path to SEQ file
+        :return: returns trajectory.Trajectory instance
+        """
+        ret = super(DockTask, self).load_output(ftraf, fseq)
+        ret.number_of_peptides = len(self.config['ligand'])
+        return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
         if self.config['verbose']:
@@ -388,48 +433,21 @@ class DockTask(CABSTask):
             all_results[pept_chain] = results
         return all_results
 
-    def draw_plots(self, plots_dir=None):
+    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         if self.config['verbose']:
-            print('draw_plots')
-        # set the plots dir
-        if plots_dir is None:
-            pltdir = self.config['work_dir'] + '/plots'
-            try:
-                mkdir(pltdir)
-            except OSError:
-                pass
-        else:
-            pltdir = plots_dir
-
-        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
-
-        # RMSD-based graphs
-        if self.config['reference_pdb']:
-            for k, rmslst in self.rmslst.items():
-                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
-                            [rmslst, rmslst[self.filtered_ndx,]],
-                            ['all models', 'top 1000 models'],
-                            pltdir + '/E_RMSD_%s' % k)
-                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
-                            pltdir + '/RMSD_frame_%s' % k)
-
-        # Contact maps
-        if self.config['contact_maps']:
-            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+            print("score_results")
+        # Filtering the trajectory
+        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
+        # Clustering the trajectory
+        self.medoids, self.clusters_dict, self.clusters = Clustering(
+            self.filtered_trajectory,
+            'chain ' + ','.join(self.initial_complex.ligand_chains,
+            )
+        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
-        scmodeler = SCModeler(ca_traj.template)
-        sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
-        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
-        sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
-        shp = sc_med.shape
-        sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
+        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(ca_traj, meds, clusts, top1k_inds, thr, plots_dir)
 
-        cmapdir = self.config['work_dir'] + '/contact_maps'
-        try:
-            mkdir(cmapdir)
-        except OSError:
-            pass
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
 
@@ -461,10 +479,11 @@ class FlexTask(CABSTask):
 
     def __init__(   self,
                     structure,
+                    replicas=1,
                     **kwargs):
-        super(FlexTask, self).__init__(**kwargs)
-        conf = {    'structure': structure,
-                    '': None}
+        super(FlexTask, self).__init__(replicas, **kwargs)
+        conf = {    'receptor': structure,
+                    'reference_pdb': True}
         self.config.update(conf)
 
     def setup_job(self):
@@ -473,11 +492,45 @@ class FlexTask(CABSTask):
         # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
 
-    def calculate_rmsd(self):
-        pass
+    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
+        if self.config['verbose']:
+            print("score_results")
+        # Filtering the trajectory
+        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
+        # Clustering the trajectory
+        clst = Clustering(self.filtered_trajectory, 'chain ' + ','.join(self.initial_complex.receptor_chains))
+        self.medoids, self.clusters_dict, self.clusters = clst.cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+        self.rmslst = {self.initial_complex.receptor_chains: clst.distance_matrix[0]}
 
-    def draw_plots(self):
-        pass
+    def load_output(self, *args, **kwargs):
+        return super(FlexTask, self).load_output(*args, **kwargs)
 
-    def mk_cmaps(self):
-        pass
+    def calculate_rmsd(self, reference_pdb=None, save=True):
+        if self.config['verbose']:
+            print('calculate_rmsd')
+        if not save:
+            return
+        odir = self.config['work_dir'] + '/output_data'
+        try:
+            mkdir(odir)
+        except OSError:
+            pass
+        with open(odir + '/rmsds.csv', 'w') as f:
+            f.write('RMSD\n')
+            for i in self.rmslst.values()[0]:
+                f.write("%.3f\n" % i)
+
+    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
+        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(ca_traj, meds, clusts, top1k_inds, thr, plots_dir)
+
+        rchs = self.initial_complex.receptor_chains
+
+        cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
+        cmap10k = reduce(operator.add, cmf.mk_cmap(sc_traj_full, thr))
+
+        cmaptop = reduce(operator.add, cmf.mk_cmap(sc_med, thr))
+        cmap1k = reduce(operator.add, cmf.mk_cmap(sc_traj_1k, thr))
+
+        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10k', 'top1k')):
+            cmap.zero_diagonal()
+            cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
