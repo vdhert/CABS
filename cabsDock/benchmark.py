@@ -125,7 +125,7 @@ class BenchmarkAnalyser(object):
                 elif writecase and '#' in thisline[0]:
                     writecase = False
                 elif writecase:
-                    self.cases.append(thisline[0])
+                    self.cases.append(thisline[0].upper())
 
 
     def read_rmsds(self):
@@ -170,15 +170,31 @@ class BenchmarkAnalyser(object):
             message = 'Statistics for {}:\n'.format(key)+'High quality: {}\nMedium quality {}\nLow quality {}\n'.format(*[element/self.successful_runs for element in val])
             print message
 
-    def sort_pictures(self):
+    def sort_outfiles(self):
         self.plots_dir = '{}/plots'.format(self.done_benchdir)
-        mkdir(self.plots_dir)
-        for dir in ['E_RMSD', 'RMSD_frame', 'RMSF']:
-            mkdir(self.plots_dir+'/'+dir)
+        try:
+            mkdir(self.plots_dir)
+        except OSError:
+            pass
+        for dir in ['E_RMSD', 'RMSD_frame', 'RMSF', 'contact_maps']:
+            try:
+                mkdir(self.plots_dir+'/'+dir)
+            except OSError:
+                pass
 
         for case in self.cases:
             for rzecz in ['E_RMSD', 'RMSD_frame', 'RMSF']:
-                copyfile(glob('{}/run/{}/plots/*.svg'.format(self.done_benchdir, case)), '{}/plots/{}'.format(self.done_benchdir, rzecz))
+                original_paths = glob('{}/run/{}/plots/{}*'.format(self.done_benchdir, case, rzecz))
+                print original_paths
+                new_paths = ['{}/plots/{}/{}_'.format(self.done_benchdir, rzecz, case)+path.split('/')[-1] for path in original_paths]
+                print(new_paths)
+                for org, nw in zip(original_paths, new_paths):
+                    copyfile(org, nw)
+                maps_original_paths = glob('{}/run/{}/contact_maps/*'.format(self.done_benchdir, case))
+                maps_new_paths = ['{}/plots/{}/{}_'.format(self.done_benchdir, 'contact_maps', case)+path.split('/')[-1] for path in maps_original_paths]
+                for org, nw in zip(maps_original_paths, maps_new_paths):
+                    copyfile(org,nw)
+
 
 
 
@@ -187,7 +203,8 @@ class BenchmarkAnalyser(object):
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
 #br.run_benchmark(test=True)
 # # print br.benchdir
-# ba = BenchmarkAnalyser('./benchbench')
+ba = BenchmarkAnalyser('/Users/maciek/Desktop/cabsDock/benchrun_Wed_Aug_30_17:19:06_2017')
 # ba.read_rmsds()
 # ba.get_statistics()
 # ba.print_summary()
+ba.sort_outfiles()
