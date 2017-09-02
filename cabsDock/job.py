@@ -351,11 +351,16 @@ class DockTask(CABSTask):
                     receptor,
                     ligand,
                     mc_annealing=20,
+                    temperature=(2.0, 1.0),
                     reference_pdb=None,
+                    mc_cycles=50,
                     align='SW',
                     reference_alignment=None,
                     **kwargs):
-        super(DockTask, self).__init__(mc_annealing=mc_annealing, **kwargs)
+        super(DockTask, self).__init__(mc_annealing=mc_annealing,
+                                        temperature=temperature,
+                                        mc_cycles=mc_cycles,
+                                        **kwargs)
         conf = {    'receptor': receptor,
                     'ligand': ligand,
                     'reference_pdb': reference_pdb,
@@ -480,8 +485,15 @@ class FlexTask(CABSTask):
     def __init__(   self,
                     structure,
                     replicas=1,
+                    temperature=(1.0, 1.0),
+                    receptor_restraints=('ss2', 4, 5.0, 15.0),
+                    mc_cycles=1000,
                     **kwargs):
-        super(FlexTask, self).__init__(replicas, **kwargs)
+        super(FlexTask, self).__init__(replicas,
+                                        temperature=temperature,
+                                        receptor_restraints=receptor_restraints,
+                                        mc_cycles=mc_cycles,
+                                        **kwargs)
         conf = {    'receptor': structure,
                     'reference_pdb': True}
         self.config.update(conf)
@@ -503,7 +515,9 @@ class FlexTask(CABSTask):
         self.rmslst = {self.initial_complex.receptor_chains: clst.distance_matrix[0]}
 
     def load_output(self, *args, **kwargs):
-        return super(FlexTask, self).load_output(*args, **kwargs)
+        ret = super(FlexTask, self).load_output(*args, **kwargs)
+        ret.number_of_peptides = 0
+        return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
         if self.config['verbose']:
