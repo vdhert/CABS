@@ -101,8 +101,10 @@ class Pdb:
         except OSError:
             raise Exception('Dssp not found!')
 
-        logger.info(module_name=__all__[0],
-                    msg = "DSSP running on %s. Selected chains: %s" % (self.name, "".join(self.atoms.list_chains().keys())))
+        logger.info(
+            module_name=__all__[0],
+            msg = "DSSP running on %s. Selected chains: %s" % (self.name, "".join(self.atoms.list_chains().keys()))
+        )
         out, err = proc.communicate(input=''.join(self.lines))
         if err:
             logger.warning(module_name=__all__[0], msg="DSSP returned an error")
@@ -111,7 +113,6 @@ class Pdb:
             if logger.log_level >=2 and output:
                 output += "/output_data/DSSP_output_%s.txt" % self.name
                 logger.to_file(filename=output, content=out, msg="Saving DSSP output to %s" % output)
-
 
         sec = {}
         p = '^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITS ])(.*)$'
@@ -153,6 +154,9 @@ def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
             fobj.write(gz_string)
     file_ = open(fname)
     return GzipFile(fileobj=file_)
+
+def dssp_from_server(filename):
+
 
 
 class PdbFileEmpty(Exception):

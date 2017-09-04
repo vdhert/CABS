@@ -20,7 +20,7 @@ i.e. '-r 1CE1:HL' loads chains H and L of 1CE1 receptor structure downloaded fro
 PEPTIDE can be either:
 
 1. amino acid sequence in one-letter code
-(optionally annotated with secondary structure: H - helix, E - sheet, C - coil)
+(optionally annotated with secondary structure: H - helix, E - sheet, C - coil) 
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence
 with the secondary structure assignemnt: CHHHHHHHHC
 
@@ -99,7 +99,7 @@ MIN and MAX are min and max values in Angstroms for two residues to be restraine
 PEPTIDE must be either:
 
 1. amino acid sequence in one-letter code (optionally annotated with secondary structure:
-H - helix, E - sheet, C - coil)
+H - helix, E - sheet, C - coil) 
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence with the secondary structure
 assignemnt: CHHHHHHHHC
 
