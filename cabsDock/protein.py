@@ -3,17 +3,17 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
+
 from copy import deepcopy
-from os.path import exists, join, isfile
+from os.path import exists, join
 from random import randint
+from string import ascii_uppercase
 
-from cabsDock.utils import check_peptide_sequence
-from cabsDock.utils import AA_NAMES
-
-from atom import Atoms
-from pdb import Pdb, InvalidPdbCode
-from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
-from vector3d import Vector3d
+from cabsDock.atom import Atoms
+from cabsDock.pdb import Pdb, InvalidPdbCode
+from cabsDock.vector3d import Vector3d
+from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
+from cabsDock.utils import PEPtoPEP1 as PP
 
 
 class Receptor(Atoms):
@@ -22,45 +22,72 @@ class Receptor(Atoms):
     """
 
     def __init__(self, config):
+
+        Atoms.__init__(self)
+
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        if isfile(name):
-            pdb = Pdb(pdb_file=name)
-        elif isfile(join(config['work_dir'], name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], name))
-        else:
-            pdb = Pdb(pdb_code=name[:4])
-            m = re.match(r'.{4}:([A-Z]*)', name)
-            if m:
-                selection += ' and chain ' + ','.join(m.group(1))
-                # TODO move to Pdb
-        atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+        pdb = Pdb(name, selection=selection)
+        self.atoms = pdb.atoms.models()[0]
 
-        if 'receptor_flexibility' in config:
-            token = config['receptor_flexibility']
+        token = config.get('receptor_flexibility')
+        if token:
             try:
                 bfac = float(token)
-                atoms.set_bfac(bfac)
+                self.atoms.set_bfac(bfac)
             except ValueError:
-                if token.lower() == 'bfac':
+                if token.lower() == 'bf':
                     pass
-                elif token.lower() == 'bfac_inv':
-                    for a in atoms:
-                        a.bfac = 1. - 0.01 * a.bfac
+                elif token.lower() == 'bfi':
+                    for a in self.atoms:
+                        if a.bfac > 1.:
+                            a.bfac = 0.
+                        else:
+                            a.bfac = 1. - a.bfac
                 elif exists(token):
                     d, de = self.read_flexibility(token)
-                    atoms.update_bfac(d, de)
+                    self.atoms.update_bfac(d, de)
                 elif exists(join(config['work_dir'], token)):
                     d, de = self.read_flexibility(join(config['work_dir'], token))
-                    atoms.update_bfac(d, de)
+                    self.atoms.update_bfac(d, de)
                 else:
                     raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
         else:
-            atoms.set_bfac(1.0)
+            self.atoms.set_bfac(1.0)
 
-        self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
-        # self.new_ids = {v: k for k, v in self.old_ids.items()}
-        Atoms.__init__(self, atoms)
+        self.exclude = {}
+        token = config.get('exclude')
+        if token:
+            for s in token:
+                words = s.split('@')
+                if len(words) == 1:
+                    key = 'ALL'
+                else:
+                    key = PP(words[-1])
+                if key in self.exclude:
+                    self.exclude[key] += '+' + words[0]
+                else:
+                    self.exclude[key] = words[0]
+
+            for k, v in self.exclude.items():
+                self.exclude[k] = []
+                for word in v.split('+'):
+                    if ':' in word:
+                        if '-' in word:
+                            beg, end = word.split('-')
+                            self.exclude[k].extend(self.atoms.atom_range(beg, end))
+                        else:
+                            self.exclude[k].append(word)
+                    else:
+                        chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
+                        self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
+
+        self.old_ids = self.atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
+        self.new_ids = {v: k for k, v in self.old_ids.items()}
+
+        for key, val in self.exclude.items():
+            self.exclude[key] = [self.new_ids[r] for r in val]
+
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
@@ -87,27 +114,36 @@ class Receptor(Atoms):
 
     @staticmethod
     def read_flexibility(filename):
-        patt = re.compile(r'(.*)WEIGHT(.*)', re.IGNORECASE)
+
+        key = r'[0-9A-Z]+:[A-Z]'
+        val = r'[0-9.]+'
+
+        patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
+        patt_single = re.compile('(%s) +(%s)' % (key, val))
 
         with open(filename) as f:
             d = {}
-            def_val = None
+            def_val = 1.0
             for line in f:
-                if not def_val:
-                    def_val = float(line)
-                match = re.match(patt, line)
-                if match:
-                    key = match.group(1).strip()
-                    val = float(match.group(2))
-                    k1, k2 = key.split('-')
-                    n1, c1 = k1.strip().split(':')
-                    n2, c2 = k2.strip().split(':')
-                    n1 = int(n1)
-                    n2 = int(n2)
-                    if c1 != c2 or n1 > n2:
-                        raise Exception('Invalid range: \'%s\' in file: %s!!!' % (key, filename))
-                    for i in range(n1, n2 + 1):
-                        d[str(i) + ':' + c1] = val
+                if re.search('default', line):
+                    def_val = float(line.split()[-1])
+                else:
+                    match = re.search(patt_range, line)
+                    if match:
+                        n1, c1 = match.group(1).split(':')
+                        n2, c2 = match.group(2).split(':')
+                        n1 = int(n1)
+                        n2 = int(n2)
+                        if c1 != c2 or n1 > n2:
+                            raise Exception('Invalid range: \'%s\' in file: %s!!!' % (line, filename))
+                        for i in range(n1, n2 + 1):
+                            d[str(i) + ':' + c1] = float(match.group(3))
+                    else:
+                        match = re.search(patt_single, line)
+                        if match:
+                            d[match.group(1)] = float(match.group(2))
+                        else:
+                            raise Exception('Invalid syntax in flexibility file!!!')
             return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
@@ -142,27 +178,15 @@ class Ligand(Atoms):
 
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
-        selection = 'name CA and not HETERO'
-        if exists(self.name):
-            pdb = Pdb(pdb_file=self.name)
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
+        self.selection = 'name CA and not HETERO'
+        try:
+            pdb = Pdb(self.name, selection=self.selection)
+            atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp())
-        elif exists(join(config['work_dir'], self.name)):
-            pdb = Pdb(pdb_file=join(config['work_dir'], self.name))
-            atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
-            atoms.update_sec(pdb.dssp())
-        else:
-            try:
-                pdb = Pdb(pdb_code=self.name[:4])
-                m = re.match(r'.{4}:([A-Z]*)', self.name)
-                if m:
-                    selection += ' and chain ' + ','.join(m.group(1))
-                atoms = pdb.atoms.remove_alternative_locations().select(selection).models()[0]
-                atoms.update_sec(pdb.dssp())
-            except InvalidPdbCode:
-                seq = self.name.split(':')[0]
-                check_peptide_sequence(seq)
-                atoms = Atoms(self.name)
+        except InvalidPdbCode:
+            seq = self.name.split(':')[0]
+            check_peptide_sequence(seq)
+            atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
         # checks the input peptide sequence for non-standard amino acids.
@@ -207,9 +231,19 @@ class ProteinComplex(Atoms):
                 self.ligand_chains += l[0].chid
                 print(ligand)
                 ligands.append(l)
-                self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
+                self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
+
+        exclude = []
+        for key, value in receptor.exclude.items():
+            if key == 'ALL':
+                kword = 'PEP'
+            else:
+                kword = key
+            keys = [v for k, v in self.new_ids.items() if re.search(kword, k)]
+            exclude.extend((r1, r2) for r1 in keys for r2 in value)
+        receptor.exclude = list(set(exclude))
 
         for i in range(config['replicas']):
             model = deepcopy(receptor)
@@ -220,7 +254,7 @@ class ProteinComplex(Atoms):
                     if model.min_distance(ligand) > config['ligand_insertion_clash']:
                         ligand = deepcopy(ligand)
                         ligand.set_model_number(i + 1)
-                        model.extend(ligand)
+                        model.atoms.extend(ligand)
                         break
                 else:
                     raise Exception('Maximum number of attempts to insert ligand %s reached!!!' % ligand.name)

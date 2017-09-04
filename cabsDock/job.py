@@ -12,7 +12,7 @@ from cabsDock.cmap import ContactMapFactory
 from cabsDock.plots import graph_RMSF
 from cabsDock.plots import plot_E_RMSD
 from cabsDock.plots import plot_RMSD_N
-from cabsDock.utils import SCModeler
+from cabsDock.utils import SCModeler, PEPtoPEP1 as PP
 from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
@@ -52,7 +52,7 @@ class Job:
             sc_rest_weight=1.0,
             receptor_restraints=('all', 4, 5.0, 15.0),
             dssp_command='mkdssp',
-            fortran_command=('gfortran', '-O2'),  # build (command, flags)
+            fortran_command='gfortran',
             filtering_number=1000,  # number of models to filter
             filtering_fromeach=True,
             clustering_medoids=10,
@@ -114,7 +114,7 @@ class Job:
             'sc_rest_weight': sc_rest_weight,
             'receptor_restraints': receptor_restraints,  # sequence gap, min length, max length
             'dssp_command': dssp_command,
-            'fortran_compiler': fortran_command,  # build (command, flags)
+            'fortran_compiler': fortran_command, # build (command, flags)
             'filtering': filtering_number,  # number of models to filter
             'filtering_fromeach': filtering_fromeach,
             'clustering_nmedoids': clustering_medoids,
@@ -133,10 +133,12 @@ class Job:
             'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
+            'receptor_flexibility': receptor_flexibility,
+            'exclude': exclude,
+            'modeller_iterations': modeller_iterations,
+            'excluding_distance': excluding_distance
         }
 
-        if receptor is None:
-            raise Exception('Docking cannot be performed without a receptor.')
         # Job attributes collected.
         self.initial_complex = None
         self.restraints = None
@@ -173,24 +175,23 @@ class Job:
         add_restraints = Restraints('')
 
         if self.config['ca_rest_add']:
-            add_restraints += Restraints(self.config['ca_rest_add'])
+            add_restraints += Restraints.from_parser(self.config['ca_rest_add'])
 
         if self.config['sc_rest_add']:
-            add_restraints += Restraints(self.config['sc_rest_add'], sg=True)
+            add_restraints += Restraints.from_parser(self.config['sc_rest_add'], sg=True)
 
         if self.config['ca_rest_file']:
             for filename in self.config['ca_rest_file']:
-                add_restraints += Restraints(filename)
+                add_restraints += Restraints.from_file(filename)
 
         if self.config['sc_rest_file']:
             for filename in self.config['sc_rest_file']:
-                add_restraints += Restraints(filename, sg=True)
+                add_restraints += Restraints.from_file(filename, sg=True)
 
         receptor_restraints += add_restraints.update_id(self.initial_complex.new_ids)
         return receptor_restraints
 
     def cabsdock(self):
-        self.save_config()
         ftraf = self.config.get('file_TRAF')
         fseq = self.config.get('file_SEQ')
         self.setup_job()
@@ -203,6 +204,7 @@ class Job:
                            number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
             self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+        self.save_config()
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
@@ -401,7 +403,7 @@ class Job:
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0)
+        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0, norm_n=True)
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)

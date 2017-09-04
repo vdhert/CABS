@@ -2,10 +2,9 @@
 
 import re
 import os
-from os.path import exists, expanduser
+from os.path import expanduser
 from gzip import GzipFile
-from urllib2 import urlopen, HTTPError
-from StringIO import StringIO
+from urllib2 import urlopen, HTTPError, URLError
 from subprocess import Popen, PIPE
 
 from atom import Atom, Atoms
@@ -22,30 +21,40 @@ class Pdb:
     def __init__(self, *args, **kwargs):
         self.file_name = None
         self.pdb_code = None
+        self.selection = ""
+        self.remove_alternative_locations = True
         self.atoms = Atoms()
         self.header = []
         self.missed = {}
 
+
         if args and len(args) == 1:
-            if exists(args[0]):
+            if os.path.isfile(re.split(":",args[0])[0]):
                 self.file_name = args[0]
             else:
                 self.pdb_code = args[0]
-        elif kwargs:
+        if kwargs:
             if 'pdb_file' in kwargs:
                 self.file_name = kwargs['pdb_file']
             elif 'pdb_code' in kwargs:
                 self.pdb_code = kwargs['pdb_code']
-        else:
+            if 'selection' in kwargs:
+                self.selection += kwargs['selection']
+            if 'remove_alternative_locations' in kwargs:
+                self.remove_alternative_locations = kwargs['remove_alternative_locations']
+        if not self.file_name and not self.pdb_code:
             raise Exception('Cannot create a Pdb object with no arguments!!!')
 
         if self.file_name:
+            m = re.match(r'[^:]*:([A-Z]*)', self.file_name)
+            self.file_name = re.split(":",self.file_name)[0]
             try:
                 self.lines = GzipFile(self.file_name).readlines()
             except IOError:
                 self.lines = open(self.file_name).readlines()
         elif self.pdb_code:
-            self.lines = download_pdb(self.pdb_code).readlines()
+            m = re.match(r'.{4}:([A-Z]*)', self.pdb_code)
+            self.lines = download_pdb(re.split(":",self.pdb_code)[0]).readlines()
 
         current_model = 0
         for line in self.lines:
@@ -68,6 +77,13 @@ class Pdb:
                 raise PdbFileEmpty(self.file_name)
             elif self.pdb_code:
                 raise PdbFileEmpty(self.pdb_code + '.pdb')
+
+        if m:
+            self.selection += ' and chain ' + ','.join(m.group(1))
+
+        if self.remove_alternative_locations:
+            self.atoms.remove_alternative_locations()
+        self.atoms = self.atoms.select(self.selection)
 
     def __repr__(self):
         return ''.join(self.lines)
@@ -113,6 +129,8 @@ def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
             gz_string = urlopen('http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz').read()
         except HTTPError:
             raise InvalidPdbCode(pdb_code)
+        except URLError:
+            raise CannotConnectToPdb()
         with open(fname, 'w') as fobj:
             fobj.write(gz_string)
     file_ = open(fname)
@@ -134,8 +152,13 @@ class InvalidPdbCode(Exception):
         self.pdbCode = pdb_code
 
     def __str__(self):
-        return self.pdbCode + ' is not a valid pdb code!!!'
+        return self.pdbCode + ' is not a valid pdb code! (perhaps you specified a file that does not exist)'
 
+
+class CannotConnectToPdb(Exception):
+    """Exception raised when the PDB database is not accessible"""
+    def __str__(self):
+        return 'Cannot connect to the PDB database!!!'
 
 if __name__ == '__main__':
     pass
