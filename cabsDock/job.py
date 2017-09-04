@@ -12,7 +12,7 @@ from cabsDock.cmap import ContactMapFactory
 from cabsDock.plots import graph_RMSF
 from cabsDock.plots import plot_E_RMSD
 from cabsDock.plots import plot_RMSD_N
-from cabsDock.utils import SCModeler, PEPtoPEP1 as PP
+from cabsDock.utils import SCModeler
 from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
