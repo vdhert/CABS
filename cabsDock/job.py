@@ -17,6 +17,8 @@ from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
 from trajectory import Trajectory
+from math import ceil
+import logger
 
 __all__ = ['Job']
 
@@ -70,7 +72,7 @@ class Job:
             reference_alignment=None,
             save_config_file=True,
             image_file_format='svg',
-            verbose=None,
+            verbose=1,
             stride_command='stride',
             receptor_flexibility=None,
             exclude=None,
@@ -85,7 +87,6 @@ class Job:
             excluding_distance=5.0,
             modeller_iterations=3,
             output_models=10,
-            output_modeller = False
     ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
@@ -134,7 +135,7 @@ class Job:
             'reference_alignment': reference_alignment,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
-            'output_modeller': output_modeller
+            'verbose' : verbose
         }
 
         if receptor is None:
@@ -192,6 +193,8 @@ class Job:
         return receptor_restraints
 
     def cabsdock(self):
+        logger.setup_log_level(self.config['verbose'])
+
         ftraf = self.config.get('file_TRAF')
         fseq = self.config.get('file_SEQ')
         self.setup_job()
@@ -208,6 +211,7 @@ class Job:
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
+        logger.info(module_name=__all__[0], msg='Simulation completed successfully')
 
     def save_config(self):
         if self.config['save_config_file']:
@@ -234,21 +238,17 @@ class Job:
                     configfile.write('\n'+line)
 
     def setup_job(self):
-        print('CABS-docking job {0}'.format(self.config['receptor']))
         # Preparing the initial complex
-        print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-        print(' ... done.')
 
     def setup_cabs_run(self):
+        logger.info(module_name="CABS", msg='Setting up CABS simulation.')
         # Initializing CabsRun instance
         self.cabsrun = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
         return self.cabsrun
 
     def execute_cabs_run(self):
-        print('CABS simulation starts.')
         self.cabsrun.run()
-        print('CABS simuation is DONE.')
 
     def load_output(self, ftraf=None, fseq=None):
         """
@@ -257,18 +257,20 @@ class Job:
         :param fseq: path to SEQ file
         :return: returns trajectory.Trajectory instance
         """
-        print("load_output")
         if ftraf is not None and fseq is not None:
+            logger.debug(module_name=__all__[0], msg = "Loading trajectories from: %s, %s" % (ftraf,fseq))
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
+            logger.debug(module_name=__all__[0], msg = "Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.number_of_peptides = len(self.config['ligand'])
         self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         self.trajectory.align_to(self.initial_complex.receptor)
+        logger.info(module_name=__all__[0], msg = "Trajectories loaded successfully")
         return self.trajectory
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        print("score_results")
+        logger.debug(module_name=__all__[0],msg="Scoring results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
@@ -278,9 +280,10 @@ class Job:
                 self.initial_complex.ligand_chains,
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+        logger.info(module_name=__all__[0],msg="Scoring results successful")
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        print('calculate_rmsd')
+        logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'
             try:
@@ -322,10 +325,11 @@ class Job:
                         for rmsd in results['rmsds_' + type]:
                             outfile.write(str(rmsd) + ';\n')
             all_results[pept_chain] = results
+        logger.info(module_name=__all__[0], msg = "RMSD successfully saved")
         return all_results
 
     def draw_plots(self, plots_dir=None):
-        print('draw_plots')
+        logger.debug(module_name=__all__[0], msg = "Drawing plots")
         # set the plots dir
         if plots_dir is None:
             pltdir = self.config['work_dir'] + '/plots'
@@ -335,11 +339,13 @@ class Job:
                 pass
         else:
             pltdir = plots_dir
+        logger.log_file(module_name=__all__[0],msg="Saving plots to %s" % pltdir)
 
         graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
+            logger.log_file(module_name=__all__[0], msg="Saving RMSD plots")
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                             [rmslst, rmslst[self.filtered_ndx,]],
@@ -350,39 +356,48 @@ class Job:
 
         # Contact maps
         if self.config['contact_maps']:
+            logger.log_file(module_name=__all__[0], msg="Saving contact maps")
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+        logger.info(module_name=__all__[0], msg="Plots successfully saved")
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
-        # output folder
         output_folder = self.config['work_dir'] + '/output_pdbs'
+        logger.log_file(module_name=__all__[0], msg="Saving pdb files to " + str(output_folder))
         try:
             mkdir(output_folder)
         except OSError:
+            logger.warning(module_name=__all__[0], msg="Possibly overwriting previous pdb files")
             pass
-        print('save_models')
-        # Saving the trajectory to PDBs:
+
         if replicas:
+            logger.log_file(module_name=__all__[0], msg='Saving replicas...')
             self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
-        # Saving top1000 models to PDB:
+
         if topn:
+            logger.log_file(module_name=__all__[0], msg='Saving top 1000 models...')
             self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
-        # Saving clusters in CA representation
+
         if clusters:
+            logger.log_file(module_name=__all__[0], msg='Saving clusters...')
             for i, cluster in enumerate(self.clusters):
                 cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
-        # Saving top10 models:
+
+        logger.log_file(module_name=__all__[0],msg='Saving medoids (in '+ medoids + ' representation)')
         if medoids == 'CA':
             # Saving top 10 models in CA representation:
             self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
         elif medoids == 'AA':
-            # Saving top 10 models in AA representation:
             pdb_medoids = self.medoids.to_pdb()
             if self.config['AA_rebuild']:
+                progress = logger.ProgressBar(module_name="MODELLER",job_name="Modeller")
                 from cabsDock.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                           output_modeller=self.config['output_modeller'],
-                            out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
+                        out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
+                    progress.update(ceil(100.0/len(pdb_medoids)))
+                progress.done()
+        logger.log_file(module_name=__all__[0],msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
+        logger.debug(module_name=__all__[0],msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)

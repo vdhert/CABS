@@ -2,6 +2,8 @@
 
 import re
 import os
+import logger
+
 from os.path import exists, expanduser
 from gzip import GzipFile
 from urllib2 import urlopen, HTTPError
@@ -10,7 +12,7 @@ from subprocess import Popen, PIPE
 
 from atom import Atom, Atoms
 
-
+__all__ = ["PDB"]
 class Pdb:
     """
     Pdb parser. Initialized by:
@@ -27,6 +29,7 @@ class Pdb:
         self.atoms = Atoms()
         self.header = []
         self.missed = {}
+        self.name = ""
 
 
         if args and len(args) == 1:
@@ -44,7 +47,7 @@ class Pdb:
             if 'remove_alternative_locations' in kwargs:
                 self.remove_alternative_locations = kwargs['remove_alternative_locations']
         if not self.file_name and not self.pdb_code:
-            raise Exception('Cannot create a Pdb object with no arguments!!!')
+            raise Exception('Cannot create a Pdb object with no arguments!')
 
         if self.file_name:
             m = re.match(r'[^:]*:([A-Z]*)', self.file_name)
@@ -53,9 +56,11 @@ class Pdb:
                 self.lines = GzipFile(self.file_name).readlines()
             except IOError:
                 self.lines = open(self.file_name).readlines()
+            self.name = self.file_name.split(".")[0]
         elif self.pdb_code:
             m = re.match(r'.{4}:([A-Z]*)', self.pdb_code)
-            self.lines = download_pdb(re.split(":",self.pdb_code)[0]).readlines()
+            self.name = re.split(":", self.pdb_code)[0]
+            self.lines = download_pdb(self.name).readlines()
 
         current_model = 0
         for line in self.lines:
@@ -89,17 +94,28 @@ class Pdb:
     def __repr__(self):
         return ''.join(self.lines)
 
-    def dssp(self, dssp_command='mkdssp'):
+    def dssp(self, dssp_command='mkdssp', output = ''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
         try:
             proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         except OSError:
-            raise Exception('Dssp not found!!!')
+            raise Exception('Dssp not found!')
+
+        logger.info(module_name=__all__[0],
+                    msg = "DSSP running on %s. Selected chains: %s" % (self.name, "".join(self.atoms.list_chains().keys())))
         out, err = proc.communicate(input=''.join(self.lines))
         if err:
+            logger.warning(module_name=__all__[0], msg="DSSP returned an error")
             return None
+        else:
+            if logger.log_level >=2 and output:
+                output += "/output_data/DSSP_output_%s.txt" % self.name
+                logger.to_file(filename=output, content=out, msg="Saving DSSP output to %s" % output)
+
+
         sec = {}
         p = '^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITS ])(.*)$'
+
         for line in out.split('\n'):
             m = re.match(p, line)
             if m:
@@ -113,6 +129,7 @@ class Pdb:
                 else:
                     val = 'C'
                 sec[key] = val
+
         return sec
 
 

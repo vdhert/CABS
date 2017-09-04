@@ -10,13 +10,12 @@ from atom import Atom, Atoms
 from pdb import Pdb
 from utils import ranges
 from utils import kabsch
-from utils import ProgressBar
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
 from align import save_fasta
 from align import load_csv
-import warnings
+from logger import ProgressBar
 
 __all__ = ['Trajectory', 'Header']
 

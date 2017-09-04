@@ -3,6 +3,7 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
+import logger
 from copy import deepcopy
 from os.path import exists, join, isfile
 from random import randint
@@ -15,7 +16,7 @@ from pdb import Pdb, InvalidPdbCode
 from utils import RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from vector3d import Vector3d
 
-
+__all__ = ["Protein"]
 class Receptor(Atoms):
     """
     Class for the protein receptor molecule. Initialized with job's config dictionary.
@@ -26,7 +27,7 @@ class Receptor(Atoms):
         selection = 'name CA and not HETERO'
         pdb = Pdb(name,selection=selection)
         atoms = pdb.atoms.models()[0]
-
+        logger.info(module_name=__all__[0], msg = "Loading %s as receptor" % name)
         if 'receptor_flexibility' in config:
             token = config['receptor_flexibility']
             try:
@@ -49,7 +50,8 @@ class Receptor(Atoms):
         else:
             atoms.set_bfac(1.0)
 
-        self.old_ids = atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
+        self.old_ids = atoms.update_sec(
+            pdb.dssp(dssp_command=config['dssp_command'],output=config['work_dir'])).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
         Atoms.__init__(self, atoms)
         self.center = self.cent_of_mass()
@@ -134,11 +136,15 @@ class Ligand(Atoms):
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         self.selection = 'name CA and not HETERO'
+        logger.info(module_name=__all__[0],
+                    msg = "Loading ligand: name = %s, conformation = %s, location = %s" %
+                          (self.name.split(':')[0], self.conformation, self.location) )
         try:
             pdb = Pdb(self.name,selection=self.selection)
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp())
+            atoms.update_sec(pdb.dssp(output=config['work_dir']))
         except InvalidPdbCode:
+            logger.debug(module_name=__all__[0],msg = 'Provided ligand is not a valid pdb code/file')
             seq = self.name.split(':')[0]
             check_peptide_sequence(seq)
             atoms = Atoms(self.name)
@@ -166,6 +172,7 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, config):
+        logger.debug(module_name=__all__[0], msg = "Preparing the complex")
         Atoms.__init__(self)
         self.separation = config['initial_separation']
 
@@ -184,7 +191,6 @@ class ProteinComplex(Atoms):
                     l.change_chid(l[0].chid, next_letter(taken_chains))
                 taken_chains += l[0].chid
                 self.ligand_chains += l[0].chid
-                print(ligand)
                 ligands.append(l)
                 self.old_ids.update({atom.resid_id(): '%i:LIG%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())
@@ -206,6 +212,7 @@ class ProteinComplex(Atoms):
             self.atoms.extend(model)
             self.receptor = receptor
             self.ligands = ligands
+        logger.debug(module_name=__all__[0], msg="Complex successfully created")
 
     def insert_ligand(self, receptor, ligand):
 
