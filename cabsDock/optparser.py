@@ -1,11 +1,11 @@
 import csv
 import argparse
+import re
 
 
 class CustomFormatter(argparse.RawTextHelpFormatter):
     def __init__(self, *args, **kwargs):
         argparse.HelpFormatter.__init__(self, indent_increment=1, max_help_position=4, *args, **kwargs)
-    # TODO zawijanie dlugich lini, indent dla list
 
 
 def string_cast(string):
@@ -28,20 +28,12 @@ def string_cast(string):
 
 class ParserFactory:
 
-    FIELDS = {}
+    def __init__(self, filecsv, required=()):
 
-    def __init__(self, filecsv, fields, sep):
-
-        ParserFactory.FIELDS['name'] = fields[0] - 1
-        ParserFactory.FIELDS['usage'] = fields[1] - 1
-        ParserFactory.FIELDS['help'] = fields[2] - 1
-        ParserFactory.FIELDS['default'] = fields[3] - 1
-        ParserFactory.FIELDS['action'] = fields[4] - 1
-
-        self.defaults = {}
+        self.required = required
 
         with open(filecsv) as f:
-            lines = [l for l in csv.reader(f, delimiter=sep)]
+            lines = [l for l in csv.reader(f, delimiter=',')]
         p, g = ParserFactory._parse_csv(lines)
         self.parser = ParserFactory._build_parser(p)
         self._populate_parser(g, self.parser)
@@ -91,13 +83,17 @@ class ParserFactory:
 
     def _add_arg(self, line, _group):
 
-        name = [n.strip() for n in line[ParserFactory.FIELDS['name']].split(',')]
-        usage = line[ParserFactory.FIELDS['usage']].split()
-        help = line[ParserFactory.FIELDS['help']]
-        default = line[ParserFactory.FIELDS['default']].split()
-        action = line[ParserFactory.FIELDS['action']]
+        name = [n.strip() for n in line[0].split(',')]
+        usage = line[1].split()
+        help = line[2]
+        default = line[3].split()
+        action = line[4]
+        type = line[5]
 
         kwargs = {}
+        if name[-1][2:] in self.required:
+            kwargs['required'] = True
+
         ile = len(usage)
         if ile > 1:
             kwargs['nargs'] = ile
@@ -108,7 +104,6 @@ class ParserFactory:
             kwargs['metavar'] = usage[0]
             if len(default) == 1:
                 kwargs['default'] = string_cast(default[0])
-                kwargs['type'] = type(kwargs['default'])
         else:
             pass
 
@@ -116,7 +111,39 @@ class ParserFactory:
         if action:
             kwargs['action'] = action
 
+        if action == 'count':
+            kwargs.pop('metavar')
+
+        if type == 'int':
+            kwargs['type'] = int
+        elif type == 'float':
+            kwargs['type'] = float
+
         _group.add_argument(*name, **kwargs)
 
+
+class ConfigFileParser:
+
+    OPTIONRE = re.compile(
+        r'(?P<option>[^:=]*)'
+        r'[:=]'
+        r'(?P<value>.*)$'
+    )
+
+    def __init__(self, filename):
+        self.args = []
+        with open(filename) as f:
+            for line in f:
+                if line == '' or line[0] in ';#\n':
+                    continue
+                match = self.OPTIONRE.match(line)
+                if match:
+                    option, value = match.groups()
+                    self.args.append('--' + option.strip())
+                    self.args.extend(value.split('#')[0].split(';')[0].split())
+                else:
+                    self.args.extend(line.split('#')[0].split(';')[0].split())
+
+
 if __name__ == '__main__':
-   pass
+    pass
