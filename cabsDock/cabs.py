@@ -12,10 +12,11 @@ from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
 from collections import OrderedDict
+from tempfile import mkdtemp
+from time import strftime
 
 from cabsDock.vector3d import Vector3d
 from cabsDock.trajectory import Trajectory
-from cabsDock.utils import PEPtoPEP1 as PP
 
 __all__ = ['CABS']
 
@@ -132,17 +133,12 @@ class CabsRun(Thread):
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
             * nreps * config['mc_cycles'] * config['mc_annealing']
 
-        cabs_dir = join(config['work_dir'], '.CABS')
-        if exists(cabs_dir):
-            if not isdir(cabs_dir):
-                raise Exception(cabs_dir + ' exists and is not a directory!')
-            else:
-                tra = join(cabs_dir, 'TRAF')
-                if exists(tra):
-                    os.remove(tra)
+        cabs_dir = mkdtemp(
+            prefix=strftime('.%d%b.%H:%M:%S.'),
+            dir=config['work_dir']
+        )
 
-        else:
-            os.mkdir(cabs_dir, 0755)
+        os.mkdir(cabs_dir, 0755)
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)

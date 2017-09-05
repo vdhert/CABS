@@ -1,7 +1,6 @@
 from cabsDock.optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
 from sys import argv
-from collections import OrderedDict
 
 
 class Config(dict):
@@ -45,11 +44,6 @@ def run_job():
 
     from cabsDock.job import Job
     job = Job(**config)
-
-    # tutaj dopisac warunek na cabsflexa
-
-    # wypisz config
-    #print job
 
     # start docking
     job.cabsdock()
