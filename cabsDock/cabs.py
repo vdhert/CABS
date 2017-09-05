@@ -4,6 +4,7 @@ import os
 import re
 import numpy as np
 import tarfile
+import logger
 from os.path import join, exists, isdir
 from operator import attrgetter
 from subprocess import Popen, PIPE, check_output
@@ -16,6 +17,7 @@ from cabsDock.vector3d import Vector3d
 from cabsDock.trajectory import Trajectory
 from cabsDock.utils import PEPtoPEP1 as PP
 
+__all__ = ['CABS']
 
 class CabsLattice:
     """
@@ -112,9 +114,9 @@ class CabsRun(Thread):
         :param config: Dictionary from Job object running CabsRun
         """
         Thread.__init__(self)
-
+        logger.debug(module_name=__all__[0],msg="Loading structures...")
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
-
+        logger.debug(module_name=__all__[0], msg="Loading restraints...")
         restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
@@ -133,7 +135,7 @@ class CabsRun(Thread):
         cabs_dir = join(config['work_dir'], '.CABS')
         if exists(cabs_dir):
             if not isdir(cabs_dir):
-                raise Exception(cabs_dir + ' exists and is not a directory!!!')
+                raise Exception(cabs_dir + ' exists and is not a directory!')
             else:
                 tra = join(cabs_dir, 'TRAF')
                 if exists(tra):
@@ -149,6 +151,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'INP'), 'w') as f:
             f.write(inp + restr + exclude)
 
+        logger.debug(module_name=__all__[0], msg="Building exe...")
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('cabsDock', 'data/data0.dat'),
@@ -276,16 +279,11 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        return Popen(self.cfg['exe'], cwd=self.cfg['cwd']).wait()
-
-    def status(self):
-        traj = join(self.cfg['cwd'], 'TRAF')
-        if not exists(traj):
-            progress = 0.
-        else:
-            progress = 100. * int(check_output(['wc', '-l', traj]).split()[0]) / self.cfg['tra']
-
-        return progress
+        monitor = logger.cabs_observer(interval=0.2,traj = join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
+        CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'],stderr=PIPE,stdin=PIPE)
+        (stdout, stderr) = CABS.communicate()
+        if stderr: logger.warning(module_name=__all__[0],msg=stderr)
+        monitor.exit()
 
     def get_trajectory(self):
         traf = join(self.cfg['cwd'], 'TRAF')

@@ -20,7 +20,7 @@ i.e. '-r 1CE1:HL' loads chains H and L of 1CE1 receptor structure downloaded fro
 PEPTIDE can be either:
 
 1. amino acid sequence in one-letter code
-(optionally annotated with secondary structure: H - helix, E - sheet, C - coil) 
+(optionally annotated with secondary structure: H - helix, E - sheet, C - coil)
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence
 with the secondary structure assignemnt: CHHHHHHHHC
 
@@ -99,7 +99,7 @@ MIN and MAX are min and max values in Angstroms for two residues to be restraine
 PEPTIDE must be either:
 
 1. amino acid sequence in one-letter code (optionally annotated with secondary structure:
-H - helix, E - sheet, C - coil) 
+H - helix, E - sheet, C - coil)
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence with the secondary structure
 assignemnt: CHHHHHHHHC
 
@@ -198,4 +198,4 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --fortran-command,PATH,provide path to fortran compiler binary,gfortran,,
 --save-config-file,PATH,"generates a config file that may be used to re-run the docking or, together with TRAF and SEQ output files (see --save-cabs-files option), to run analysis on finished jobs (see --load-cabs-files option).",,,
 --save-cabs-files,,save CABSdock simulation files,,store_true,
-"-V, --verbose",VERBOSITY,set verbosity level,,count,
+"-V, --verbose",VERBOSITY,"Controls how explicit the program output is. -1 for silent mode (only critical messages), 3 for maximum verbosity. Defaults to 1.",1,,int

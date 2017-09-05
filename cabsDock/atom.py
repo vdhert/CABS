@@ -11,8 +11,9 @@ from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict
 
-from utils import CABS_SS, aa_to_long, smart_flatten, kabsch, ProgressBar
+from utils import CABS_SS, aa_to_long, smart_flatten, kabsch
 from vector3d import Vector3d
+from logger import ProgressBar
 
 
 class Atom:
