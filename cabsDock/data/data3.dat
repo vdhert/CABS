@@ -20,7 +20,7 @@ i.e. '-r 1CE1:HL' loads chains H and L of 1CE1 receptor structure downloaded fro
 PEPTIDE can be either:
 
 1. amino acid sequence in one-letter code
-(optionally annotated with secondary structure: H - helix, E - sheet, C - coil)
+(optionally annotated with secondary structure: H - helix, E - sheet, C - coil) 
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence
 with the secondary structure assignemnt: CHHHHHHHHC
 
@@ -99,7 +99,7 @@ MIN and MAX are min and max values in Angstroms for two residues to be restraine
 PEPTIDE must be either:
 
 1. amino acid sequence in one-letter code (optionally annotated with secondary structure:
-H - helix, E - sheet, C - coil)
+H - helix, E - sheet, C - coil) 
 i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence with the secondary structure
 assignemnt: CHHHHHHHHC
 
@@ -176,7 +176,7 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --clustering-iterations,NUM,The number of iterations of the clustering k-medoids algorithm.,100,,int
 --filtering-number,NUM,Number of low-energy models from the trajectory to be filtered.,1000,,int
 --filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory. ,,store_true,
---clustering-medoids,NUM,Number of medoids in k-medoids clustering algorithm.,,,int
+--clustering-medoids,NUM,Number of medoids in k-medoids clustering algorithm.,10,,int
 --load-cabs-files,FILE,"Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option). ",,,
 --contact-maps,,"Stores contact maps matrix plots and histograms of contact frequencies.
 ",,store_true,
