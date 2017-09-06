@@ -94,6 +94,7 @@ class Receptor(Atoms):
         self.check_residue_modifications()
 
     def check_residue_modifications(self):
+        print self
         for atom in self:
             atom.resname = fix_residue(atom.resname)
         return self

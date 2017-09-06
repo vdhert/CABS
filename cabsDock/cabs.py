@@ -201,7 +201,6 @@ class CabsRun(Thread):
                 fchains[i] += str(len(vectors)) + '\n' + '\n'.join(
                     ['%i %i %i' % (int(v.x), int(v.y), int(v.z)) for v in vectors]
                 ) + '\n'
-
         return ''.join(fchains), seq, cabs_ids
 
     @staticmethod

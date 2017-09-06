@@ -176,7 +176,7 @@ class BenchmarkAnalyser(object):
             mkdir(self.plots_dir)
         except OSError:
             pass
-        for dir in ['E_RMSD', 'RMSD_frame', 'RMSF', 'contact_maps']:
+        for dir in ['E_RMSD', 'RMSD_frame', 'RMSF', 'contact_maps', 'medoid_rmsds']:
             try:
                 mkdir(self.plots_dir+'/'+dir)
             except OSError:
@@ -185,17 +185,20 @@ class BenchmarkAnalyser(object):
         for case in self.cases:
             for rzecz in ['E_RMSD', 'RMSD_frame', 'RMSF']:
                 original_paths = glob('{}/run/{}/plots/{}*'.format(self.done_benchdir, case, rzecz))
-                print original_paths
+                #print original_paths
                 new_paths = ['{}/plots/{}/{}_'.format(self.done_benchdir, rzecz, case)+path.split('/')[-1] for path in original_paths]
-                print(new_paths)
+                #print(new_paths)
                 for org, nw in zip(original_paths, new_paths):
                     copyfile(org, nw)
                 maps_original_paths = glob('{}/run/{}/contact_maps/*'.format(self.done_benchdir, case))
                 maps_new_paths = ['{}/plots/{}/{}_'.format(self.done_benchdir, 'contact_maps', case)+path.split('/')[-1] for path in maps_original_paths]
                 for org, nw in zip(maps_original_paths, maps_new_paths):
                     copyfile(org,nw)
-
-
+                rmsd_medoids_original_paths = glob('{}/run/{}/output_data/medoids_rmsd*'.format(self.done_benchdir, case))
+                #print rmsd_medoids_original_paths
+                rmsd_medoids_new_paths = ['{}/plots/{}/{}_'.format(self.done_benchdir, 'medoid_rmsds', case)+path.split('/')[-1] for path in rmsd_medoids_original_paths]
+                for org, nw in zip(rmsd_medoids_original_paths, rmsd_medoids_new_paths):
+                    copyfile(org, nw)
 
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
@@ -203,8 +206,13 @@ class BenchmarkAnalyser(object):
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
 #br.run_benchmark(test=True)
 # # print br.benchdir
-ba = BenchmarkAnalyser('/Users/maciek/Desktop/cabsDock/benchrun_Wed_Aug_30_17:19:06_2017')
+runs = ['benchrun_Wed_Aug_30_17:15:59_2017', 'benchrun_Wed_Aug_30_17:18:42_2017', 'benchrun_Wed_Aug_30_17:19:06_2017']
+for run in runs:
+    ba = BenchmarkAnalyser('/Users/maciek/Desktop/cabsDock/'+run)
+    ba.sort_outfiles()
 # ba.read_rmsds()
 # ba.get_statistics()
 # ba.print_summary()
-ba.sort_outfiles()
+
+
+
