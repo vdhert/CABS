@@ -31,6 +31,14 @@ class PbsGenerator(object):
                 print row
                 if len(row) > 7:
                     sc_rests = (str(row[7]), str(row[8]))
+            elif runtype=='frompdb':
+                receptor = str(row[0]) + ':' + str(row[1])
+                ligand = str(row[0]) + ':' + str(row[2])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[2])
+                sc_rests = []
+                print row
+                if len(row) > 3:
+                    sc_rests = (str(row[3]), str(row[4]))
 
             self.cases.append(
                 Case(
@@ -97,5 +105,5 @@ class Case(object):
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
 #usage
-# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
-# pbsgntr.pbs_script('pbs')
+#pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
+#pbsgntr.pbs_script('pbs')

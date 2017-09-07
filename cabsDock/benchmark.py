@@ -203,13 +203,13 @@ class BenchmarkAnalyser(object):
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
-#br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
-#br.run_benchmark(test=True)
+br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
+br.run_benchmark(test=True)
 # # print br.benchdir
-runs = ['benchrun_Wed_Aug_30_17:15:59_2017', 'benchrun_Wed_Aug_30_17:18:42_2017', 'benchrun_Wed_Aug_30_17:19:06_2017']
-for run in runs:
-    ba = BenchmarkAnalyser('/Users/maciek/Desktop/cabsDock/'+run)
-    ba.sort_outfiles()
+#runs = ['benchrun_Wed_Aug_30_17:15:59_2017', 'benchrun_Wed_Aug_30_17:18:42_2017', 'benchrun_Wed_Aug_30_17:19:06_2017']
+#for run in runs:
+#    ba = BenchmarkAnalyser('/Users/maciek/Desktop/cabsDock/'+run)
+#    ba.sort_outfiles()
 # ba.read_rmsds()
 # ba.get_statistics()
 # ba.print_summary()
