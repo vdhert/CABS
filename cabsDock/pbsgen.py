@@ -16,7 +16,7 @@ class PbsGenerator(object):
             if row[0] =='-':
                 continue
             if runtype=='bound':
-                print row
+                #print row
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
                 reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[4])
@@ -28,7 +28,7 @@ class PbsGenerator(object):
                 ligand = str(row[2] + ':' + str(row[3]))
                 reference_pdb = str(row[4]) + ':' + str(row[5])+str(row[6])
                 sc_rests = []
-                print row
+                #print row
                 if len(row) > 7:
                     sc_rests = (str(row[7]), str(row[8]))
             elif runtype=='frompdb':
@@ -36,7 +36,7 @@ class PbsGenerator(object):
                 ligand = str(row[0]) + ':' + str(row[2])
                 reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[2])
                 sc_rests = []
-                print row
+                #print row
                 if len(row) > 3:
                     sc_rests = (str(row[3]), str(row[4]))
 
@@ -69,7 +69,7 @@ class PbsGenerator(object):
         additional_options = ' '.join(['{} {}'.format(key, value) for (key, value) in self.options_dict.items()])
         for case in self.cases:
             name = case.receptor.split(':')[0]
-            print name
+            #print name
             with open(scriptdir+'/{}.pbs'.format(name), 'w') as scriptfile:
                 scriptfile.write(self.standard_header)
                 scriptfile.write(

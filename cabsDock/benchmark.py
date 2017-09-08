@@ -6,6 +6,25 @@ from cabsDock.pbsgen import PbsGenerator
 import time
 from subprocess import call
 
+class StandardRunner(object):
+    def run_standard(self):
+        with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
+            print("Bound benchmarks:")
+            log.write("Bound benchmarks:\n")
+            for i in xrange(3):
+                print('... Run {}'.format(i))
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+            print("Unbound benchmarks:")
+            log.write("Unbound benchmarks:\n")
+            for i in xrange(3):
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+
 class CommandGenerator(object):
     option_dictionary = {
         '-r': ('2gb1', 'aaaa'),
@@ -96,7 +115,7 @@ class BenchmarkRunner(object):
         command = 'for f in {}/pbs/*.pbs; do qsub {} $f; done'.format(self.benchdir, options_as_str)
         print command
         if test:
-           pass
+           return command
         else:
             call(command)
 
@@ -203,8 +222,8 @@ class BenchmarkAnalyser(object):
 
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
-br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
-br.run_benchmark(test=True)
+#br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
+#br.run_benchmark(test=True)
 # # print br.benchdir
 #runs = ['benchrun_Wed_Aug_30_17:15:59_2017', 'benchrun_Wed_Aug_30_17:18:42_2017', 'benchrun_Wed_Aug_30_17:19:06_2017']
 #for run in runs:
@@ -213,6 +232,22 @@ br.run_benchmark(test=True)
 # ba.read_rmsds()
 # ba.get_statistics()
 # ba.print_summary()
+# with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/','')), 'a+b') as log:
+#     print("Bound benchmarks:")
+#     log.write("Bound benchmarks:\n")
+#     for i in xrange(3):
+#         print('... Run {}'.format(i))
+#         br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
+#         command = br.run_benchmark(test=True)
+#         log.write(command)
+#         log.write(';\n')
+#     print("Unbound benchmarks:")
+#     log.write("Unbound benchmarks:\n")
+#     for i in xrange(3):
+#         br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
+#         command = br.run_benchmark(test=True)
+#         log.write(command)
+#         log.write(';\n')
 
 
 
