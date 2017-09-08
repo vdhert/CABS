@@ -14,6 +14,7 @@ class StandardRunner(object):
             for i in xrange(3):
                 print('... Run {}'.format(i))
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
+                time.sleep(1)
                 command = br.run_benchmark(test=True)
                 log.write(command)
                 log.write(';\n')
@@ -21,6 +22,7 @@ class StandardRunner(object):
             log.write("Unbound benchmarks:\n")
             for i in xrange(3):
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
+                time.sleep(1)
                 command = br.run_benchmark(test=True)
                 log.write(command)
                 log.write(';\n')
