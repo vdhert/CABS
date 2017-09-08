@@ -147,6 +147,9 @@ class Receptor(Atoms):
             return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
+        gap = int(gap)
+        min_d = float(min_d)
+        max_d = float(max_d)
         restr = []
         l = len(self.atoms)
 

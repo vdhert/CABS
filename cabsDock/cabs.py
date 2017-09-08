@@ -138,8 +138,6 @@ class CabsRun(Thread):
             dir=config['work_dir']
         )
 
-        os.mkdir(cabs_dir, 0755)
-
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
