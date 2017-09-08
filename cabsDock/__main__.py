@@ -48,11 +48,6 @@ def run_job():
     from cabsDock.job import Job
     job = Job(**config)
 
-    # tutaj dopisac warunek na cabsflexa
-
-    # wypisz config
-    #print job
-
     # start docking
     job.cabsdock()
 

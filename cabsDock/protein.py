@@ -3,7 +3,7 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
-
+import logger
 from copy import deepcopy
 from os.path import exists, join
 from random import randint
@@ -15,7 +15,7 @@ from cabsDock.vector3d import Vector3d
 from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from cabsDock.utils import PEPtoPEP1 as PP
 
-
+__all__ = ["Protein"]
 class Receptor(Atoms):
     """
     Class for the protein receptor molecule. Initialized with job's config dictionary.
@@ -29,7 +29,7 @@ class Receptor(Atoms):
         selection = 'name CA and not HETERO'
         pdb = Pdb(name, selection=selection)
         self.atoms = pdb.atoms.models()[0]
-
+        logger.info(module_name=__all__[0], msg = "Loading %s as receptor" % name)
         token = config.get('receptor_flexibility')
         if token:
             try:
@@ -82,7 +82,7 @@ class Receptor(Atoms):
                         chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
-        self.old_ids = self.atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'])).fix_broken_chains()
+        self.old_ids = self.atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'],output=config['work_dir'])).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
         for key, val in self.exclude.items():
@@ -148,6 +148,9 @@ class Receptor(Atoms):
             return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
+        gap = int(gap)
+        min_d = float(min_d)
+        max_d = float(max_d)
         restr = []
         l = len(self.atoms)
 
@@ -156,7 +159,7 @@ class Receptor(Atoms):
             ssi = int(a1.occ) % 2
             if mode == 'ss2' and ssi:
                 continue
-            for j in range(i + gap + 1, l):
+            for j in range(i + gap, l):
                 a2 = self.atoms[j]
                 ssj = int(a2.occ) % 2
                 if (mode == 'ss2' and ssj) or (mode == 'ss1' and ssi * ssj):
@@ -180,11 +183,15 @@ class Ligand(Atoms):
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         self.selection = 'name CA and not HETERO'
+        logger.info(module_name=__all__[0],
+                    msg = "Loading ligand: name = %s, conformation = %s, location = %s" %
+                          (self.name.split(':')[0], self.conformation, self.location) )
         try:
             pdb = Pdb(self.name, selection=self.selection)
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp())
+            atoms.update_sec(pdb.dssp(output=config['work_dir']))
         except InvalidPdbCode:
+            logger.debug(module_name=__all__[0],msg = 'Provided ligand is not a valid pdb code/file')
             seq = self.name.split(':')[0]
             check_peptide_sequence(seq)
             atoms = Atoms(self.name)
@@ -212,6 +219,7 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, config):
+        logger.debug(module_name=__all__[0], msg = "Preparing the complex")
         Atoms.__init__(self)
         self.separation = config['initial_separation']
 
@@ -230,7 +238,6 @@ class ProteinComplex(Atoms):
                     l.change_chid(l[0].chid, next_letter(taken_chains))
                 taken_chains += l[0].chid
                 self.ligand_chains += l[0].chid
-                print(ligand)
                 ligands.append(l)
                 self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
                 self.chain_list.update(l.list_chains())
@@ -262,6 +269,7 @@ class ProteinComplex(Atoms):
             self.atoms.extend(model)
             self.receptor = receptor
             self.ligands = ligands
+        logger.debug(module_name=__all__[0], msg="Complex successfully created")
 
     def insert_ligand(self, receptor, ligand):
 
