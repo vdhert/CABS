@@ -158,7 +158,7 @@ class Receptor(Atoms):
             ssi = int(a1.occ) % 2
             if mode == 'ss2' and ssi:
                 continue
-            for j in range(i + gap + 1, l):
+            for j in range(i + gap, l):
                 a2 = self.atoms[j]
                 ssj = int(a2.occ) % 2
                 if (mode == 'ss2' and ssj) or (mode == 'ss1' and ssi * ssj):
