@@ -163,7 +163,9 @@ class Job:
         work_dir = self.config['work_dir']
         if exists(work_dir):
             if not isdir(work_dir):
-                raise Exception('File %s already exists and is not a directory' % work_dir)
+                logger.exit_program(module_name=__all__[0],
+                                    msg='Selected working directory: %s already exists and is not a directory. Quitting.' % self.work_dir,
+                                    traceback=False)
         else:
             mkdir(work_dir)
 
