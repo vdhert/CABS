@@ -13,6 +13,8 @@ from subprocess import Popen, PIPE
 from atom import Atom, Atoms
 
 __all__ = ["PDB"]
+_name = "PDB"
+
 class Pdb:
     """
     Pdb parser. Initialized by:
@@ -47,7 +49,7 @@ class Pdb:
             if 'remove_alternative_locations' in kwargs:
                 self.remove_alternative_locations = kwargs['remove_alternative_locations']
         if not self.file_name and not self.pdb_code:
-            raise Exception('Cannot create a Pdb object with no arguments!')
+            logger.exit_program(module_name=_name, msg="No PDB file/code provided. Quitting.",traceback=False)
 
         if self.file_name:
             m = re.match(r'[^:]*:([A-Z]*)', self.file_name)
@@ -80,9 +82,9 @@ class Pdb:
 
         if not len(self.atoms):
             if self.file_name:
-                raise PdbFileEmpty(self.file_name)
+                logger.exit_program(module_name=_name, msg="Failed to read %s (perhaps its not a valid pdp file?). Quitting." % self.file_name)
             elif self.pdb_code:
-                raise PdbFileEmpty(self.pdb_code + '.pdb')
+                logger.exit_program(module_name=_name, msg="Failed to read %s. Quitting." % self.pdb_code)
 
         if m:
             self.selection += ' and chain ' + ','.join(m.group(1))
@@ -99,13 +101,15 @@ class Pdb:
         try:
             proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         except OSError:
-            raise Exception('Dssp not found!')
+            logger.exit_program(module_name=_name,
+                                msg="DSSP was not found. Quitting.",
+                                traceback=False)
 
-        logger.info(module_name=__all__[0],
+        logger.info(module_name=_name,
                     msg = "DSSP running on %s. Selected chains: %s" % (self.name, "".join(self.atoms.list_chains().keys())))
         out, err = proc.communicate(input=''.join(self.lines))
         if err:
-            logger.warning(module_name=__all__[0], msg="DSSP returned an error")
+            logger.critical(module_name=_name, msg="DSSP returned an error: %s" % err)
             return None
         else:
             if logger.log_level >=2 and output:
@@ -147,21 +151,14 @@ def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
             gz_string = urlopen('http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz').read()
         except HTTPError:
             raise InvalidPdbCode(pdb_code)
-        except URLError:
-            raise CannotConnectToPdb()
+        except URLError as e:
+            logger.exit_program(module_name=_name,
+                                msg="Could not download the pdb file. Can't connect to the PDB database - quitting",
+                                traceback=True,exc=e)
         with open(fname, 'w') as fobj:
             fobj.write(gz_string)
     file_ = open(fname)
     return GzipFile(fileobj=file_)
-
-
-class PdbFileEmpty(Exception):
-    """Exception raised when Pdb contains no atoms - usually when file other than pdb was parsed."""
-    def __init__(self, filename):
-        self.filename = filename
-
-    def __str__(self):
-        return 'File: \'' + self.filename + '\' empty!!!'
 
 
 class InvalidPdbCode(Exception):
@@ -173,10 +170,7 @@ class InvalidPdbCode(Exception):
         return self.pdbCode + ' is not a valid pdb code! (perhaps you specified a file that does not exist)'
 
 
-class CannotConnectToPdb(Exception):
-    """Exception raised when the PDB database is not accessible"""
-    def __str__(self):
-        return 'Cannot connect to the PDB database!!!'
+
 
 if __name__ == '__main__':
     pass

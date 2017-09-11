@@ -7,7 +7,7 @@ import operator
 import numpy as np
 
 from atom import Atom, Atoms
-from pdb import Pdb
+from pdb import Pdb,InvalidPdbCode
 from utils import ranges
 from utils import kabsch
 from align import AbstractAlignMethod
@@ -15,10 +15,10 @@ from align import AlignError
 from align import save_csv
 from align import save_fasta
 from align import load_csv
-from logger import ProgressBar
+from logger import ProgressBar,exit_program
 
 __all__ = ['Trajectory', 'Header']
-
+_name = "Trajectory"
 
 class Header:
     """Trajectory header read from CABS output: energies and temperatures"""
@@ -265,7 +265,12 @@ class Trajectory(object):
         target_align_kwargs -- as above, but used when aligning target protein.
         """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        ref_stc = Pdb(ref_pdb,selection='name CA and not HETERO').atoms
+        try:
+            ref_stc = Pdb(ref_pdb,selection='name CA and not HETERO').atoms
+        except InvalidPdbCode:
+            exit_program(module_name=_name,
+                                msg='%s is not a valid reference pdb code! (perhaps you specified a file that does not exist)' % ref_pdb,
+                                traceback=True)
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)

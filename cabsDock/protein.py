@@ -15,7 +15,9 @@ from cabsDock.vector3d import Vector3d
 from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
 from cabsDock.utils import PEPtoPEP1 as PP
 
-__all__ = ["Protein"]
+
+_name = "Protein"
+
 class Receptor(Atoms):
     """
     Class for the protein receptor molecule. Initialized with job's config dictionary.
@@ -27,9 +29,15 @@ class Receptor(Atoms):
 
         name = config['receptor']
         selection = 'name CA and not HETERO'
-        pdb = Pdb(name, selection=selection)
+        try:
+            pdb = Pdb(name, selection=selection)
+        except InvalidPdbCode:
+            logger.exit_program(module_name=_name,
+                                msg='%s is not a valid pdb code! (perhaps you specified a file that does not exist)' % name,
+                                traceback=True)
+
         self.atoms = pdb.atoms.models()[0]
-        logger.info(module_name=__all__[0], msg = "Loading %s as receptor" % name)
+        logger.info(module_name=_name, msg = "Loading %s as receptor" % name)
         token = config.get('receptor_flexibility')
         if token:
             try:
@@ -182,7 +190,7 @@ class Ligand(Atoms):
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         self.selection = 'name CA and not HETERO'
-        logger.info(module_name=__all__[0],
+        logger.info(module_name=_name,
                     msg = "Loading ligand: name = %s, conformation = %s, location = %s" %
                           (self.name.split(':')[0], self.conformation, self.location) )
         try:
@@ -190,7 +198,7 @@ class Ligand(Atoms):
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp(output=config['work_dir']))
         except InvalidPdbCode:
-            logger.debug(module_name=__all__[0],msg = 'Provided ligand is not a valid pdb code/file')
+            logger.debug(module_name=_name,msg = 'Provided ligand is not a valid pdb code/file')
             seq = self.name.split(':')[0]
             check_peptide_sequence(seq)
             atoms = Atoms(self.name)
@@ -218,7 +226,7 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, config):
-        logger.debug(module_name=__all__[0], msg = "Preparing the complex")
+        logger.debug(module_name=_name, msg = "Preparing the complex")
         Atoms.__init__(self)
         self.separation = config['initial_separation']
 
@@ -268,7 +276,7 @@ class ProteinComplex(Atoms):
             self.atoms.extend(model)
             self.receptor = receptor
             self.ligands = ligands
-        logger.debug(module_name=__all__[0], msg="Complex successfully created")
+        logger.debug(module_name=_name, msg="Complex successfully created")
 
     def insert_ligand(self, receptor, ligand):
 
