@@ -3,66 +3,87 @@
 import re
 import os
 import logger
-
-from os.path import exists, expanduser
-from os.path import expanduser
-from gzip import GzipFile
-from urllib2 import urlopen, HTTPError, URLError
+import gzip
+import json
+import requests as req
+from tempfile import mkstemp
+from time import sleep
+from requests.exceptions import HTTPError, ConnectionError
+from os.path import expanduser, basename, isfile, join, isdir
 from subprocess import Popen, PIPE
-
 from atom import Atom, Atoms
+from collections import OrderedDict
 
-__all__ = ["PDB"]
-_name = "PDB"
+_name = 'PDB'  # module name for logger
+
+PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+try:
+    os.makedirs(PDB_CACHE)
+except OSError:
+    pass
+
 
 class Pdb:
     """
-    Pdb parser. Initialized by:
-    1. pdb filename
-    2. gzipped pdb filename
-    3. 4-letter pdb code
+    Pdb parser.
+
+    Usage:
+    pdb_file=<PATH TO FILE>:<chains>
+    pdb_code=<PDB_CODE>:<chains>
     """
 
-    def __init__(self, *args, **kwargs):
-        self.file_name = None
-        self.pdb_code = None
-        self.selection = ""
-        self.remove_alternative_locations = True
+    def __init__(self, remove_alternative_locations=True, **kwargs):
+        self.file_name = kwargs.get('pdb_file')
+        self.pdb_code = kwargs.get('pdb_code')
+        self.selection = kwargs.get('selection')
+        self.remove_alternative_locations = remove_alternative_locations
         self.atoms = Atoms()
         self.header = []
-        self.missed = {}
-        self.name = ""
-
-
-        if args and len(args) == 1:
-            if os.path.isfile(re.split(":",args[0])[0]):
-                self.file_name = args[0]
-            else:
-                self.pdb_code = args[0]
-        if kwargs:
-            if 'pdb_file' in kwargs:
-                self.file_name = kwargs['pdb_file']
-            elif 'pdb_code' in kwargs:
-                self.pdb_code = kwargs['pdb_code']
-            if 'selection' in kwargs:
-                self.selection += kwargs['selection']
-            if 'remove_alternative_locations' in kwargs:
-                self.remove_alternative_locations = kwargs['remove_alternative_locations']
-        if not self.file_name and not self.pdb_code:
-            logger.exit_program(module_name=_name, msg="No PDB file/code provided. Quitting.",traceback=False)
+        self.missed = OrderedDict()
+        chains = None
 
         if self.file_name:
-            m = re.match(r'[^:]*:([A-Z]*)', self.file_name)
-            self.file_name = re.split(":",self.file_name)[0]
+            if ':' in self.file_name:
+                filename, chains = self.file_name.split(':')
+            else:
+                filename = self.file_name
             try:
-                self.lines = GzipFile(self.file_name).readlines()
+                logger.info(
+                    module_name=_name,
+                    msg='Loading file %s' % filename
+                )
+                self.lines = gzip.open(filename).readlines()
             except IOError:
-                self.lines = open(self.file_name).readlines()
-            self.name = self.file_name.split(".")[0]
+                try:
+                    self.lines = open(filename).readlines()
+                except IOError:
+                    logger.exit_program(
+                        module_name=_name,
+                        msg='ERROR: Cannot read %s.' % filename,
+                        traceback=False
+                    )
+            self.name = basename(filename).rsplit('.', 1)[0]
+
         elif self.pdb_code:
-            m = re.match(r'.{4}:([A-Z]*)', self.pdb_code)
-            self.name = re.split(":", self.pdb_code)[0]
-            self.lines = download_pdb(self.name).readlines()
+            if ':' in self.pdb_code:
+                pdbcode, chains = self.pdb_code.split(':')
+            else:
+                pdbcode = self.pdb_code
+            try:
+                self.lines = download_pdb(pdbcode).readlines()
+            except IOError:
+                logger.exit_program(
+                    module_name=_name,
+                    msg='ERROR: Could not download %s.' % pdbcode,
+                    traceback=False
+                )
+            self.name = pdbcode[:4]
+        else:
+            logger.exit_program(
+                module_name=_name,
+                msg='ERROR: No PDB file/code provided. Quitting.',
+                traceback=False
+            )
 
         current_model = 0
         for line in self.lines:
@@ -71,7 +92,7 @@ class Pdb:
                 self.atoms.append(Atom(line, current_model))
             elif line[:5] == 'MODEL':
                 current_model = int(line.split()[1])
-            elif line[:3] == 'END' or line[:3] == "TER":
+            elif line[:3] == 'END' or line[:3] == 'TER':
                 pass
             elif len(self.atoms) == 0:
                 self.header.append(line)
@@ -80,44 +101,96 @@ class Pdb:
                     self.missed[current_model] = []
                 self.missed[current_model].append(line)
 
-        if not len(self.atoms):
-            if self.file_name:
-                logger.exit_program(module_name=_name, msg="Failed to read %s (perhaps its not a valid pdp file?). Quitting." % self.file_name)
-            elif self.pdb_code:
-                logger.exit_program(module_name=_name, msg="Failed to read %s. Quitting." % self.pdb_code)
+        if len(self.atoms):
+            logger.debug(
+                module_name=_name,
+                msg='Loaded %i atoms from %s' % (len(self.atoms), self.name)
+            )
+        else:
+            logger.exit_program(
+                module_name=_name,
+                msg='ERROR: Structure %s contains no atoms.' % self.name,
+                traceback=False
+            )
 
-        if m:
-            self.selection += ' and chain ' + ','.join(m.group(1))
+        if chains:
+            if not self.selection:
+                self.selection = 'chain %s' % chains
+            else:
+                self.selection = '(%s) and chain %s' % (self.selection, chains)
 
         if self.remove_alternative_locations:
             self.atoms.remove_alternative_locations()
-        self.atoms = self.atoms.select(self.selection)
+            logger.debug(
+                module_name=_name,
+                msg='Removing atoms at alternative locations'
+            )
+        if self.selection:
+            self.atoms = self.atoms.select(self.selection)
+            logger.debug(
+                module_name=_name,
+                msg='Selection: \'%s\'' % self.selection
+            )
 
     def __repr__(self):
         return ''.join(self.lines)
 
-    def dssp(self, dssp_command='mkdssp', output = ''):
+    def dssp(self, dssp_command='mkdssp', output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
+
+        out = err = ''
+
         try:
             proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            out, err = proc.communicate(input=str(self))
+            logger.info(
+                module_name=_name,
+                msg='DSSP running on %s.' % self.name
+            )
         except OSError:
-            logger.exit_program(module_name=_name,
-                                msg="DSSP was not found. Quitting.",
-                                traceback=False)
+            logger.warning(
+                module_name=_name,
+                msg='DSSP not found.'
+            )
 
-        logger.info(module_name=_name,
-                    msg = "DSSP running on %s. Selected chains: %s" % (self.name, "".join(self.atoms.list_chains().keys())))
-        out, err = proc.communicate(input=''.join(self.lines))
+            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=PDB_CACHE)[1]
+            with open(tempfile, 'wb') as f:
+                f.write(str(self))
+
+            try:
+                logger.debug(
+                    module_name=_name,
+                    msg='Submitting structure to the DSSP server'
+                )
+                out, err = dssp_server(tempfile)
+
+            except (HTTPError, ConnectionError):
+                logger.warning(
+                    module_name=_name,
+                    msg='Cannot connect to the DSSP server. II structure set to \'coil\' for %s' % self.name,
+                )
+            finally:
+                try:
+                    os.remove(tempfile)
+                except OSError:
+                    pass
+
         if err:
-            logger.critical(module_name=_name, msg="DSSP returned an error: %s" % err)
+            logger.critical(
+                module_name=_name,
+                msg='DSSP returned an error: %s' % err
+            )
             return None
         else:
-            if logger.log_level >=2 and output:
-                output += "/output_data/DSSP_output_%s.txt" % self.name
-                logger.to_file(filename=output, content=out, msg="Saving DSSP output to %s" % output)
+            if logger.log_level >= 2 and output:
+                output += '/output_data/DSSP_output_%s.txt' % self.name
+                logger.to_file(
+                    filename=output,
+                    content=out,
+                    msg='Saving DSSP output to %s' % output
+                )
 
-
-        sec = {}
+        sec = OrderedDict()
         p = '^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITS ])(.*)$'
 
         for line in out.split('\n'):
@@ -137,39 +210,65 @@ class Pdb:
         return sec
 
 
-def download_pdb(pdb_code, work_dir=expanduser('~'), force_download=False):
-    path = work_dir + '/cabsPDBcache/%s' % pdb_code[1:3]
-    try: os.makedirs(path)
-    except OSError: pass
-    fname = path + '/%s.pdb' % pdb_code
+def download_pdb(pdb_code, force_download=False):
+    path = join(PDB_CACHE, pdb_code[1:3])
     try:
-        if force_download:
-            raise IOError
-        file_ = open(fname)
-    except IOError:
+        os.makedirs(path)
+    except OSError:
+        pass
+    filename = join(path, '%s.pdb.gz' % pdb_code)
+
+    if not isfile(filename) or force_download:
+        logger.info(_name, 'Downloading %s' % pdb_code)
+        url = 'http://files.rcsb.org/download/%s.pdb.gz' % pdb_code
         try:
-            gz_string = urlopen('http://www.rcsb.org/pdb/files/' + pdb_code.lower() + '.pdb.gz').read()
+            r = req.get(url)
+            r.raise_for_status()
+            with open(filename, 'wb') as f:
+                f.write(r.content)
         except HTTPError:
-            raise InvalidPdbCode(pdb_code)
-        except URLError as e:
-            logger.exit_program(module_name=_name,
-                                msg="Could not download the pdb file. Can't connect to the PDB database - quitting",
-                                traceback=True,exc=e)
-        with open(fname, 'w') as fobj:
-            fobj.write(gz_string)
-    file_ = open(fname)
-    return GzipFile(fileobj=file_)
+            logger.exit_program(
+                module_name=_name,
+                msg='ERROR: Invalid PDB code %s.' % pdb_code,
+                traceback=False
+            )
+        except ConnectionError:
+            logger.exit_program(
+                module_name=_name,
+                msg='ERROR: Cannot connect to the PDB database.' % pdb_code,
+                traceback=False
+            )
+    return gzip.open(filename, 'rb')
 
 
-class InvalidPdbCode(Exception):
-    """Exception raised when invalid pdb_code is used with download_pdb"""
-    def __init__(self, pdb_code):
-        self.pdbCode = pdb_code
+def dssp_server(filename, server='http://www.cmbi.umcn.nl/xssp'):
+    url_api = server + '/api/%s/pdb_file/dssp/'
 
-    def __str__(self):
-        return self.pdbCode + ' is not a valid pdb code! (perhaps you specified a file that does not exist)'
+    files = {'file_': open(filename, 'rb')}
 
+    r = req.post(url=url_api % 'create', files=files)
+    r.raise_for_status()
+    job_id = json.loads(r.content)['id']
 
+    while True:
+        r = req.get(url_api % 'status' + job_id)
+        r.raise_for_status()
+        status = json.loads(r.content)['status']
+
+        if status == 'SUCCESS':
+            r = req.get(url_api % 'result' + job_id)
+            r.raise_for_status()
+            out = json.loads(r.content)['result']
+            err = ''
+            break
+        elif status in ['FAILURE', 'REVOKED']:
+            err = json.loads(r.content)['message']
+            out = ''
+            break
+        else:
+            sleep(1)
+
+    return out, err
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ setup(
     author='Laboratory of Computational Biology',
     author_email='mkurc@cnbc.uw.edu.pl',
     description='CABSDock in python',
-    requires=['numpy', 'matplotlib'],
+    requires=['numpy', 'matplotlib>=2.0', 'requests'],
     entry_points={'console_scripts': ['cabsDock = cabsDock.__main__:run_job']},
     package_data={'cabsDock': ['data/*.dat']}
 )
