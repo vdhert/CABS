@@ -7,6 +7,8 @@ import time
 from subprocess import call
 
 class StandardRunner(object):
+    def __init__(self, rundir=''):
+        self.rundir = rundir
     def run_standard(self):
         with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
             print("Bound benchmarks:")
@@ -27,72 +29,80 @@ class StandardRunner(object):
                 log.write(command)
                 log.write(';\n')
 
-class CommandGenerator(object):
-    option_dictionary = {
-        '-r': ('2gb1', 'aaaa'),
-        '-p': None,
-        '-e': None,
-        '--excluding': None,
-        '-f': None,
-        '-R': None,
-        '-P': None,
-        '--separation': None,
-        '--insertion-clash': None,
-        '--insertion-attempts': None,
-        '--ca-rest-add': None,
-        '--sc-rest-add': None,
-        '--ca-rest-weight': None,
-        '-sc-rest-weight': None,
-        '--ca-rest-file': None,
-        '--sc-rest-file': None,
-        '--mc-annealing': None,
-        '--mc-cycles': None,
-        '--mc-steps': None,
-        '--replicas': None,
-        '--replicas-dtemp': None,
-        '--temperature': None,
-        '-s': None,
-        '--no-aa-rebuild': None,
-        '--modeller-iterations': None,
-        '--reference-pdb': None,
-        '--clustering-iterations': None,
-        '--filtering-number': None,
-        '--clustering-medoids': None,
-        '--load-cabs-files': None,
-        '--contact-maps': None,
-        '--align': None,
-        '--reference-alignment': None,
-        '--output-models': None,
-        '--output-clusters': None,
-        '--output-trajectories': None,
-        '-c': None,
-        '--image-file-format': None,
-        '--work-dir': None,
-        '--dssp-command': None,
-        '--stride-command': None,
-        '--fortran-command': None,
-        '--save-config-file': None,
-        '--save-cabs-files': None,
-        '-V': None,
+    def run_standard_flex(self):
+        with open('flex_benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
+            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex.txt', mode='cabsflex', runtype='flex')
+            command = br.run_benchmark(test=True)
+            log.write(command)
+            log.write(';\n')
 
-    }
-    def __init__(self):
-        pass
+# class CommandGenerator(object):
+#     option_dictionary = {
+#         '-r': ('2gb1', 'aaaa'),
+#         '-p': None,
+#         '-e': None,
+#         '--excluding': None,
+#         '-f': None,
+#         '-R': None,
+#         '-P': None,
+#         '--separation': None,
+#         '--insertion-clash': None,
+#         '--insertion-attempts': None,
+#         '--ca-rest-add': None,
+#         '--sc-rest-add': None,
+#         '--ca-rest-weight': None,
+#         '-sc-rest-weight': None,
+#         '--ca-rest-file': None,
+#         '--sc-rest-file': None,
+#         '--mc-annealing': None,
+#         '--mc-cycles': None,
+#         '--mc-steps': None,
+#         '--replicas': None,
+#         '--replicas-dtemp': None,
+#         '--temperature': None,
+#         '-s': None,
+#         '--no-aa-rebuild': None,
+#         '--modeller-iterations': None,
+#         '--reference-pdb': None,
+#         '--clustering-iterations': None,
+#         '--filtering-number': None,
+#         '--clustering-medoids': None,
+#         '--load-cabs-files': None,
+#         '--contact-maps': None,
+#         '--align': None,
+#         '--reference-alignment': None,
+#         '--output-models': None,
+#         '--output-clusters': None,
+#         '--output-trajectories': None,
+#         '-c': None,
+#         '--image-file-format': None,
+#         '--work-dir': None,
+#         '--dssp-command': None,
+#         '--stride-command': None,
+#         '--fortran-command': None,
+#         '--save-config-file': None,
+#         '--save-cabs-files': None,
+#         '-V': None,
+#
+#     }
+#     def __init__(self):
+#         pass
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='bound'):
+    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='bound', mode='cabsdock'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
         self.runtype = runtype
+        self.mode = mode
 
     def setup(self):
         if self.name == '':
-            benchdir = getcwd()+'/benchrun_'
+            benchdir = getcwd()
         else:
             benchdir = self.name
-        benchdir+=time.strftime("%c").replace(' ','_')+''
+        benchdir+='/benchrun_'+time.strftime("%c").replace(' ','_')+''
         self.benchdir = benchdir
         try:
             mkdir(benchdir)
@@ -100,7 +110,10 @@ class BenchmarkRunner(object):
             pass
         self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=self.options,
                                    rundir=self.benchdir+'/run', runtype=self.runtype)
-        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
+        if self.mode == 'cabsdock':
+            self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
+        elif self.mode == 'cabsflex':
+            self.pbsgen.py_script(scriptdir=benchdir+'/pbs')
 
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
@@ -221,8 +234,10 @@ class BenchmarkAnalyser(object):
                 for org, nw in zip(rmsd_medoids_original_paths, rmsd_medoids_new_paths):
                     copyfile(org, nw)
 
-
-#br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
+# sr = StandardRunner()
+# sr.run_standard_flex()
+# br = BenchmarkRunner(benchmark_file='./benchmark_data/cabsflex.txt', mode='cabsflex', runtype='flex')
+# br.run_benchmark()
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
 #br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
 #br.run_benchmark(test=True)

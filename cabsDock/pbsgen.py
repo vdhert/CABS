@@ -40,6 +40,12 @@ class PbsGenerator(object):
                 if len(row) > 3:
                     sc_rests = (str(row[3]), str(row[4]))
 
+            elif runtype=='flex':
+                receptor = str(row[0])
+                ligand = None
+                reference_pdb = None
+                sc_rests = None
+
             self.cases.append(
                 Case(
                     receptor = receptor,
@@ -81,6 +87,34 @@ class PbsGenerator(object):
                 scriptfile.write(self.standard_cd)
                 scriptfile.write(case.run_command()+' '+additional_options+'\n')
 
+    def py_script(self, scriptdir):
+        try:
+            mkdir(scriptdir)
+        except OSError:
+            pass
+        for case in self.cases:
+            name = case.receptor.split(':')[0]
+            # print name
+            with open(scriptdir + '/{}.py'.format(name), 'w') as pyfile:
+                pyfile.write('from cabsDock.job import FlexTask\n')
+                command = 'flextask = FlexTask('
+                command += 'structure=\'{}\', temperature=(1.4, 1.4), receptor_restraints=(\'ss2\', 3, 3.8, 8.0),'.format(name)
+                command += ' mc_annealing=20, mc_cycles=50, mc_steps=50, work_dir=\'{}/flextask_{}\')'.format(self.rundir, name)
+                command += '\nflextask.run()'
+                print command
+                pyfile.write(command)
+            with open(scriptdir+'/{}.pbs'.format(name), 'w') as pbsfile:
+                pbsfile.write(self.standard_header)
+                pbsfile.write(
+                    self.standard_err_out.format(
+                        self.rundir + '/{}'.format(name),
+                        self.rundir + '/{}'.format(name)
+                    )
+                )
+                pbsfile.write(self.standard_cd)
+                pbsfile.write('python {}.py'.format(name))
+
+
 class Case(object):
     def __init__(
             self,
@@ -105,5 +139,5 @@ class Case(object):
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
 #usage
-#pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
-#pbsgntr.pbs_script('pbs')
+# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/cabsflex.txt', runtype='flex', rundir='.')
+# pbsgntr.py_script('pys')
