@@ -7,7 +7,7 @@ import operator
 import numpy as np
 
 from atom import Atom, Atoms
-from pdb import Pdb
+from PDBlib import Pdb
 from utils import ranges
 from utils import kabsch
 from align import AbstractAlignMethod
@@ -257,7 +257,7 @@ class Trajectory(object):
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
-        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment against all chains is calculated.
         align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
         alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
         path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
