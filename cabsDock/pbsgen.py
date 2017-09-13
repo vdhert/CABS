@@ -105,12 +105,12 @@ class PbsGenerator(object):
                 pyfile.write(command)
             with open(scriptdir+'/{}.pbs'.format(name), 'w') as pbsfile:
                 pbsfile.write(self.standard_header)
-                pbsfile.write(
-                    self.standard_err_out.format(
-                        self.rundir + '/{}'.format(name),
-                        self.rundir + '/{}'.format(name)
-                    )
-                )
+                # pbsfile.write(
+                #     self.standard_err_out.format(
+                #         self.rundir + '/{}'.format(name),
+                #         self.rundir + '/{}'.format(name)
+                #     )
+                # )
                 pbsfile.write(self.standard_cd)
                 pbsfile.write('python {}.py'.format(name))
 
