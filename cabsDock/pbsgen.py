@@ -112,7 +112,7 @@ class PbsGenerator(object):
                 #     )
                 # )
                 pbsfile.write(self.standard_cd)
-                pbsfile.write('python {}.py'.format(name))
+                pbsfile.write('python ../pbs/{}.py'.format(name))
 
 
 class Case(object):
