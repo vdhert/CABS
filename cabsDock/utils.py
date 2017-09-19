@@ -1,9 +1,6 @@
-from string import ascii_uppercase
+from string import ascii_uppercase, rfind, replace
 import numpy as np
 import re
-import os,sys
-from sys import stderr
-from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
 

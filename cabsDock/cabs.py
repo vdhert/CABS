@@ -20,6 +20,7 @@ from cabsDock.trajectory import Trajectory
 
 __all__ = ['CABS']
 
+
 class CabsLattice:
     """
     This class represent a CABS-like lattice. It is initialized with:
