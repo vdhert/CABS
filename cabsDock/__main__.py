@@ -24,7 +24,7 @@ class Config(dict):
         return '\n'.join([k + ': ' + str(v) for k, v in sorted(self.items())])
 
 
-def run_job():
+def run_dock():
 
     parser = ParserFactory(
         filecsv=resource_filename('cabsDock', 'data/data3.dat')
@@ -42,12 +42,35 @@ def run_job():
     args = parser.parse_args(cfg_args + argv[1:])
     config = Config(args)
 
-    from cabsDock.job import Job
-    job = Job(**config)
+    from cabsDock.job import DockTask
+    job = DockTask(**config)
 
     # start docking
-    job.cabsdock()
+    job.run()
 
-    
-if __name__ == '__main__':
-    run_job()
+def run_flex():
+
+    parser = ParserFactory(
+        filecsv=resource_filename('cabsDock', 'data/data4.dat')
+    ).parser
+    args = parser.parse_args()
+
+    cfg_args = []
+    if args.config:
+        cfg_args = ConfigFileParser(args.config).args
+
+    parser = ParserFactory(
+        filecsv=resource_filename('cabsDock', 'data/data4.dat'), required=['structure']
+    ).parser
+
+    args = parser.parse_args(cfg_args + argv[1:])
+    config = Config(args)
+
+    from cabsDock.job import FlexTask
+    job = FlexTask(**config)
+
+    # start docking
+    job.run()
+
+#~ if __name__ == '__main__':
+    #~ run_job()

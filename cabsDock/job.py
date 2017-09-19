@@ -82,7 +82,7 @@ class CABSTask(object):
             excluding_distance=5.0,
             modeller_iterations=3,
             output_models=10,
-    ):
+            cc_threshold=6.5):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
         else:
@@ -129,7 +129,8 @@ class CABSTask(object):
             'exclude': exclude,
             'modeller_iterations': modeller_iterations,
             'excluding_distance': excluding_distance,
-            'verbose' : verbose
+            'verbose' : verbose,
+            'cc_threshold': cc_threshold,
         }
 
         # Job attributes collected.
@@ -360,10 +361,12 @@ class DockTask(CABSTask):
                     mc_cycles=50,
                     align='SW',
                     reference_alignment=None,
+                    cc_threshold=4.5,
                     **kwargs):
-        super(DockTask, self).__init__(mc_annealing=mc_annealing,
+        super(DockTask, self).__init__( mc_annealing=mc_annealing,
                                         temperature=temperature,
                                         mc_cycles=mc_cycles,
+                                        cc_threshold=cc_threshold,
                                         **kwargs)
         conf = {    'receptor': receptor,
                     'ligand': ligand,
