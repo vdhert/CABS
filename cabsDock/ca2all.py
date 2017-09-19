@@ -1,5 +1,6 @@
 import os, glob, re, sys
 import argparse
+import logger
 
 from tempfile import mkstemp
 from os.path import basename
@@ -7,17 +8,19 @@ from contextlib import closing
 from modeller import *
 from modeller.automodel import *
 
+
 __all__ = ['ca2all']
 
 
-def ca2all(filename, output=None, iterations=1, verbose=False):
+def ca2all(filename, output=None, iterations=1,
+           out_mdl=os.getcwd()+'/output_data/modeller_output_0.txt'):
     """
     Rebuilds ca to all-atom
     """
 
     old_stdout = sys.stdout
-    if verbose:
-        sys.stdout = sys.stderr
+    if logger.log_level >= 2:
+        sys.stdout = open(out_mdl,'w')
     else:
         sys.stdout = open('/dev/null', 'w')
 
@@ -109,6 +112,7 @@ structure:%s:FIRST:@:END:@::::
         models.sort(lambda x, y: cmp(x[cmp_key], y[cmp_key]))
         final = models[0]['name'].rsplit('.', 1)[0] + '_fit.pdb'
 
+        sys.stdout.close()
         sys.stdout = old_stdout
 
         if output:
@@ -169,10 +173,10 @@ by the DOPE score.""",
         dest='iter'
     )
     parser.add_argument(
-        '-v, --verbose',
+        '-om, --output_modeller',
         help='print modeller output to stderr',
         action='store_true',
-        dest='verbosity'
+        dest='output_modeller'
     )
     args = parser.parse_args()
-    ca2all(args.inp, args.out, args.iter, args.verbosity)
+    ca2all(args.inp, args.out, args.iter, args.output_modeller)

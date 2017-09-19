@@ -11,8 +11,9 @@ from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict
 
-from utils import CABS_SS, aa_to_long, smart_flatten, kabsch, ProgressBar
+from utils import CABS_SS, aa_to_long, smart_flatten, kabsch
 from vector3d import Vector3d
+from logger import ProgressBar
 
 
 class Atom:
@@ -756,6 +757,19 @@ class Atoms:
         for a in self.atoms:
             a.tail = ''
         return self
+
+    def atom_range(self, first, last):
+        atoms = []
+        add = False
+        for a in self.atoms:
+            ar = a.resid_id()
+            if ar == first:
+                add = True
+            if add:
+                atoms.append(ar)
+            if ar == last:
+                return atoms
+        return []
 
 
 class Selection:

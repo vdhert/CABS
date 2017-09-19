@@ -1,6 +1,7 @@
 from string import ascii_uppercase
 import numpy as np
 import re
+import os,sys
 from sys import stderr
 from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
@@ -697,50 +698,6 @@ class InvalidAAName(Exception):
         return '%s is not a valid %d-letter amino acid code' % self.name
 
 
-class ProgressBar:
-    WIDTH = 60
-    FORMAT = '[%s] %.1f%%\r'
-    BAR0 = ' '
-    BAR1 = '='
-
-    def __init__(self, total=100, msg='', stream=stderr, delay=0):
-        self.total = total
-        self.current = 0
-        self.stream = stream
-        if msg:
-            self.stream.write(msg + '\n')
-        self.start_time = time()
-        sleep(delay)
-
-    def write(self):
-        percent = 1.0 * self.current / self.total
-        num = int(self.WIDTH * percent)
-        percent = round(100. * percent, 1)
-        bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
-        self.stream.write(self.FORMAT % (bar, percent))
-        self.stream.flush()
-
-    def update(self, state=None):
-        if not state:
-            self.current += 1
-        elif state < 0:
-            self.current = self.total
-        else:
-            self.current = state
-        if self.current > self.total:
-            self.current = self.total
-        self.write()
-
-    def done(self, show_time=True):
-        self.update(-1)
-        self.write()
-        self.stream.write('\n')
-        if show_time:
-            t = gmtime(time() - self.start_time)
-            self.stream.write('Done in %s\n' % strftime('%H:%M:%S', t))
-        self.stream.flush()
-
-
 def aa_to_long(seq):
     """Converts short amino acid name to long."""
     s = seq.upper()
@@ -881,3 +838,10 @@ def _extend_last(sseries, slen, token):
 
 def _fmt_res_name(atom):
     return (atom.chid + str(atom.resnum) + atom.icode).strip()
+
+
+def PEPtoPEP1(id):
+    if re.search('PEP$', id):
+        return id + '1'
+    else:
+        return id

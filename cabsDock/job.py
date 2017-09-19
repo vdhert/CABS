@@ -18,6 +18,8 @@ from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
 from trajectory import Trajectory
+from math import ceil
+import logger
 
 from abc import ABCMeta, abstractmethod
 
@@ -65,7 +67,7 @@ class CABSTask(object):
             load_cabs_files=None,
             save_config_file=True,
             image_file_format='svg',
-            verbose=None,
+            verbose=1,
             stride_command='stride',
             receptor_flexibility=None,
             exclude=None,
@@ -79,7 +81,8 @@ class CABSTask(object):
             no_aa_rebuild=False,
             excluding_distance=5.0,
             modeller_iterations=3,
-            output_models=10):
+            output_models=10,
+    ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
         else:
@@ -122,8 +125,11 @@ class CABSTask(object):
             'file_SEQ': file_SEQ,
             'save_config_file': save_config_file,
             'image_file_format': image_file_format,
-            'verbose': verbose,
-            'receptor_flexibility': receptor_flexibility
+            'receptor_flexibility': receptor_flexibility,
+            'exclude': exclude,
+            'modeller_iterations': modeller_iterations,
+            'excluding_distance': excluding_distance,
+            'verbose' : verbose
         }
 
         # Job attributes collected.
@@ -147,11 +153,14 @@ class CABSTask(object):
         work_dir = self.config['work_dir']
         if exists(work_dir):
             if not isdir(work_dir):
-                raise Exception('File %s already exists and is not a directory' % work_dir)
+                logger.exit_program(module_name=__all__[0],
+                                    msg='Selected working directory: %s already exists and is not a directory. Quitting.' % self.work_dir,
+                                    traceback=False)
         else:
             mkdir(work_dir)
 
     def run(self):
+        logger.setup_log_level(self.config['verbose'])
         ftraf = self.config.get('file_TRAF')
         fseq = self.config.get('file_SEQ')
         self.setup_job()
@@ -168,6 +177,7 @@ class CABSTask(object):
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
+        logger.info(module_name=__all__[0], msg='Simulation completed successfully')
 
     @abstractmethod
     def setup_job(self):
@@ -276,6 +286,7 @@ class CABSTask(object):
                     configfile.write('\n'+line)
 
     def setup_cabs_run(self):
+        logger.info(module_name="CABS", msg='Setting up CABS simulation.')
         # Initializing CabsRun instance
         self.cabsrun = CabsRun(self.initial_complex, self.prepare_restraints(), self.config)
         return self.cabsrun
@@ -297,11 +308,14 @@ class CABSTask(object):
         if self.config['verbose']:
             print("load_output")
         if ftraf is not None and fseq is not None:
+            logger.debug(module_name=__all__[0], msg = "Loading trajectories from: %s, %s" % (ftraf,fseq))
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
+            logger.debug(module_name=__all__[0], msg = "Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         self.trajectory.align_to(self.initial_complex.receptor)
+        logger.info(module_name=__all__[0], msg = "Trajectories loaded successfully")
         return self.trajectory
 
     @abstractmethod
@@ -392,6 +406,20 @@ class DockTask(CABSTask):
     def calculate_rmsd(self, reference_pdb=None, save=True):
         if self.config['verbose']:
             print('calculate_rmsd')
+        logger.debug(module_name=__all__[0],msg="Scoring results")
+        # Filtering the trajectory
+        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
+        # Clustering the trajectory
+        self.medoids, self.clusters_dict, self.clusters = Clustering(
+            self.filtered_trajectory,
+            'chain ' + ','.join(
+                self.initial_complex.ligand_chains,
+            )
+        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+        logger.info(module_name=__all__[0],msg="Scoring results successful")
+
+    def calculate_rmsd(self, reference_pdb=None, save=True):
+        logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'
             try:
@@ -433,6 +461,7 @@ class DockTask(CABSTask):
                         for rmsd in results['rmsds_' + type]:
                             outfile.write(str(rmsd) + ';\n')
             all_results[pept_chain] = results
+        logger.info(module_name=__all__[0], msg = "RMSD successfully saved")
         return all_results
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
@@ -446,6 +475,77 @@ class DockTask(CABSTask):
             'chain ' + ','.join(self.initial_complex.ligand_chains,
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+
+    def draw_plots(self, plots_dir=None):
+        logger.debug(module_name=__all__[0], msg = "Drawing plots")
+        # set the plots dir
+        if plots_dir is None:
+            pltdir = self.config['work_dir'] + '/plots'
+            try:
+                mkdir(pltdir)
+            except OSError:
+                pass
+        else:
+            pltdir = plots_dir
+        logger.log_file(module_name=__all__[0],msg="Saving plots to %s" % pltdir)
+
+        graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
+
+        # RMSD-based graphs
+        if self.config['reference_pdb']:
+            logger.log_file(module_name=__all__[0], msg="Saving RMSD plots")
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD([self.trajectory, self.filtered_trajectory],
+                            [rmslst, rmslst[self.filtered_ndx,]],
+                            ['all models', 'top 1000 models'],
+                            pltdir + '/E_RMSD_%s' % k)
+                plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
+                            pltdir + '/RMSD_frame_%s' % k)
+
+        # Contact maps
+        if self.config['contact_maps']:
+            logger.log_file(module_name=__all__[0], msg="Saving contact maps")
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+        logger.info(module_name=__all__[0], msg="Plots successfully saved")
+
+    def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
+        output_folder = self.config['work_dir'] + '/output_pdbs'
+        logger.log_file(module_name=__all__[0], msg="Saving pdb files to " + str(output_folder))
+        try:
+            mkdir(output_folder)
+        except OSError:
+            logger.warning(module_name=__all__[0], msg="Possibly overwriting previous pdb files")
+            pass
+
+        if replicas:
+            logger.log_file(module_name=__all__[0], msg='Saving replicas...')
+            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
+
+        if topn:
+            logger.log_file(module_name=__all__[0], msg='Saving top 1000 models...')
+            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+
+        if clusters:
+            logger.log_file(module_name=__all__[0], msg='Saving clusters...')
+            for i, cluster in enumerate(self.clusters):
+                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
+
+        logger.log_file(module_name=__all__[0],msg='Saving medoids (in '+ medoids + ' representation)')
+        if medoids == 'CA':
+            # Saving top 10 models in CA representation:
+            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
+        elif medoids == 'AA':
+            pdb_medoids = self.medoids.to_pdb()
+            if self.config['AA_rebuild']:
+                progress = logger.ProgressBar(module_name="MODELLER",job_name="Modeller")
+                from cabsDock.ca2all import ca2all
+                for i, fname in enumerate(pdb_medoids):
+                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
+                        out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
+                    progress.update(ceil(100.0/len(pdb_medoids)))
+                progress.done()
+        logger.log_file(module_name=__all__[0],msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
+        logger.debug(module_name=__all__[0],msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(ca_traj, meds, clusts, top1k_inds, thr, plots_dir)
@@ -495,7 +595,7 @@ class FlexTask(CABSTask):
 
     def setup_job(self):
         if self.config['verbose']:
-            print('CABS-Flex working on {0}'.format(self.config['structure']))
+            print('CABS-Flex working on {0}'.format(self.config['receptor']))
         # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
 
