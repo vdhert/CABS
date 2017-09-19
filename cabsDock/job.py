@@ -33,7 +33,7 @@ class CABSTask(object):
             # TODO KEEP THE DEFAULTS UPDATED FOR TESTING.
             self,
             replicas=10,
-            mc_annealing=1,
+            mc_annealing=20,
             mc_cycles=50,
             mc_steps=50,
             work_dir=getcwd(),
@@ -199,9 +199,6 @@ class CABSTask(object):
                             [rmslst, rmslst[self.filtered_ndx,]],
                             ['all models', 'top 1000 models'],
                             pltdir + '/E_RMSD_%s' % k)
-                print rmslst.shape
-                print rmslst.reshape(self.config['replicas'], -1).shape
-                print self.config['replicas']
                 plot_RMSD_N(rmslst.reshape(self.config['replicas'], -1),
                             pltdir + '/RMSD_frame_%s' % k)
 
@@ -485,14 +482,12 @@ class FlexTask(CABSTask):
     def __init__(   self,
                     structure,
                     replicas=1,
-                    temperature=(1.0, 1.0),
-                    receptor_restraints=('ss2', 4, 5.0, 15.0),
-                    mc_cycles=1000,
+                    temperature=(1.4, 1.4),
+                    receptor_restraints=('ss2', 3, 3.8, 8.0),
                     **kwargs):
         super(FlexTask, self).__init__(replicas,
                                         temperature=temperature,
                                         receptor_restraints=receptor_restraints,
-                                        mc_cycles=mc_cycles,
                                         **kwargs)
         conf = {    'receptor': structure,
                     'reference_pdb': True}

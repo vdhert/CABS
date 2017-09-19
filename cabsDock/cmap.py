@@ -114,7 +114,7 @@ class ContactMap(object):
         break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
         #TODO: taking min and max out of data + [50] should be done once
-        wdh_cnst = 50
+        wdh_cnst = 60
         wdth = self.cmtx.shape[0]
         chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
         lngst = max(map(len, chunks))
