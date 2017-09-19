@@ -213,7 +213,7 @@ class CABSTask(object):
 
         # Contact maps
         if self.config['contact_maps']:
-            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 6.5, pltdir)
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, self.config['cc_threshold'], pltdir)
 
 
     @abstractmethod
