@@ -188,8 +188,6 @@ class CABSTask(object):
         pass
 
     def draw_plots(self, plots_dir=None):
-        if self.config['verbose']:
-            print('draw_plots')
         # set the plots dir
         if plots_dir is None:
             pltdir = self.config['work_dir'] + '/plots'
@@ -214,7 +212,7 @@ class CABSTask(object):
 
         # Contact maps
         if self.config['contact_maps']:
-            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 6.5, pltdir)
 
 
     @abstractmethod
@@ -294,8 +292,6 @@ class CABSTask(object):
     def execute_cabs_run(self):
         stime = time.time()
         self.cabsrun.run()
-        if self.config['verbose']:
-            print('CABS simuation is done in %.2f sec.' % (time.time() - stime))
 
     @abstractmethod
     def load_output(self, ftraf=None, fseq=None):
@@ -305,8 +301,6 @@ class CABSTask(object):
         :param fseq: path to SEQ file
         :return: returns trajectory.Trajectory instance
         """
-        if self.config['verbose']:
-            print("load_output")
         if ftraf is not None and fseq is not None:
             logger.debug(module_name=__all__[0], msg = "Loading trajectories from: %s, %s" % (ftraf,fseq))
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
@@ -329,8 +323,6 @@ class CABSTask(object):
             mkdir(output_folder)
         except OSError:
             pass
-        if self.config['verbose']:
-            print('save_models')
         # Saving the trajectory to PDBs:
         if replicas:
             self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
@@ -351,8 +343,9 @@ class CABSTask(object):
             if self.config['AA_rebuild']:
                 from cabsDock.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
-                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                           verbose=False)
+                    ca2all( fname,
+                            output=output_folder + '/' + 'model_{0}.pdb'.format(i),
+                            iterations=1)
 
 
 class DockTask(CABSTask):
@@ -383,14 +376,7 @@ class DockTask(CABSTask):
         return '\n'.join([k + ' : ' + str(v) for k, v in sorted(self.config.items())])
 
     def setup_job(self):
-        if self.config['verbose']:
-            print('CABS-docking job {0}'.format(self.config['receptor']))
-        # Preparing the initial complex
-        if self.config['verbose']:
-            print(' Building complex...')
         self.initial_complex = ProteinComplex(self.config)
-        if self.config['verbose']:
-            print(' ... done.')
 
     def load_output(self, ftraf=None, fseq=None):
         """
@@ -404,8 +390,6 @@ class DockTask(CABSTask):
         return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        if self.config['verbose']:
-            print('calculate_rmsd')
         logger.debug(module_name=__all__[0],msg="Scoring results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
@@ -465,8 +449,6 @@ class DockTask(CABSTask):
         return all_results
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        if self.config['verbose']:
-            print("score_results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
@@ -575,7 +557,6 @@ class DockTask(CABSTask):
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
 
-
 class FlexTask(CABSTask):
     """Class of CABSFlex jobs."""
 
@@ -594,14 +575,10 @@ class FlexTask(CABSTask):
         self.config.update(conf)
 
     def setup_job(self):
-        if self.config['verbose']:
-            print('CABS-Flex working on {0}'.format(self.config['receptor']))
         # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        if self.config['verbose']:
-            print("score_results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
@@ -615,8 +592,6 @@ class FlexTask(CABSTask):
         return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        if self.config['verbose']:
-            print('calculate_rmsd')
         if not save:
             return
         odir = self.config['work_dir'] + '/output_data'
