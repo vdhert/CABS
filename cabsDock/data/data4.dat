@@ -1,4 +1,4 @@
-,,,,,
+#parser,,,,,
 prog,CABSdock,,,,
 version,1.0,,,,
 description,CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.,,,,
@@ -114,14 +114,6 @@ CABSdock uses internal temperature units which do not correspond straightforward
 --modeller-iterations,NUM,"Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigger numbers may result in more accurate models, but reconstruction takes longer.",3,,int
 ,,,,,
 #group,ANALYSIS OPTIONS,Analysis options allow to perform comparison analyses (to provided reference complex structure) and for repeated scoring and analysis of CABSdock trajectories,,,
---reference-pdb,PDB,"Load reference complex structure. This option allows for comparison with the reference complex structure and triggers additional analysis features
-
-PDB must be either:
-
-1. [pdb code]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
-2. [pdb file]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
-
-i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --clustering-iterations,NUM,The number of iterations of the clustering k-medoids algorithm.,100,,int
 --filtering-number,NUM,Number of low-energy models from the trajectory to be filtered.,1000,,int
 --filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory. ,,store_true,
@@ -129,7 +121,6 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --load-cabs-files,FILE,"Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option). ",,,
 --contact-maps,,"Stores contact maps matrix plots and histograms of contact frequencies.
 ",,store_true,
---reference-alignment,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,,,
 --cc_threshold,NUM,Cmap contact criterion for side chain distance threshold.,6.5,,float
 ,,,,,
 #group,OUTPUT OPTIONS,Output options,,,

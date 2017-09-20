@@ -405,7 +405,6 @@ class DockTask(CABSTask):
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
         logger.info(module_name=__all__[0],msg="Scoring results successful")
 
-    def calculate_rmsd(self, reference_pdb=None, save=True):
         logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'

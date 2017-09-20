@@ -64,7 +64,7 @@ def run_flex():
     ).parser
 
     args = parser.parse_args(cfg_args + argv[1:])
-    config = Config(args)
+    config = dict(vars(args))
 
     from cabsDock.job import FlexTask
     job = FlexTask(**config)
