@@ -2,17 +2,19 @@ import StringIO
 import numpy
 import operator
 import logger
+import utils
 import numpy as np
-
-from cabsDock.atom import Atom, Atoms
-from cabsDock.pdb import Pdb
-from cabsDock.align import AbstractAlignMethod, AlignError, save_csv, save_fasta, load_csv
-from cabsDock.utils import ranges, kabsch
+from atom import Atom, Atoms
+from PDBlib import Pdb
+from align import AbstractAlignMethod
+from align import AlignError
+from align import save_csv
+from align import save_fasta
+from align import load_csv
 from copy import deepcopy
 
-
 __all__ = ['Trajectory', 'Header']
-_name = "Trajectory"
+_name = 'Trajectory'
 
 
 class Header:
@@ -252,7 +254,7 @@ class Trajectory(object):
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
-        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment against all chains is calculated.
         align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
         alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
         path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.

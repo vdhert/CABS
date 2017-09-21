@@ -9,11 +9,12 @@ from copy import deepcopy
 from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
+from PDBlib import Pdb
 from atom import Atoms
 from pdb import Pdb
 from vector3d import Vector3d
 
-_name = "Protein"
+_name = 'Protein'
 
 
 class Receptor(Atoms):

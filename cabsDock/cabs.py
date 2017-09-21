@@ -115,6 +115,7 @@ class CabsRun(Thread):
         :param restraints: Restraints object with complete list of CA-CA and SG-SG restraints
         :param config: Dictionary from Job object running CabsRun
         """
+        #~ import pdb; pdb.set_trace()
         Thread.__init__(self)
         logger.debug(module_name=__all__[0],msg="Loading structures...")
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
