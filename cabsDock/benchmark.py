@@ -31,7 +31,7 @@ class StandardRunner(object):
 
     def run_standard_flex(self):
         with open('flex_benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
-            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex.txt', mode='cabsflex', runtype='flex')
+            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex_multichain.txt', mode='cabsflex', runtype='flex')
             command = br.run_benchmark(test=True)
             log.write(command)
             log.write(';\n')
@@ -161,6 +161,15 @@ class BenchmarkAnalyser(object):
                 elif writecase:
                     self.cases.append(thisline[0].upper())
 
+    def get_pearsons(self):
+        for case in self.cases:
+            print glob('./benchmark_data/cabsflex_reference_rmsf/1A6W_*')
+            try:
+                reffile = open('./benchmark_data/cabsflex_reference_rmsf/'+case+'_rmsf.txt')
+                reference_rmsf = [line for line in reffile.readlines()]
+                print reference_rmsf
+            except OSError:
+                pass
 
     def read_rmsds(self):
         benchmark_results = {
@@ -236,7 +245,7 @@ class BenchmarkAnalyser(object):
 
 # sr = StandardRunner()
 # sr.run_standard_flex()
-# br = BenchmarkRunner(benchmark_file='./benchmark_data/cabsflex.txt', mode='cabsflex', runtype='flex')
+# br = BenchmarkRunner(benchmark_file='./benchmark_data/cabsflex_onechain.txt', mode='cabsflex', runtype='flex')
 # br.run_benchmark()
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
 #br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
@@ -265,6 +274,7 @@ class BenchmarkAnalyser(object):
 #         command = br.run_benchmark(test=True)
 #         log.write(command)
 #         log.write(';\n')
-
+ba = BenchmarkAnalyser('/Users/maciek/PyProjects/cabsdock/cabsDock/benchrun_Sat_Sep__9_00:14:45_2017')
+ba.get_pearsons()
 
 

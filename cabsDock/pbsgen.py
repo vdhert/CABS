@@ -139,5 +139,5 @@ class Case(object):
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
 #usage
-# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/cabsflex.txt', runtype='flex', rundir='.')
+# pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/cabsflex_onechain.txt', runtype='flex', rundir='.')
 # pbsgntr.py_script('pys')

@@ -1,6 +1,8 @@
 """
 Module for running cabsDock jobs.
 """
+import matplotlib
+matplotlib.use('Agg')
 
 import operator
 import time
