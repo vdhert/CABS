@@ -1,4 +1,4 @@
-import os,sys
+import os, sys
 from threading import Thread
 from threading import Event
 from subprocess import check_output

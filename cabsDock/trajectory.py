@@ -1,24 +1,21 @@
-from copy import deepcopy
-from itertools import chain
-
 import StringIO
 import numpy
 import operator
+import logger
+import utils
 import numpy as np
-
 from atom import Atom, Atoms
-from PDBlib import Pdb, InvalidPdbCode
-from utils import ranges
-from utils import kabsch
+from PDBlib import Pdb
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
 from align import save_fasta
 from align import load_csv
-from logger import ProgressBar,exit_program
+from copy import deepcopy
 
 __all__ = ['Trajectory', 'Header']
-_name = "Trajectory"
+_name = 'Trajectory'
+
 
 class Header:
     """Trajectory header read from CABS output: energies and temperatures"""
@@ -240,7 +237,7 @@ class Trajectory(object):
         dim = len(models)
         result = np.zeros((dim, dim))
         if msg:
-            bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
+            bar = logger.ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
             bar = None
         for i in range(dim):
@@ -265,12 +262,8 @@ class Trajectory(object):
         target_align_kwargs -- as above, but used when aligning target protein.
         """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        try:
-            ref_stc = Pdb(ref_pdb,selection='name CA and not HETERO').atoms
-        except InvalidPdbCode:
-            exit_program(module_name=_name,
-                                msg='%s is not a valid reference pdb code! (perhaps you specified a file that does not exist)' % ref_pdb,
-                                traceback=True)
+        ref_stc = Pdb(ref_pdb, selection='name CA and not HETERO').atoms
+
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)

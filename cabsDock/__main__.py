@@ -1,3 +1,5 @@
+import logger
+import os
 from cabsDock.optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
 from sys import argv
@@ -26,6 +28,8 @@ class Config(dict):
 
 def run_dock():
 
+    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
+
     parser = ParserFactory(
         filecsv=resource_filename('cabsDock', 'data/data3.dat')
     ).parser
@@ -46,9 +50,28 @@ def run_dock():
     job = DockTask(**config)
 
     # start docking
+    try:
+        job.run()
+    except KeyboardInterrupt:
+        logger.info(
+            module_name='CABSdock',
+            msg='Interrupted by user.'
+        )
+    except Exception as e:
+        logger.exit_program(
+            module_name='CABSdock',
+            msg=e.message,
+            exc=e,
+            traceback=(logger.log_level > 2)
+        )
+    finally:
+        map(os.removedirs,junk)
     job.run()
 
+
 def run_flex():
+
+    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
 
     parser = ParserFactory(
         filecsv=resource_filename('cabsDock', 'data/data4.dat')
@@ -69,8 +92,21 @@ def run_flex():
     from cabsDock.job import FlexTask
     job = FlexTask(**config)
 
-    # start docking
+    # start flexing
+    try:
+        job.run()
+    except KeyboardInterrupt:
+        logger.info(
+            module_name='CABSflex',
+            msg='Interrupted by user.'
+        )
+    except Exception as e:
+        logger.exit_program(
+            module_name='CABSflex',
+            msg=e.message,
+            exc=e,
+            traceback=(logger.log_level > 2)
+        )
+    finally:
+        map(os.removedirs, junk)
     job.run()
-
-#~ if __name__ == '__main__':
-    #~ run_job()
