@@ -20,7 +20,7 @@ from trajectory import Trajectory
 from math import ceil
 import logger
 
-__all__ = ['Job']
+_name = 'JOB'
 
 
 class Job:
@@ -60,7 +60,7 @@ class Job:
             clustering_medoids=10,
             clustering_iterations=100,
             benchmark=False,
-            AA_rebuild=True,
+            aa_rebuild=True,
             contact_maps=True,
             reference_pdb=None,
             save_replicas=True,
@@ -122,7 +122,7 @@ class Job:
             'clustering_nmedoids': clustering_medoids,
             'clustering_niterations': clustering_iterations,  # number of clusters, iterations
             'benchmark': benchmark,
-            'AA_rebuild': AA_rebuild,
+            'AA_rebuild': aa_rebuild,
             'contact_maps': contact_maps,
             'reference_pdb': reference_pdb,
             'save_replicas': save_replicas,
@@ -163,9 +163,12 @@ class Job:
         work_dir = self.config['work_dir']
         if exists(work_dir):
             if not isdir(work_dir):
-                logger.exit_program(module_name=__all__[0],
-                                    msg='Selected working directory: %s already exists and is not a directory. Quitting.' % self.work_dir,
-                                    traceback=False)
+                logger.exit_program(
+                    module_name=_name,
+                    msg='Selected working directory: %s already exists'
+                        'and is not a directory. Quitting.' % self.work_dir,
+                    traceback=False
+                )
         else:
             mkdir(work_dir)
 
@@ -214,7 +217,7 @@ class Job:
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
                          clusters=self.config['save_clusters'], medoids=self.config['save_medoids'])
-        logger.info(module_name=__all__[0], msg='Simulation completed successfully')
+        logger.info(module_name=_name, msg='Simulation completed successfully')
 
     def save_config(self):
         if self.config['save_config_file']:
@@ -261,19 +264,19 @@ class Job:
         :return: returns trajectory.Trajectory instance
         """
         if ftraf is not None and fseq is not None:
-            logger.debug(module_name=__all__[0], msg = "Loading trajectories from: %s, %s" % (ftraf,fseq))
+            logger.debug(module_name=_name, msg = "Loading trajectories from: %s, %s" % (ftraf,fseq))
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
-            logger.debug(module_name=__all__[0], msg = "Loading trajectories from the CABS run")
+            logger.debug(module_name=_name, msg = "Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.number_of_peptides = len(self.config['ligand'])
         self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
         self.trajectory.align_to(self.initial_complex.receptor)
-        logger.info(module_name=__all__[0], msg = "Trajectories loaded successfully")
+        logger.info(module_name=_name, msg = "Trajectories loaded successfully")
         return self.trajectory
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        logger.debug(module_name=__all__[0],msg="Scoring results")
+        logger.debug(module_name=_name,msg="Scoring results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
@@ -283,10 +286,10 @@ class Job:
                 self.initial_complex.ligand_chains,
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
-        logger.info(module_name=__all__[0],msg="Scoring results successful")
+        logger.info(module_name=_name,msg="Scoring results successful")
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
+        logger.debug(module_name=_name, msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'
             try:
@@ -328,11 +331,11 @@ class Job:
                         for rmsd in results['rmsds_' + type]:
                             outfile.write(str(rmsd) + ';\n')
             all_results[pept_chain] = results
-        logger.info(module_name=__all__[0], msg = "RMSD successfully saved")
+        logger.info(module_name=_name, msg = "RMSD successfully saved")
         return all_results
 
     def draw_plots(self, plots_dir=None):
-        logger.debug(module_name=__all__[0], msg = "Drawing plots")
+        logger.debug(module_name=_name, msg = "Drawing plots")
         # set the plots dir
         if plots_dir is None:
             pltdir = self.config['work_dir'] + '/plots'
@@ -342,13 +345,13 @@ class Job:
                 pass
         else:
             pltdir = plots_dir
-        logger.log_file(module_name=__all__[0],msg="Saving plots to %s" % pltdir)
+        logger.log_file(module_name=_name,msg="Saving plots to %s" % pltdir)
 
         graph_RMSF(self.trajectory, self.initial_complex.receptor_chains, pltdir + '/RMSF')
 
         # RMSD-based graphs
         if self.config['reference_pdb']:
-            logger.log_file(module_name=__all__[0], msg="Saving RMSD plots")
+            logger.log_file(module_name=_name, msg="Saving RMSD plots")
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD([self.trajectory, self.filtered_trajectory],
                             [rmslst, rmslst[self.filtered_ndx,]],
@@ -359,33 +362,33 @@ class Job:
 
         # Contact maps
         if self.config['contact_maps']:
-            logger.log_file(module_name=__all__[0], msg="Saving contact maps")
+            logger.log_file(module_name=_name, msg="Saving contact maps")
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
-        logger.info(module_name=__all__[0], msg="Plots successfully saved")
+        logger.info(module_name=_name, msg="Plots successfully saved")
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
         output_folder = self.config['work_dir'] + '/output_pdbs'
-        logger.log_file(module_name=__all__[0], msg="Saving pdb files to " + str(output_folder))
+        logger.log_file(module_name=_name, msg="Saving pdb files to " + str(output_folder))
         try:
             mkdir(output_folder)
         except OSError:
-            logger.warning(module_name=__all__[0], msg="Possibly overwriting previous pdb files")
+            logger.warning(module_name=_name, msg="Possibly overwriting previous pdb files")
             pass
 
         if replicas:
-            logger.log_file(module_name=__all__[0], msg='Saving replicas...')
+            logger.log_file(module_name=_name, msg='Saving replicas...')
             self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
 
         if topn:
-            logger.log_file(module_name=__all__[0], msg='Saving top 1000 models...')
+            logger.log_file(module_name=_name, msg='Saving top 1000 models...')
             self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
 
         if clusters:
-            logger.log_file(module_name=__all__[0], msg='Saving clusters...')
+            logger.log_file(module_name=_name, msg='Saving clusters...')
             for i, cluster in enumerate(self.clusters):
                 cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
 
-        logger.log_file(module_name=__all__[0],msg='Saving medoids (in '+ medoids + ' representation)')
+        logger.log_file(module_name=_name, msg='Saving medoids (in '+ medoids + ' representation)')
         if medoids == 'CA':
             # Saving top 10 models in CA representation:
             self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
@@ -399,8 +402,8 @@ class Job:
                         out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
                     progress.update(ceil(100.0/len(pdb_medoids)))
                 progress.done()
-        logger.log_file(module_name=__all__[0],msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
-        logger.debug(module_name=__all__[0],msg='Saving models successful')
+        logger.log_file(module_name=_name, msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
+        logger.debug(module_name=_name, msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)

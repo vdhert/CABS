@@ -1,3 +1,5 @@
+import logger
+import os
 from cabsDock.optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
 from sys import argv
@@ -26,6 +28,8 @@ class Config(dict):
 
 def run_job():
 
+    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
+
     parser = ParserFactory(
         filecsv=resource_filename('cabsDock', 'data/data3.dat')
     ).parser
@@ -46,8 +50,23 @@ def run_job():
     job = Job(**config)
 
     # start docking
-    job.cabsdock()
+    try:
+        job.cabsdock()
+    except KeyboardInterrupt:
+        logger.info(
+            module_name='CABSdock',
+            msg='Interrupted by user.'
+        )
+    except Exception as e:
+        logger.exit_program(
+            module_name='CABSdock',
+            msg=e.message,
+            exc=e,
+            traceback=(logger.log_level > 2)
+        )
+    finally:
+        map(os.removedirs,junk)
 
-    
+
 if __name__ == '__main__':
     run_job()
