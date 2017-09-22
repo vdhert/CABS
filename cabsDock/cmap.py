@@ -152,7 +152,7 @@ class ContactMap(object):
                         )
             for lbls, n_tcks, tck_loc, tck_lab in settings:
                 nloc = break_long_x if break_long_x else wdh_cnst
-                ntcks = min(nloc, n_tcks)
+                ntcks = n_tcks if n_tcks < nloc else nloc / 2
                 inds = numpy.linspace(0, len(lbls) -1, ntcks).astype(int)
                 locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
                 tck_loc(inds)
