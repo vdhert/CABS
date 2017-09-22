@@ -5,6 +5,7 @@ from subprocess import check_output
 from sys import stderr
 from os.path import exists
 from time import time, strftime, gmtime, sleep
+import textwrap
 
 _name = "Logger"
 
