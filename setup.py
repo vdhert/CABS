@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='CABS',
-    version='0.9',
+    version='0.9.1',
     packages=['cabsDock'],
     url='https://bitbucket.org/lcbio/cabsdock',
     license='free for non-commercial users',

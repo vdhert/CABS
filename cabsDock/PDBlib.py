@@ -17,7 +17,7 @@ from collections import OrderedDict
 _name = 'PDB'  # module name for logger
 
 
-class Pdb:
+class Pdb(object):
     """
     Pdb parser.
     """

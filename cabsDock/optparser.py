@@ -88,7 +88,7 @@ class ParserFactory:
         help = line[2]
         default = line[3].split()
         action = line[4]
-        type = line[5]
+        argtype = line[5]
 
         kwargs = {}
         if name[-1][2:] in self.required:
@@ -114,9 +114,9 @@ class ParserFactory:
         if action == 'count':
             kwargs.pop('metavar')
 
-        if type == 'int':
+        if argtype == 'int':
             kwargs['type'] = int
-        elif type == 'float':
+        elif argtype == 'float':
             kwargs['type'] = float
 
         _group.add_argument(*name, **kwargs)

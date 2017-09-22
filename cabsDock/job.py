@@ -396,18 +396,6 @@ class DockTask(CABSTask):
         return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        logger.debug(module_name=__all__[0],msg="Scoring results")
-        # Filtering the trajectory
-        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
-        # Clustering the trajectory
-        self.medoids, self.clusters_dict, self.clusters = Clustering(
-            self.filtered_trajectory,
-            'chain ' + ','.join(
-                self.initial_complex.ligand_chains,
-            )
-        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
-        logger.info(module_name=_name,msg="Scoring results successful")
-
         logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'
@@ -454,14 +442,17 @@ class DockTask(CABSTask):
         return all_results
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
+        logger.debug(module_name=__all__[0],msg="Scoring results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
         self.medoids, self.clusters_dict, self.clusters = Clustering(
             self.filtered_trajectory,
-            'chain ' + ','.join(self.initial_complex.ligand_chains,
+            'chain ' + ','.join(
+                self.initial_complex.ligand_chains,
             )
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+        logger.info(module_name=_name,msg="Scoring results successful")
 
     def draw_plots(self, plots_dir=None):
         logger.debug(module_name=_name, msg = "Drawing plots")
@@ -502,7 +493,6 @@ class DockTask(CABSTask):
             mkdir(output_folder)
         except OSError:
             logger.warning(module_name=_name, msg="Possibly overwriting previous pdb files")
-            pass
 
         if replicas:
             logger.log_file(module_name=_name, msg='Saving replicas...')
@@ -571,7 +561,7 @@ class FlexTask(CABSTask):
                     temperature=(1.4, 1.4),
                     receptor_restraints=('ss2', 3, 3.8, 8.0),
                     **kwargs):
-        super(FlexTask, self).__init__(replicas,
+        super(FlexTask, self).__init__( replicas,
                                         temperature=temperature,
                                         receptor_restraints=receptor_restraints,
                                         **kwargs)

@@ -13,6 +13,7 @@ from align import save_fasta
 from align import load_csv
 from copy import deepcopy
 
+
 __all__ = ['Trajectory', 'Header']
 _name = 'Trajectory'
 
@@ -210,7 +211,7 @@ class Trajectory(object):
             aligned = self.template.select(selection)
         else:
             aligned = template_aligned
-        pieces = ranges([self.template.atoms.index(a) for a in aligned])
+        pieces = utils.ranges([self.template.atoms.index(a) for a in aligned])
 
         t = target.to_matrix()
         t_com = np.average(t, 0)
@@ -221,7 +222,7 @@ class Trajectory(object):
             query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
             q_com = np.average(query, 0)
             q = np.subtract(query, q_com)
-            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
+            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(t, q, concentric=True)), t_com))
 
     def rmsd_matrix(self, msg=''):
         """
