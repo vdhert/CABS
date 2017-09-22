@@ -58,10 +58,21 @@ def coloring(color_name = "light_blue", msg = ""):
 def log(module_name = "MISC", msg = "Processing ", l_level = 1, out = stream):
     if l_level <= log_level:
         t = gmtime(time() - _init_time)
-        msg = '%-20s %-19s%-75s %s\n' % (
-            prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , msg,strftime('(%H:%M:%S)', t))
-        out.write(msg)
-        out.flush()
+        if len(msg) < 76:
+            msg = '%-20s %-19s%-75s %s\n' % (
+                prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , msg,strftime('(%H:%M:%S)', t))
+            out.write(msg)
+            out.flush()
+        else:
+            lines = textwrap.wrap(msg,width=75)
+            firstLine = '%-20s %-19s%-75s \n' % (prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , lines[0])
+            out.write(firstLine)
+            for lineNumber in xrange(1,len(lines)-1):
+                line = '%-22s%-75s \n' % (" ", lines[lineNumber])
+                out.write(line)
+            finalLine = '%-22s%-75s %s\n' % (" ", lines[-1], strftime('(%H:%M:%S)', t))
+            out.write(finalLine)
+            out.flush()
 
 
 def critical(module_name = "_name", msg = ""):
@@ -94,11 +105,11 @@ def to_file(filename='',content='',msg='',allowErr=True,traceback=True):
             if os.path.isfile(filename): log_file(module_name=_name,msg = "Overwriting %s" % filename)
             with open(filename,'w') as f:
                 f.write(content)
-        except OSError:
+        except IOError:
             if allowErr:
-                warning(module_name=_name,msg ="OSError while writing to: %s" % filename)
+                warning(module_name=_name,msg ="IOError while writing to: %s" % filename)
             else:
-                exit_program(module_name=_name,msg ="OSError while writing to: %s" % filename,traceback=traceback)
+                exit_program(module_name=_name,msg ="IOError while writing to: %s" % filename,traceback=traceback)
     if msg:
         log_file(module_name=_name,msg = msg)
 
