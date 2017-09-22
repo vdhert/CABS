@@ -43,17 +43,28 @@ python setup.py install --prefix=<PATH>
 ```
 Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
 
-* to run CABSdock simply type:
+Installation requires:
 
+* python >= 2.7.12
+* python setuptools
+* fortran compiler (preferably gfortran)
+* modeller
+* dssp (in case CABSdock will be run offline)
+
+To install python follow instructions at [at: https://www.python.org]
+
+To install setuptools, dssp and gfortran on debian/ubuntu/mint run:
+```
+#!bash
+sudo apt install gfortran python-setuptools dssp
+```
+
+To install modeller folow instructions at [at: https://salilab.org/modeller]
+
+* to run CABSdock simply type:
 ```
 #!bash
 CABSdock
-```
-
-Additionally, CABSdock requires installation of the following packages: gfortran, numpy, matplotlib, dssp and modeller. To install them run:
-```
-#!bash
-sudo apt install gfortran python-numpy python-matplotlib dssp modeller
 ```
 
 --------------------------------------------
