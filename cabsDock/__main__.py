@@ -66,7 +66,6 @@ def run_dock():
         )
     finally:
         map(os.removedirs,junk)
-    job.run()
 
 
 def run_flex():
@@ -109,4 +108,3 @@ def run_flex():
         )
     finally:
         map(os.removedirs, junk)
-    job.run()
