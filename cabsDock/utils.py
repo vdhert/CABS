@@ -830,7 +830,10 @@ def _chunk_lst(lst, sl_len, extend_last=None):
 
 
 def _extend_last(sseries, slen, token):
-    sseries[-1].extend([token] * (slen - len(sseries[-1])))
+    try:
+        sseries[-1].extend([token] * (slen - len(sseries[-1])))
+    except IndexError:
+        sseries.append([token] * slen)
 
 
 def _fmt_res_name(atom):
