@@ -9,9 +9,11 @@ from math import sqrt
 from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
+from collections import OrderedDict
 
-from utils import CABS_SS, aa_to_long, smart_flatten, kabsch, ProgressBar
+from utils import CABS_SS, aa_to_long, smart_flatten, kabsch
 from vector3d import Vector3d
+from logger import ProgressBar
 
 
 class Atom:
@@ -555,7 +557,7 @@ class Atoms:
         Returns a dictionary [chain ID] = chain_residue_count
         :return: {str: int}
         """
-        d = {}
+        d = OrderedDict()
         for ch in self.chains():
             d[ch[0].chid] = Atoms(ch).residue_count()
         return d
@@ -755,6 +757,19 @@ class Atoms:
         for a in self.atoms:
             a.tail = ''
         return self
+
+    def atom_range(self, first, last):
+        atoms = []
+        add = False
+        for a in self.atoms:
+            ar = a.resid_id()
+            if ar == first:
+                add = True
+            if add:
+                atoms.append(ar)
+            if ar == last:
+                return atoms
+        return []
 
 
 class Selection:

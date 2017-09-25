@@ -1,15 +1,13 @@
-from string import ascii_uppercase
+from string import ascii_uppercase, rfind, replace
 import numpy as np
 import re
-from sys import stderr
-from time import time, strftime, gmtime, sleep
 from pkg_resources import resource_filename
 import warnings
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
 
-#sidechains relative coords
+# sidechains relative coords
 SIDECNT = { 'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
             'GLN': (-0.095, -1.674, 2.612, 0.047, -0.886, 2.991),
             'ILE': (0.094, -1.416, 1.836, -0.105, -0.659, 2.219),
@@ -574,6 +572,91 @@ class SCModeler(object):
         """
         self.nms = nms
 
+    @staticmethod
+    def _mk_local_system(c1, c2, c3):
+        """Return local system base for given CA.
+
+        Arguments:
+        c1, c2, c3 -- subsequent CA position vectors.
+
+        Base will be calculated for c2.
+        Returns 3 vectors and distance between c1 nad c3.
+        """
+        rdif = c3 - c1
+        rdnorm = np.linalg.norm(rdif)
+        rsum = (c3 - c2) + (c1 - c2)
+        z = -1 * rsum / np.linalg.norm(rsum)
+        x = rdif / rdnorm
+        y = np.cross(z, x)
+        return x, y, z, rdnorm
+
+    @staticmethod
+    def _calc_nodes_line(old_v, new_v):
+        """Return versor unchanged during transformation of one versor into another."""
+        w = np.cross(old_v, new_v)
+        return w / np.linalg.norm(w)
+
+    @staticmethod
+    def _calc_trig_fnc(ve1, ve2, axis):
+        """Return cos and sin between given versors."""
+        cos = np.dot(ve1, ve2)
+        perp_vec = np.cross(ve1, ve2)
+        sin = np.linalg.norm(perp_vec) * np.sign(np.dot(perp_vec, axis))
+        return cos, sin
+
+    def _calc_rot_mtx(self, c1, c2, c3, dbg=False):
+        """Return rotation matrix transforming Cartesian system to system of alpha carbon c2 in sequence of alpha carbons c1, c2, c3.
+
+        Arguments:
+        c1, c2, c3 -- position vectors of subsequent alpha carbons.
+
+        Returns matrix and distance detween c1 and c3.
+        """
+        if dbg:
+            import imp
+            pdbx = imp.load_source('test', '/usr/lib/python2.7/pdb.py')
+            pdbx.set_trace()
+        x, y, z, rdnorm = self._mk_local_system(c1, c2, c3)
+
+        setting = np.geterr()
+        np.seterr(all='raise')
+        try:
+            w = self._calc_nodes_line(np.array((0, 0, 1)), z)
+        except FloatingPointError:
+            w = x
+        np.seterr(**setting)
+
+        cph, sph = self._calc_trig_fnc(np.array((1, 0, 0)), w, np.array((0, 0, 1)))
+        # phi angle trig fncs -- rotation around z axis so x -> w
+        #~ sph = np.linalg.norm(cpht) * np.sign(np.dot(cpht, np.array((0, 0, 1))))
+
+        cps, sps = self._calc_trig_fnc(w, x, z)
+        # psi angle -- rotation around z' so x -> x'
+        #~ sps = np.linalg.norm(cwx) * np.sign(np.dot(cwx, z))
+
+        cth, sth = self._calc_trig_fnc(np.array((0, 0, 1)), z, w)
+        # theta angle -- rotation around nodes line to transform z on z'
+
+        rot = np.matrix( [  [   cps * cph - sps * sph * cth,
+                                sph * cps + sps * cth * cph,
+                                sps * sth],
+                            [   -1 * sps * cph - sph * cps * cth,
+                                -1 * sps * sph + cps * cth * cph,
+                                cps * sth],
+                            [   sth * sph,
+                                -sth * cph,
+                                cth]])
+
+        return rot, rdnorm
+
+    @staticmethod
+    def _calc_scatter_coef(dist):
+        if dist < 5.3:
+            return 1.
+        if dist > 6.4:
+            return 0.
+        return float((dist - 5.3) * -(1 / 1.1) + 1)
+
     def rebuild_one(self, vec, sc=True):
         """Takes vector of C alpha coords and residue names and returns vector of C beta coords."""
         vec = np.insert(vec, 0, vec[0] - (vec[2] - vec[1]), axis=0)
@@ -583,40 +666,12 @@ class SCModeler(object):
         nms = (lambda x: self.nms[x].resname) if sc else (lambda x: 'ALA')
 
         for i in xrange(len(vec) - 2):
-            c1, c2, c3 = vec[i: i + 3]
-
-            rdif = c3 - c1
-            rdnorm = np.linalg.norm(rdif)
-            rsum = (c3 - c2) + (c1 - c2)
-            z = -1 * rsum / np.linalg.norm(rsum)
-            x = rdif / rdnorm
-            y = np.cross(z, x)
-
-            w = np.cross(np.array([0, 0, 1]), z)
-            w = w / np.linalg.norm(w)
-
-            ph_t = np.array([1, 0, 0]), w
-            cph = np.dot(*ph_t)
-            cpht = np.cross(*ph_t)
-            sph = np.linalg.norm(cpht) * np.sign(np.dot(cpht, np.array((0, 0, 1))))
-
-            cps = np.dot(w, x)
-            cwx = np.cross(w, x)
-            sps = np.linalg.norm(cwx) * np.sign(np.dot(cwx, z))
-
-            th_t = np.array([0, 0, 1]), z
-            cth = np.dot(*th_t)
-            sth = np.linalg.norm(np.cross(*th_t))
-
-            rot = np.matrix( [  [cps * cph - sps * cth * sph, cps * sph + sps * cth * cph, sps * sth],
-                                [-sps * cph - cps * cth * sph, -sps * sph + cps * cth * cph, cps * sth],
-                                [sth * sph, -sth * cph, cth]])
-
-            coef = 1 if rdnorm < 5.3 else 0 if rdnorm > 6.4 else (rdnorm - 5.3) * -.91 + 1
+            rot, casdist = self._calc_rot_mtx(*vec[i: i + 3])
+            coef = self._calc_scatter_coef(casdist)
             comp = np.array(SIDECNT[nms(i)][:3]) * coef
             scat = np.array(SIDECNT[nms(i)][3:]) * (1 - coef)
-            rbld = np.array((comp + scat) / 2)
-            nvec[i] = rbld.dot(rot).A1 + c2
+            rbld = np.array(comp + scat)
+            nvec[i] = rbld.dot(rot).A1 + vec[i + 1]
 
         return nvec
 
@@ -638,50 +693,6 @@ class InvalidAAName(Exception):
 
     def __str__(self):
         return '%s is not a valid %d-letter amino acid code' % self.name
-
-
-class ProgressBar:
-    WIDTH = 60
-    FORMAT = '[%s] %.1f%%\r'
-    BAR0 = ' '
-    BAR1 = '='
-
-    def __init__(self, total=100, msg='', stream=stderr, delay=0):
-        self.total = total
-        self.current = 0
-        self.stream = stream
-        if msg:
-            self.stream.write(msg + '\n')
-        self.start_time = time()
-        sleep(delay)
-
-    def write(self):
-        percent = 1.0 * self.current / self.total
-        num = int(self.WIDTH * percent)
-        percent = round(100. * percent, 1)
-        bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
-        self.stream.write(self.FORMAT % (bar, percent))
-        self.stream.flush()
-
-    def update(self, state=None):
-        if not state:
-            self.current += 1
-        elif state < 0:
-            self.current = self.total
-        else:
-            self.current = state
-        if self.current > self.total:
-            self.current = self.total
-        self.write()
-
-    def done(self, show_time=True):
-        self.update(-1)
-        self.write()
-        self.stream.write('\n')
-        if show_time:
-            t = gmtime(time() - self.start_time)
-            self.stream.write('Done in %s\n' % strftime('%H:%M:%S', t))
-        self.stream.flush()
 
 
 def aa_to_long(seq):
@@ -764,6 +775,7 @@ def smart_flatten(l):
             fl.append(int(i))
     return fl
 
+
 def check_peptide_sequence(sequence):
     """
     Checks the peptide sequence for non-standard AAs.
@@ -799,6 +811,7 @@ def fix_residue(residue):
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))
 
+
 def _chunk_lst(lst, sl_len, extend_last=None):
     """ Slices given list for slices of given len.
 
@@ -815,8 +828,17 @@ def _chunk_lst(lst, sl_len, extend_last=None):
         _extend_last(slists, sl_len, extend_last)
     return slists
 
+
 def _extend_last(sseries, slen, token):
     sseries[-1].extend([token] * (slen - len(sseries[-1])))
 
+
 def _fmt_res_name(atom):
     return (atom.chid + str(atom.resnum) + atom.icode).strip()
+
+
+def PEPtoPEP1(id):
+    if re.search('PEP$', id):
+        return id + '1'
+    else:
+        return id

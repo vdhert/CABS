@@ -1,24 +1,21 @@
-from copy import deepcopy
-from itertools import chain
-
 import StringIO
 import numpy
 import operator
+import logger
+import utils
 import numpy as np
-
 from atom import Atom, Atoms
-from pdb import Pdb
-from utils import ranges
-from utils import kabsch
-from utils import ProgressBar
+from PDBlib import Pdb
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
 from align import save_fasta
 from align import load_csv
-import warnings
+from copy import deepcopy
+
 
 __all__ = ['Trajectory', 'Header']
+_name = 'Trajectory'
 
 
 class Header:
@@ -214,7 +211,7 @@ class Trajectory(object):
             aligned = self.template.select(selection)
         else:
             aligned = template_aligned
-        pieces = ranges([self.template.atoms.index(a) for a in aligned])
+        pieces = utils.ranges([self.template.atoms.index(a) for a in aligned])
 
         t = target.to_matrix()
         t_com = np.average(t, 0)
@@ -225,7 +222,7 @@ class Trajectory(object):
             query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
             q_com = np.average(query, 0)
             q = np.subtract(query, q_com)
-            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
+            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(t, q, concentric=True)), t_com))
 
     def rmsd_matrix(self, msg=''):
         """
@@ -241,7 +238,7 @@ class Trajectory(object):
         dim = len(models)
         result = np.zeros((dim, dim))
         if msg:
-            bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
+            bar = logger.ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
             bar = None
         for i in range(dim):
@@ -258,7 +255,7 @@ class Trajectory(object):
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
-        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment against all chains is calculated.
         align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
         alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
         path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
@@ -266,7 +263,8 @@ class Trajectory(object):
         target_align_kwargs -- as above, but used when aligning target protein.
         """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        ref_stc = Pdb(pdb_code=ref_pdb).atoms.select('name CA and not HETERO')
+        ref_stc = Pdb(ref_pdb, selection='name CA and not HETERO').atoms
+
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)

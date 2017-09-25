@@ -40,11 +40,12 @@ def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
 
 def mk_histo(sfig, vls, lbls, ylim=(0., 1.)):
     """
+    Arguments:
+    sfig -- matplotlib subplot or list of subplots.
+    vls -- list of subsequent histogram values (or list of corresponding number of lists if sfig is a list).
+    lbls -- list of subsequent labels (or list of lists if sfig is a list).
     """
-    try:
-        vls = _chunk_lst(vls, len(sfig))
-        lbls = _chunk_lst(lbls, len(sfig))
-    except TypeError:
+    if type(sfig) is not list:
         sfig = [sfig]
         vls = [vls]
         lbls = [lbls]

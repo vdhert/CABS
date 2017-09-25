@@ -81,15 +81,14 @@ class ContactMapFactory(object):
 
         Calculates distances between atoms from given chains.
         """
-        mtx = numpy.empty(self.dims, dtype=numpy.float)
-        for d1, at1 in enumerate(vec[self.inds1,]):
-            for d2, at2 in enumerate(vec[self.inds2,]):
-                mtx[d1, d2] = numpy.linalg.norm(at1 - at2)
-        return mtx
+        m1 = vec[self.inds1,].reshape(-1, 1, 3)[:, self.dims[1] * (0,)]
+        m2 = vec[self.inds2,].reshape(1, -1, 3)[self.dims[0] * (0,), :]
+        mtx = m1 - m2
+        return (mtx * mtx).sum(axis=2) ** .5
 
 
 class ContactMap(object):
-    def __init__(self, mtx, atoms1, atoms2, n):
+    def __init__(self, mtx, nms1, nms2, n):
         """Contact map init.
 
         Arguments:
@@ -98,8 +97,8 @@ class ContactMap(object):
         n -- number of frames.
         """
         self.cmtx = mtx
-        self.s1 = atoms1
-        self.s2 = atoms2
+        self.s1 = nms1
+        self.s2 = nms2
         self.n = n
 
     def zero_diagonal(self):
@@ -115,94 +114,76 @@ class ContactMap(object):
         break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
         #TODO: taking min and max out of data + [50] should be done once
-        wdh_cnst = 50
+        wdh_cnst = 60
         wdth = self.cmtx.shape[0]
         chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
         lngst = max(map(len, chunks))
         label_size = min(lngst, wdh_cnst) / float(wdh_cnst) * 10
         size = (min(lngst, wdh_cnst) / 5., len(chunks) * min(len(self.s2), wdh_cnst) / 5. + 2)
         fig = matplotlib.pyplot.figure(figsize=size)
-        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, min(lngst, wdh_cnst), height_ratios=([min(len(self.s2), wdh_cnst) + 2] + [min(len(self.s2), wdh_cnst) for i in chunks[1:]] + [3]))
+        grid_wdth = min(lngst, wdh_cnst)
+        grid = matplotlib.pyplot.GridSpec(len(chunks) + 1, 1, height_ratios=([len(self.s2) for i in chunks] + [len(self.s2) * .25]))
         vmax = self.n if norm_n else numpy.max(self.cmtx)
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                ['#ffffff', '#dddddd', '#ffa100', '#666666', '#e80915', '#000000'])
+                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#e80915', '#666666', '#4b8f24', '#000000']))
 
         for n, chunk in enumerate(chunks):
-            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, :min(len(chunk), wdh_cnst)])
+            sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
+            mtx = self.cmtx.T[:,chunk]
+            if mtx.shape[1] < grid_wdth:
+                zrs = numpy.zeros((mtx.shape[0], grid_wdth))
+                zrs[:, :len(chunk)] = mtx
+                mtx = zrs
             sfig.matshow(
-                self.cmtx.T[:,chunk],
+                mtx,
                 cmap=colors,
                 vmin=0.,
                 vmax=vmax,
                 )
 
             if sfig.get_data_ratio() < 1.:
-                aratio = self.cmtx.shape[0] / 300.
-                sfig.set_aspect(aratio)
+                aratio = float.__div__(*map(float, mtx.shape))
+                sfig.set_aspect(sfig.get_data_ratio() ** -1 * aratio)
             settings = (
-                        (list(numpy.array(self.s1)[chunk,]), sfig.xaxis, len(chunk)),
-                        (self.s2, sfig.yaxis, len(self.s2)),
+                        (list(numpy.array(self.s1)[chunk,]), len(chunk), sfig.set_xticks, sfig.set_xticklabels),
+                        (self.s2, len(self.s2), sfig.set_yticks, sfig.set_yticklabels),
                         )
-            for lbls, tck_setter, n_tcks in settings:
+            for lbls, n_tcks, tck_loc, tck_lab in settings:
                 nloc = break_long_x if break_long_x else wdh_cnst
-                locator = matplotlib.ticker.MaxNLocator(min(nloc, n_tcks))
-                #TODO: maxnlocator overrites fixed postions of ticks.
-                # consider using picking up appropriate indexes with linspace
-                # and using multiple or fixed locator. may help with troublesom formatter.
-                def fnc(lst):
-                    def fmt(x, p):
-                        try:
-                            return lst[int(numpy.ceil(x))]
-                        except IndexError:
-                            return ""
-                    return fmt
-                tck_setter.set_major_formatter(matplotlib.ticker.FuncFormatter(fnc(lbls)))
-                tck_setter.set_major_locator(locator)
+                ntcks = n_tcks if n_tcks < nloc else nloc / 2
+                inds = numpy.linspace(0, len(lbls) -1, ntcks).astype(int)
+                locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
+                tck_loc(inds)
+                tck_lab(list(numpy.array(lbls)[inds,]))
 
             sfig.tick_params(labelsize=label_size, bottom=True, top=False, labelbottom=True,labeltop=False)
             for tick in sfig.get_xticklabels():
                 tick.set_rotation(90)
 
-        # colorbar
-        """#for relative frequency
-        vls = numpy.linspace(0., 1., 5)
-        ax2 = matplotlib.pyplot.subplot(grid[-1, :])
-        ax2.matshow(    vls.reshape(1, 5),
-                        cmap=colors,
-                        interpolation='bilinear')
-        ax2.set_aspect(1. / 20)
-        ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
-        ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
-        ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
-        ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
-        """
-        #for absolute frequency of contact 
         if norm_n:
-            max_ticks = n_ticks = 5
-            vls = numpy.linspace(0., 1., 5)
+            n_ticks = 5
+            vls = numpy.linspace(0., 1., 256)
+            tcks = numpy.linspace(0., 1., n_ticks)
             vmax = 1.
         else:
-            max_ticks = 30
-            n_ticks = min(max_ticks, vmax)
-            vls = numpy.linspace(0, int(vmax), int(n_ticks)).astype(int)
-        ax2 = matplotlib.pyplot.subplot(grid[-1, :len(chunks[0])])
-        ax2.matshow(    vls.reshape(1, int(n_ticks)),
+            vls = numpy.arange(0, int(vmax), 1)
+            n_ticks = 15 if len(vls) > 30 else int(vmax)
+            tcks = numpy.linspace(0, len(vls) - 1, n_ticks).astype(int)
+        tcks_loc = numpy.linspace(0., len(vls) - 1, n_ticks).astype(int)
+        ax2 = matplotlib.pyplot.subplot(grid[-1, 0])
+        ax2.matshow(    vls.reshape(1, len(vls)),
                         cmap=colors,
                         vmin=0,
                         vmax=vmax,
                         interpolation='bilinear',
                         )
-        ax2.set_aspect(.8 / min((len(chunks[0]), 50)))
+        ax2.set_aspect(ax2.get_data_ratio() ** -1 * .5 / grid_wdth)
         ax2.tick_params(axis='x', bottom=True, top=False, labelbottom=True, labeltop=False, labelsize=label_size, direction='out')
         ax2.tick_params(axis='y', left=False, right=False, labelright=False, labelleft=False)
-        if norm_n:
-            ax2.xaxis.set_major_locator(matplotlib.ticker.LinearLocator(5))
-            ax2.xaxis.set_major_formatter(matplotlib.ticker.FixedFormatter(["%.2f" % i for i in vls]))
-        else:
-            ax2.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(1))
-            ax2.xaxis.set_major_formatter(matplotlib.ticker.IndexFormatter(vls))
+        ax2.set_xticks(tcks_loc)
+        ax2.set_xticklabels(tcks)
 
         fig.get_axes()[0].set_title('Contacts freuqency')
         grid.tight_layout(fig)
@@ -220,28 +201,30 @@ class ContactMap(object):
         """
         max_bars = 15
 
-        inds1, inds2 = map(sorted, map(set, numpy.nonzero(self.cmtx)))
+        trg_vls_all = self.cmtx.sum(axis=1) / float(self.n)
+        pep_vls = self.cmtx.sum(axis=0) / float(self.n)
+
+        inds1 = numpy.nonzero(trg_vls_all)[0]
         if all_inds_stc2:
             inds2 = range(self.cmtx.shape[1])
-
-        trg_vls_all = [numpy.sum(i) / self.n for i in self.cmtx]
+        else:
+            inds2 = numpy.nonzero(pep_vls)[0]
 
         trg_vls = list(numpy.array(trg_vls_all)[inds1,])
         trg_lbls = list(numpy.array(self.s1)[inds1,])
 
-        pep_vls = [numpy.sum(self.cmtx[:,i]) / self.n for i in inds2]
         pep_lbls = [self.s2[i] for i in inds2]
 
         max_y = max([.05] + trg_vls_all)
 
-        chunks = int(numpy.ceil(len(trg_vls) / float(max_bars)))
-        grid = matplotlib.pyplot.GridSpec(2 + chunks, 1)
-        size = (10, 3 * chunks)
+        chunks = _chunk_lst(trg_vls, max_bars, extend_last=0.)
+        grid = matplotlib.pyplot.GridSpec(2 + len(chunks), 1)
+        size = (10, 3 * len(chunks))
         fig = matplotlib.pyplot.figure(figsize=size)
 
         peptH = mk_histo(matplotlib.pyplot.subplot(grid[0, 0]), pep_vls, pep_lbls, ylim=(0, max([.05] + pep_vls)))[0]
-        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, chunks + 2)]
-        targBH = mk_histo(sbplts, trg_vls, trg_lbls, ylim=(0, max_y))
+        sbplts = [matplotlib.pyplot.subplot(grid[i, 0]) for i in range(1, len(chunks) + 1)]
+        targBH = mk_histo(sbplts, chunks, _chunk_lst(trg_lbls, max_bars, extend_last=''), ylim=(0, max_y))
         targAH = mk_histo(matplotlib.pyplot.subplot(grid[-1, 0]), trg_vls_all, self.s1, ylim=(0, max_y))[0]
 
         peptH.set_title('Histogram of peptide contacts')
@@ -273,7 +256,7 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname, norm_n=True, break_long_x=50):
+    def save_all(self, fname, norm_n=False, break_long_x=50):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)

@@ -4,15 +4,21 @@ import os
 import re
 import numpy as np
 import tarfile
+import logger
 from os.path import join, exists, isdir
 from operator import attrgetter
 from subprocess import Popen, PIPE, check_output
 from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
+from collections import OrderedDict
+from tempfile import mkdtemp
+from time import strftime
 
-from vector3d import Vector3d
-from trajectory import Trajectory
+from cabsDock.vector3d import Vector3d
+from cabsDock.trajectory import Trajectory
+
+__all__ = ['CABS']
 
 
 class CabsLattice:
@@ -109,12 +115,19 @@ class CabsRun(Thread):
         :param restraints: Restraints object with complete list of CA-CA and SG-SG restraints
         :param config: Dictionary from Job object running CabsRun
         """
+        #~ import pdb; pdb.set_trace()
         Thread.__init__(self)
-
+        logger.debug(module_name=__all__[0],msg="Loading structures...")
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
+        logger.debug(module_name=__all__[0], msg="Loading restraints...")
         restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
+
+        exclude = CabsRun.load_excluding(
+            protein_complex.receptor.exclude, config['excluding_distance'], ids
+        )
+
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = config['replicas']
@@ -122,31 +135,25 @@ class CabsRun(Thread):
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
             * nreps * config['mc_cycles'] * config['mc_annealing']
 
-        cabs_dir = join(config['work_dir'], '.CABS')
-        if exists(cabs_dir):
-            if not isdir(cabs_dir):
-                raise Exception(cabs_dir + ' exists and is not a directory!!!')
-            else:
-                tra = join(cabs_dir, 'TRAF')
-                if exists(tra):
-                    os.remove(tra)
-
-        else:
-            os.mkdir(cabs_dir, 0755)
+        cabs_dir = mkdtemp(
+            prefix=strftime('.%d%b.%H:%M:%S.'),
+            dir=config['work_dir']
+        )
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)
         with open(join(cabs_dir, 'SEQ'), 'w') as f:
             f.write(seq)
         with open(join(cabs_dir, 'INP'), 'w') as f:
-            f.write(inp + restr + '0, 0')
+            f.write(inp + restr + exclude)
 
+        logger.debug(module_name=__all__[0], msg="Building exe...")
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('cabsDock', 'data/data0.dat'),
             exe='cabs',
-            build_command=config['fortran_compiler'][0],
-            build_flags=config['fortran_compiler'][1],
+            build_command=config['fortran_compiler'],
+            build_flags='-O2',
             destination=cabs_dir
         )
 
@@ -163,7 +170,7 @@ class CabsRun(Thread):
     def load_structure(protein_complex):
         fchains = None
         seq = ''
-        cabs_ids = {}
+        cabs_ids = OrderedDict()
         for model in protein_complex.models():
             chains = model.chains()
             if not fchains:
@@ -197,7 +204,7 @@ class CabsRun(Thread):
         return ''.join(fchains), seq, cabs_ids
 
     @staticmethod
-    def load_restraints(restraints, ca_weight=1.0, sg_weight=0.0):
+    def load_restraints(restraints, ca_weight=1.0, sg_weight=1.0):
         max_r = 0
 
         rest = [r for r in restraints.data if not r.sg]
@@ -223,6 +230,12 @@ class CabsRun(Thread):
             restr += ''.join(rest)
 
         return restr, max_r
+
+    @staticmethod
+    def load_excluding(excl, dist, cabs_ids):
+        return '%i %f\n' % (len(excl), dist) + '\n'.join(
+            '%i %i %i %i' % (cabs_ids[i] + cabs_ids[j]) for i, j in excl
+        )
 
     @staticmethod
     def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):
@@ -262,16 +275,11 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        return Popen(self.cfg['exe'], cwd=self.cfg['cwd']).wait()
-
-    def status(self):
-        traj = join(self.cfg['cwd'], 'TRAF')
-        if not exists(traj):
-            progress = 0.
-        else:
-            progress = 100. * int(check_output(['wc', '-l', traj]).split()[0]) / self.cfg['tra']
-
-        return progress
+        monitor = logger.cabs_observer(interval=0.2,traj = join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
+        CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'],stderr=PIPE,stdin=PIPE)
+        (stdout, stderr) = CABS.communicate()
+        if stderr: logger.warning(module_name=__all__[0],msg=stderr)
+        monitor.exit()
 
     def get_trajectory(self):
         traf = join(self.cfg['cwd'], 'TRAF')
