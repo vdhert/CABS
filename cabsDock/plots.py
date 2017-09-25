@@ -156,7 +156,7 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
 
         plot.set_xlabel('RMSD')
         plot.set_ylabel('%s energy' % etp.capitalize())
-        plot.set_title('CABSdock %s energy vs. RMSD' % etp)
+        plot.set_title('CABS %s energy vs. RMSD' % etp)
         set_fixed_ar(plot, .75)
 
         histo.set_xlim(xlim)
