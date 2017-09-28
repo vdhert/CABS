@@ -1,78 +1,80 @@
-# README #
+# README
 This is a repository for CABSdock standalone application for molecular docking of peptides to proteins. The CABSdock allows for flexible docking (also with large-scale conformational changes) without knowledge about the binding site. The CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
-
-## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/lcbio/cabsdock/wiki/) ##
-
--------------------------------------------
-
-# INSTALLATION #
-
-
-To install CABSdock:
-
-* download latest version of CABSdock
-* extract CABSdock-version.tar.gz
-
+###Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/lcbio/cabsdock/wiki)
+### To install CABS on Linux Debian / Ubuntu / Mint:
+####1. Install python-pip
 ```
 #!bash
-
-tar xzf CABSdock-version.tar.gz
+sudo apt install python-pip
 ```
-
-* change into CABSdock-version directory
-
+####2. Download latest version of CABS
 ```
 #!bash
-
-cd CABSdock-version
+wget https://bitbucket.org/lcbio/cabsdock/downloads/CABS-<version>.tar.gz
 ```
-
-* if you have root privileges and want to install CABSdock systemwide run:
-
+####3. Extract CABS-<version>.tar.gz
 ```
 #!bash
-
-python setup.py install
+tar xzf CABS-<version>.tar.gz
 ```
-
-* to install CABSdock locally run:
-
+####4. Install CABS with pip (make sure you are using pip for python 2.7.*)
+#####For all users
 ```
 #!bash
-python setup.py install --prefix=<PATH>
+sudo -H pip install CABS-<version>/
 ```
-Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
-
-#Installation requires:#
-
-* python >= 2.7.12
-* python setuptools
-* fortran compiler (preferably gfortran)
-* modeller
-* dssp (in case CABSdock will be run offline)
-
-To install python follow instructions at https://www.python.org
-
-To install setuptools, dssp and gfortran on debian/ubuntu/mint run:
+#####Locally
 ```
 #!bash
-sudo apt install gfortran python-setuptools dssp
+pip install CABS-<version>/ --user  
 ```
-
-To install modeller folow instructions at https://salilab.org/modeller
-
-* to run CABSdock simply type:
+####5. To uninstall CABS with pip run:
+#####For all users
 ```
 #!bash
-CABSdock
+sudo -H pip uninstall CABS
 ```
+#####Locally 
+```
+#!bash
+pip uninstall CABS  
+```
+###To run CABSdock simply type:
+```
+#!bash
+cabsDock
+```
+###Additionally, running CABSdock requires installation of the following packages:
+#####Fortran compiler
+(preferably GNU gfortran)
 
---------------------------------------------
+Install with:
+```
+#!bash
+sudo apt install gfortran
+```
+For other compilers remember to run CABSdock with **"--fortran-compiler <your-compiler>"** option
 
+#####DSSP
+(optional if CABSdock will be run offline)
+
+Install with:
+```
+#!bash
+sudo apt install dssp
+```
+#####Modeller
+(optional for all-atom reconstruction of models)
+
+Follow [instructions](https://salilab.org/modeller/download_installation.html) on how to install it on your machine.
+
+### Windows and Mac versions coming soon !!!
+
+------------------------------------------------------------------------------------------------------------------------
 
 # ABOUT THE METHOD #
 
-CABSdock method has been first made available as a web server [at: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
+CABSdock method has been first made available as a web [server](http://biocomp.chem.uw.edu.pl/CABSdock). The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
 
 The following papers describe the CABS-dock method/ web server/ and its example applications:
 
