@@ -15,8 +15,8 @@ from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime
 
-from cabsDock.vector3d import Vector3d
-from cabsDock.trajectory import Trajectory
+from vector3d import Vector3d
+from trajectory import Trajectory
 
 __all__ = ['CABS']
 
@@ -150,14 +150,14 @@ class CabsRun(Thread):
         logger.debug(module_name=__all__[0], msg="Building exe...")
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
-            src=resource_filename('cabsDock', 'data/data0.dat'),
+            src=resource_filename('CABS', 'data/data0.dat'),
             exe='cabs',
             build_command=config['fortran_compiler'],
             build_flags='-O2',
             destination=cabs_dir
         )
 
-        with tarfile.open(resource_filename('cabsDock', 'data/data1.dat')) as f:
+        with tarfile.open(resource_filename('CABS', 'data/data1.dat')) as f:
             f.extractall(cabs_dir)
 
         self.cfg = {

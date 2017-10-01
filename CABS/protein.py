@@ -9,7 +9,7 @@ from copy import deepcopy
 from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
-from cabsDock.PDBlib import Pdb
+from PDBlib import Pdb
 from atom import Atoms
 from vector3d import Vector3d
 

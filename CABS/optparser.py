@@ -1,6 +1,9 @@
 import csv
 import argparse
 import re
+from pkg_resources import require
+
+__version__ = require('CABS')[0].version
 
 
 class CustomFormatter(argparse.RawTextHelpFormatter):
@@ -67,6 +70,7 @@ class ParserFactory:
     @staticmethod
     def _build_parser(lines):
         d = {l[0]: l[1] for l in lines[1:]}
+        d['version'] = __version__
         return argparse.ArgumentParser(formatter_class=CustomFormatter, **d)
 
     def _populate_parser(self, _groups, _parser):

@@ -189,7 +189,7 @@ class ProgressBar:
 
 class cabs_observer(Thread):
 
-    def __init__ (self,interval=0.5,traj='',n_lines = 0, job_name ='cabsDock simulation',msg =''):
+    def __init__ (self,interval=0.5,traj='',n_lines = 0, job_name ='CABS simulation',msg =''):
         Thread.__init__(self)
         self.exit_event=Event()
         self.interval=interval

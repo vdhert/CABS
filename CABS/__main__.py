@@ -1,6 +1,6 @@
 import logger
 import os
-from cabsDock.optparser import ParserFactory, ConfigFileParser
+from optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
 from sys import argv
 
@@ -31,7 +31,7 @@ def run_dock():
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
 
     parser = ParserFactory(
-        filecsv=resource_filename('cabsDock', 'data/data3.dat')
+        filecsv=resource_filename('CABS', 'data/data3.dat')
     ).parser
     args = parser.parse_args()
 
@@ -40,13 +40,13 @@ def run_dock():
         cfg_args = ConfigFileParser(args.config).args
 
     parser = ParserFactory(
-        filecsv=resource_filename('cabsDock', 'data/data3.dat'), required=['receptor']
+        filecsv=resource_filename('CABS', 'data/data3.dat'), required=['receptor']
     ).parser
 
     args = parser.parse_args(cfg_args + argv[1:])
     config = Config(args)
 
-    from cabsDock.job import DockTask
+    from CABS.job import DockTask
     job = DockTask(**config)
 
     # start docking
@@ -73,7 +73,7 @@ def run_flex():
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
 
     parser = ParserFactory(
-        filecsv=resource_filename('cabsDock', 'data/data4.dat')
+        filecsv=resource_filename('CABS', 'data/data4.dat')
     ).parser
     args = parser.parse_args()
 
@@ -82,13 +82,13 @@ def run_flex():
         cfg_args = ConfigFileParser(args.config).args
 
     parser = ParserFactory(
-        filecsv=resource_filename('cabsDock', 'data/data4.dat'), required=['structure']
+        filecsv=resource_filename('CABS', 'data/data4.dat'), required=['structure']
     ).parser
 
     args = parser.parse_args(cfg_args + argv[1:])
     config = dict(vars(args))
 
-    from cabsDock.job import FlexTask
+    from CABS.job import FlexTask
     job = FlexTask(**config)
 
     # start flexing
@@ -108,3 +108,7 @@ def run_flex():
         )
     finally:
         map(os.removedirs, junk)
+
+
+if __name__ == '__main__':
+    run_flex()

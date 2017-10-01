@@ -8,12 +8,10 @@ from os import getcwd, mkdir
 from os.path import exists, isdir, abspath
 
 from cabs import CabsRun
-from cabsDock.cluster import Clustering
-from cabsDock.cmap import ContactMapFactory
-from cabsDock.plots import graph_RMSF
-from cabsDock.plots import plot_E_RMSD
-from cabsDock.plots import plot_RMSD_N
-from cabsDock.utils import SCModeler
+from cluster import Clustering
+from cmap import ContactMapFactory
+from plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
+from utils import SCModeler
 from filter import Filter
 from protein import ProteinComplex
 from restraints import Restraints
@@ -68,7 +66,6 @@ class CABSTask(object):
             save_config_file=True,
             image_file_format='svg',
             verbose=1,
-            stride_command='stride',
             receptor_flexibility=None,
             exclude=None,
             save_cabs_files=None,
@@ -129,7 +126,7 @@ class CABSTask(object):
             'exclude': exclude,
             'modeller_iterations': modeller_iterations,
             'excluding_distance': excluding_distance,
-            'verbose' : verbose,
+            'verbose': verbose,
             'cc_threshold': cc_threshold,
         }
 
@@ -345,7 +342,7 @@ class CABSTask(object):
             # Saving top 10 models in AA representation:
             pdb_medoids = self.medoids.to_pdb()
             if self.config['AA_rebuild']:
-                from cabsDock.ca2all import ca2all
+                from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all( fname,
                             output=output_folder + '/' + 'model_{0}.pdb'.format(i),
@@ -353,7 +350,7 @@ class CABSTask(object):
 
 
 class DockTask(CABSTask):
-    """Class representing single cabsDock job."""
+    """Class representing single CABS job."""
 
     def __init__(   self,
                     receptor,
@@ -515,7 +512,7 @@ class DockTask(CABSTask):
             pdb_medoids = self.medoids.to_pdb()
             if self.config['AA_rebuild']:
                 progress = logger.ProgressBar(module_name="MODELLER",job_name="Modeller")
-                from cabsDock.ca2all import ca2all
+                from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
                         out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))

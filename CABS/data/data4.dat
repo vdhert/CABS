@@ -1,38 +1,19 @@
 #parser,,,,,
-prog,CABSdock,,,,
-version,1.0,,,,
-description,"CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
-
-CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.",,,,
+prog,CABSflex,,,,
+description,CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.,,,,
 epilog,CABSdock repository: https://bitbucket.org/lcbio/cabsdock,,,,
 ,,,,,
 #group,BASIC OPTIONS,"Basic options allow tu run protein-peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to peptide sequence, a peptide secondary structure information may be provided.",,,
-"-r, --receptor",RECEPTOR,"Loads receptor structure.
+"-r, --structure",STRUCTURE,"Loads structure.
 
-RECEPTOR can be either:
+STRUCTURE can be either:
 
 1. PDB code (optionally with chain IDs)
 i.e. '-r 1CE1:HL' loads chains H and L of 1CE1 receptor structure downloaded from the PDB database
 
 2. PDB file (optionally gzipped)",,,
-"-p, --peptide",PEPTIDE,"Loads peptide sequence and optionally peptide secondary structure in one-letter code (can be used multiple times to add multiple peptides).
-
-PEPTIDE can be either:
-
-1. amino acid sequence in one-letter code
-(optionally annotated with secondary structure: H - helix, E - sheet, C - coil) 
-i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence
-with the secondary structure assignemnt: CHHHHHHHHC
-
-HINT: If possible, it is always recommended to use secondary structure information/prediction. For residues with ambiguous secondary structure prediction assignment it is better to assign
-coil (C) than the regular (H - helix or E - extended) type of structure.
-
-2. PDB code (optionally with chain ID) 
-i.e. '-p 1CE1:P' loads the sequence of the chain P from 1CE1 receptor
-
-3. PDB file with peptide's coordinates, loads only a peptide sequence from a PDB file",,append,
 ,,,,,
-#group,RECEPTOR OPTIONS,Receptor options allows to exclude some receptor residues from docking search and to manipulate the degree of protein receptor flexibility (using either --receptor-flexibility or --receptor-restraints),,,
+#group,STRUCTURE OPTIONS,Structure options allows to manipulate the degree of protein flexibility (using either --receptor-flexibility or --receptor-restraints),,,
 "-e, --exclude",RESIDUES,"Excludes receptor residues listed in RESIDUES from the docking search, therefore enforces more effective search in other areas of a receptor surface, for example, it may be known that some parts of the protein are not accessible to peptide (due to binding to other proteins) and therefore it could be useful to exclude these regions from the search procedure.
 
 RESIDUES must be a single string of characters (no whitespaces) consisting of residue identifiers (i. e. 123:A) or chain identifiers (i. e. A) joined with the '+' sign. '-' is also allowed to specify a continous range of residues, or chains.
@@ -91,40 +72,7 @@ MODE can be either:
            structure (helix, sheet)
 
 GAP specifies gap along the main chain for two resiudes to be restrained
-MIN and MAX are min and max values in Angstroms for two residues to be restrained",all 5 5.0 15.0,,
-,,,,,
-#group,PEPTIDE OPTIONS,"Peptide options, apart from providing peptide sequence, allows to introduce starting peptide conformations and locations (when these additional options are not used, starting peptide conformations and locations are random)",,,
-"-P, --add-peptide",PEPTIDE CONFORMATION LOCATION,"Add peptide to the complex. This option can be used multiple times to add multiple peptides.
-
-PEPTIDE must be either:
-
-1. amino acid sequence in one-letter code (optionally annotated with secondary structure:
-H - helix, E - sheet, C - coil) 
-i.e. '-p HKILHRLLQD:CHHHHHHHHC' loads HKILHRLLQD peptide sequence with the secondary structure
-assignemnt: CHHHHHHHHC
-
-HINT: If possible, it is always recommended to use secondary structure information/prediction. For residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the regular (H - helix or E - extended) type of structure.
-
-2. pdb file (may be gzipped)
-
-3. pdb code (optionally with chain_id i.e. 1abc:D)
-
-CONFORMATION sets initial conformation of the peptide. Must be either:
-
-1. random - random conformation is provided [default]
-
-2. keep - preserve conformation from file. This has no effect if PEPTIDE=SEQUENCE.
-    
-LOCATION sets initial location for the peptide. Must be either:
-
-1. random - peptide is placed in a random location on the surface of a sphere centered at the receptor's geometrical center at distance defined by the '-s, --separation' option from the surface of the receptor.
-
-2. keep - preserve location from file. This has no effect if PEPTIDE=SEQUENCE
-
-3. patch - list of receptor's residues (i.e 123:A+125:A+17:B) Peptide will be placed above the geometrical center of listed residues at distance defined by the '-s, --separation' option from the surface of the receptor. WARNING: residues listed in path should be on the surface of the receptor and close to each other.",,append,
---separation,SEP,This option enables advanced settings of building starting conformations of modelled complexes (to be used only in specific protocols). The option sets separation distance in Angstroms between the peptide and the surface of the receptor (default: 20 Angstroms),20.0,,float
---insertion-clash,DIST,This option enables advanced settings of building starting conformations of modelled complexes. The option sets distance in Angstroms between any two atoms (of different modeled chains) at which a clash occurs while building initial complex (default: 1 Angstrom),1.0,,float
---insertion-attempts,NUM,This option enables advanced settings of building starting conformations of modelled complexes. The option sets number of attempts to insert peptide while building inital complex (default: 1000),1000,,int
+MIN and MAX are min and max values in Angstroms for two residues to be restrained",ss2 3 3.8 8.0,,
 ,,,,,
 #group,RESTRAINTS OPTIONS,"Restraints options allows to set up distance restraints, either between C-alpha atoms (CA) or Side Chains (SC), where SCs are geometric centers of side chains atoms (as defined in CABS coarse-grained
 model).",,,
@@ -153,11 +101,11 @@ Can be used multiple times to add multiple restraints.",,append,
 --mc-annealing,NUM,set number of temperature annealing cycles (NUM > 0),20,,int
 --mc-cycles,NUM,set number of simulation Monte Carlo cycles to NUM (NUM > 0) result trajectory will contain [mc-annealing] x NUM models,50,,int
 --mc-steps,NUM,set number of  Monte Carlo cycles between trajectory frames (NUM > 0) NUM = 1 means that every generated conformation will occur in trajectory. This option is independent from --mc-cycles and --mc-annealing. Total number of conformations generated for each replica = [mc-annealing] x [mc-cycles] x [mc-steps],50,,int
---replicas,NUM,set number of replicas to be used in Replica Exchange Monte Carlo,10,,int
+--replicas,NUM,set number of replicas to be used in Replica Exchange Monte Carlo,1,,int
 --replicas-dtemp,DELTA,set temperature increment between replicas,0.5,,float
 --temperature,TINIT TFINAL,"set temperature range for simmulated annealing TINIT - initial temperature, TFINAL - final temperature
 
-CABSdock uses internal temperature units which do not correspond straightforwardly to real temperatures. T = 1.0 roughly corresponds to the temperature of the native state (crystal), folding temperature of small proteins in the CABS model is usually around T = 1.8 - 2.2",2.0 1.0,,float
+CABSdock uses internal temperature units which do not correspond straightforwardly to real temperatures. T = 1.0 roughly corresponds to the temperature of the native state (crystal), folding temperature of small proteins in the CABS model is usually around T = 1.8 - 2.2",1.4 1.4,,float
 "-s, --random-seed",NUM,Seed for random number generator,,,int
 ,,,,,
 #group,ALL-ATOM RECONSTRUCTION OPTIONS,"All-atom reconstruction options allow to set up details of all-atom reconstruction and refinement procedure, which is performed using MODELLER package",,,
@@ -165,14 +113,6 @@ CABSdock uses internal temperature units which do not correspond straightforward
 --modeller-iterations,NUM,"Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigger numbers may result in more accurate models, but reconstruction takes longer.",3,,int
 ,,,,,
 #group,ANALYSIS OPTIONS,Analysis options allow to perform comparison analyses (to provided reference complex structure) and for repeated scoring and analysis of CABSdock trajectories,,,
---reference-pdb,PDB,"Load reference complex structure. This option allows for comparison with the reference complex structure and triggers additional analysis features
-
-PDB must be either:
-
-1. [pdb code]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
-2. [pdb file]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
-
-i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --clustering-iterations,NUM,The number of iterations of the clustering k-medoids algorithm.,100,,int
 --filtering-number,NUM,Number of low-energy models from the trajectory to be filtered.,1000,,int
 --filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory. ,,store_true,
@@ -180,9 +120,7 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --load-cabs-files,FILE,"Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option). ",,,
 --contact-maps,,"Stores contact maps matrix plots and histograms of contact frequencies.
 ",,store_true,
---align,METHOD,"Method to be used to align terget with reference pdb. Available options are: SW -- Smith-Waterman (default), blastp -- protein BLAST (requires NCBI+ package installed), trivial -- simple sequential alignment, used only in case of one-chain input and reference of the same length.
-",SW,,
---reference-alignment,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,,,
+--cc_threshold,NUM,Cmap contact criterion for side chain distance threshold.,6.5,,float
 ,,,,,
 #group,OUTPUT OPTIONS,Output options,,,
 --output-models,NUM,set number of final models to be generated,10,,int

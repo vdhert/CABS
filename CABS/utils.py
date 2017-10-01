@@ -1,4 +1,4 @@
-from string import ascii_uppercase, rfind, replace
+from string import ascii_uppercase
 import numpy as np
 import re
 from pkg_resources import resource_filename
@@ -31,7 +31,7 @@ SIDECNT = { 'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
 
 # Library of 1000 random peptides with up to 50 amino acids each
 RANDOM_LIGAND_LIBRARY = np.reshape(
-    np.fromfile(resource_filename('cabsDock', 'data/data2.dat'), sep=' '), (1000, 50, 3)
+    np.fromfile(resource_filename('CABS', 'data/data2.dat'), sep=' '), (1000, 50, 3)
 )
 
 AA_NAMES = {
@@ -568,7 +568,7 @@ class SCModeler(object):
         """Side Chain Modeler initialization.
 
         Argument:
-        nms -- sequence of cabsDock.Atom representing subsequent mers.
+        nms -- sequence of CABS.Atom representing subsequent mers.
         """
         self.nms = nms
 
