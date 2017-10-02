@@ -127,7 +127,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#e80915', '#666666', '#4b8f24', '#000000']))
+                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']))
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])

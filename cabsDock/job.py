@@ -559,11 +559,13 @@ class FlexTask(CABSTask):
                     structure,
                     replicas=1,
                     temperature=(1.4, 1.4),
-                    receptor_restraints=('ss2', 3, 3.8, 8.0),
+                    structure_restraints=('ss2', 3, 3.8, 8.0),
+                    structure_flexibility=None,
                     **kwargs):
         super(FlexTask, self).__init__( replicas,
                                         temperature=temperature,
-                                        receptor_restraints=receptor_restraints,
+                                        receptor_restraints=structure_restraints,
+                                        receptor_flexibility=structure_flexibility,
                                         **kwargs)
         conf = {    'receptor': structure,
                     'reference_pdb': True}

@@ -1,48 +1,29 @@
 #parser,,,,,
 prog,CABSdock,,,,
-version,1.0,,,,
 description,CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.,,,,
 epilog,CABSdock repository: https://bitbucket.org/lcbio/cabsdock,,,,
 ,,,,,
-#group,BASIC OPTIONS,"Basic options allow tu run protein-peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to peptide sequence, a peptide secondary structure information may be provided.",,,
-"-r, --structure",STRUCTURE,"Loads structure.
+#group,BASIC OPTIONS,Basic options allow to run protein flexibility simulation using only information about starting structure.,,,
+"-S, --structure",STRUCTURE,"Loads structure.
 
 STRUCTURE can be either:
 
 1. PDB code (optionally with chain IDs)
-i.e. '-r 1CE1:HL' loads chains H and L of 1CE1 receptor structure downloaded from the PDB database
+i.e. '-S 1CE1:HL' loads chains H and L of 1CE1 structure downloaded from the PDB database
 
 2. PDB file (optionally gzipped)",,,
 ,,,,,
-#group,STRUCTURE OPTIONS,Structure options allows to manipulate the degree of protein flexibility (using either --receptor-flexibility or --receptor-restraints),,,
-"-e, --exclude",RESIDUES,"Excludes receptor residues listed in RESIDUES from the docking search, therefore enforces more effective search in other areas of a receptor surface, for example, it may be known that some parts of the protein are not accessible to peptide (due to binding to other proteins) and therefore it could be useful to exclude these regions from the search procedure.
-
-RESIDUES must be a single string of characters (no whitespaces) consisting of residue identifiers (i. e. 123:A) or chain identifiers (i. e. A) joined with the '+' sign. '-' is also allowed to specify a continous range of residues, or chains.
-
-Examples:
-'-e 123:A'                     excludes residue 123 from chain A
-'-e 123:A+125:A'                        residues 123 and 125 from chain A
-'-e 123:A-125:A'                        residues 123, 124 and 125 from chain A
-'-e A'                                  whole chain A
-'-e A+C'                                chains A and C
-'-e A-C'                                chains A, B and C
-
-
-Adding @PEP<N> at the end of the string limits the excluding to only N-th peptide
-i.e. -e 123:A@PEP1 will exclude residue 123 in chain A for binding with the first peptide only. If @PEP<N> is omitted the exclusion list affects all peptides.
-
-This option can be used multiple times to add multiple sets of excluded residues.",,append,
---excluding-distance,DISTANCE,Sets minimum distance between side chain atoms of peptide(s) and receptor residues marked as 'excluded',5.0,,float
-"-f, --receptor-flexibility",FLEXIBILITY,"Modifies flexibility of selected receptor's residues:
+#group,STRUCTURE OPTIONS,Structure options allows to manipulate the degree of protein flexibility (using either --structure-flexibility or --structure-restraints),,,
+"-f, --structure-flexibility",FLEXIBILITY,"Modifies flexibility of selected protein residues:
 
 0 - fully flexible backbone
-1 - almost stiff backbone (default value, given appropriate number of receptor restraints)
+1 - almost stiff backbone (default value, given appropriate number of structure restraints)
 > 1 - increasing stiffnes
 
 FLEXIBILITY can be either:
 
 1. positive real number
-all receptor residues are assigned the same flexiblity equal that number
+all structure residues are assigned the same flexiblity equal that number
 
 2. 'bf'
 flexibility for each residue is read from the beta factor column of the CA atom in the pdb input file (Note that standard beta factor in pdb file has opposite meaning to CABSdock flexibillity, edit pdb accordingly or use FLEXIBILITY = 'bfi'),
@@ -57,20 +38,19 @@ resid_ID <flexibility> i.e. 12:A 0.75
  
 or residue ranges:
 
-resid_ID - resid_ID <flexibility> i.e. 12:A - 15:A  0.75
+resid_ID - resid_ID <flexibility> i.e. 12:A - 15:A 0.75
 
-Default value for residues not explicitely specified can be set by inserting at the top of the file a following line: default <default flexibility value>, if ommited default is 1.0
-
-multiple entries can be used",1.0,,
-"-R, --receptor-restraints",MODE GAP MIN MAX,"Allows to generate a set of binary distance restraints for C-alpha atoms, that keep the receptor in predefined conformation.
+Default value for residues not explicitely specified can be set by inserting at the top of the file a following line: default <default flexibility value>, if ommited default is 1.0.
+Multiple entries can be used",1.0,,
+"-R, --structure-restraints",MODE GAP MIN MAX,"Allows to generate a set of binary distance restraints for C-alpha atoms, that keep the structure in predefined conformation.
 
 MODE can be either:
 
-1. 'all' - generate restraints for all receptor residues
+1. 'all' - generate restraints for all structure residues
 2. 'ss1' - generate restraints only when at least one restrained residue is assigned regular secondary
-           structure (helix or sheet)
+ structure (helix or sheet)
 3. 'ss2' - generate restraints only when both restrained residues are assigned regular secondary
-           structure (helix, sheet)
+ structure (helix, sheet)
 
 GAP specifies gap along the main chain for two resiudes to be restrained
 MIN and MAX are min and max values in Angstroms for two residues to be restrained",ss2 3 3.8 8.0,,
@@ -81,27 +61,17 @@ model).",,,
 
 DIST is a distance between these atoms and WEIGHT is restraint's weight from [0, 1].
 
-In order to add restraints between the peptide and the receptor, or between two peptides use PEP1, PEP2, ... as chain identifiers of the peptides (even when peptide is read from a pdb file its chain identifier is ignored).
-
-i.e. ""123:A 5:PEP1 8.7 1.0"" adds restraint between the CA atom of the residue '123' in the chain A of the receptor and the CA atom of the 5th residue of the peptide.
-
-If you add only one peptide both 'PEP' and 'PEP1' is a valid chain identifier.
-
-If you add multiple peptides they will be ordered as follows: [1] from config file added by the 'peptide' option [2] from config file added by the 'add-peptide' option [3] from command line added by the '-p, --peptide' option [4] from command line added by the '--add-peptide' option.
-
-Peptides added by the same method preserve the order by which they appear in the config file, or on the command line.
-
 Can be used multiple times to add multiple restraints.",,append,
 --sc-rest-add,RESI RESJ DIST WEIGHT,"Add distance restraint between SC pseudoatom in residue RESI and SC pseudoatom in residue RESJ; DIST is a distance between these pseudoatoms (geometric centers of side chain atoms) and WEIGHT is restraint's weight from [0, 1]. Can be used multiple times to add multiple restraints.",,append,
---ca-rest-weight,WEIGHT,Set global weight for all CA restraints (including automatically generated restraints for the receptor),1.0,,float
---sc-rest-weight,WEIGHT,Set global weight for all SC restraints,1.0,,float
+--ca-rest-weight,WEIGHT,Set global weight for all CA restraints (including automatically generated restraints),1.0,,float
+--sc-rest-weight,WEIGHT,Set global weight for all SC restraints,1,,float
 --ca-rest-file,FILE,Read CA restraints from file (use multiple times to add multiple files),,append,
 --sc-rest-file,FILE,Read SC restraints from file (use multiple times to add multiple files),,append,
 ,,,,,
 #group,SIMULATION OPTIONS,Simulation options allow to modify different parameters of Replica Exchange Monte Carlo simulation procedure,,,
---mc-annealing,NUM,set number of temperature annealing cycles (NUM > 0),20,,int
---mc-cycles,NUM,set number of simulation Monte Carlo cycles to NUM (NUM > 0) result trajectory will contain [mc-annealing] x NUM models,50,,int
---mc-steps,NUM,set number of  Monte Carlo cycles between trajectory frames (NUM > 0) NUM = 1 means that every generated conformation will occur in trajectory. This option is independent from --mc-cycles and --mc-annealing. Total number of conformations generated for each replica = [mc-annealing] x [mc-cycles] x [mc-steps],50,,int
+--mc-annealing,NUM,set number of temperature annealing cycles (NUM > 0),20.0,,int
+--mc-cycles,NUM,set number of simulation Monte Carlo cycles to NUM (NUM > 0) result trajectory will contain [mc-annealing] x NUM models,50.0,,int
+--mc-steps,NUM,set number of Monte Carlo cycles between trajectory frames (NUM > 0) NUM = 1 means that every generated conformation will occur in trajectory. This option is independent from --mc-cycles and --mc-annealing. Total number of conformations generated for each replica = [mc-annealing] x [mc-cycles] x [mc-steps],50,,int
 --replicas,NUM,set number of replicas to be used in Replica Exchange Monte Carlo,1,,int
 --replicas-dtemp,DELTA,set temperature increment between replicas,0.5,,float
 --temperature,TINIT TFINAL,"set temperature range for simmulated annealing TINIT - initial temperature, TFINAL - final temperature
@@ -116,11 +86,10 @@ CABSdock uses internal temperature units which do not correspond straightforward
 #group,ANALYSIS OPTIONS,Analysis options allow to perform comparison analyses (to provided reference complex structure) and for repeated scoring and analysis of CABSdock trajectories,,,
 --clustering-iterations,NUM,The number of iterations of the clustering k-medoids algorithm.,100,,int
 --filtering-number,NUM,Number of low-energy models from the trajectory to be filtered.,1000,,int
---filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory. ,,store_true,
+--filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory.,,store_true,
 --clustering-medoids,NUM,Number of medoids in k-medoids clustering algorithm.,10,,int
---load-cabs-files,FILE,"Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option). ",,,
---contact-maps,,"Stores contact maps matrix plots and histograms of contact frequencies.
-",,store_true,
+--load-cabs-files,FILE,"Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option).",,,
+--contact-maps,,Stores contact maps matrix plots and histograms of contact frequencies.,,store_true,
 --cc_threshold,NUM,Cmap contact criterion for side chain distance threshold.,6.5,,float
 ,,,,,
 #group,OUTPUT OPTIONS,Output options,,,
