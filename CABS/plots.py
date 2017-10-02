@@ -8,7 +8,10 @@ from itertools import chain
 
 from CABS.utils import _chunk_lst
 
-matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+try:
+    matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+except AttributeError:
+    pass
 
 
 def set_fixed_ar(plt, ratio):
