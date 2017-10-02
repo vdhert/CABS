@@ -536,18 +536,18 @@ class DockTask(CABSTask):
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
-                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig))
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig), norm_n=True)
             cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig, norm_n=True)
             cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
-            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig)
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig, norm_n=True)
             cmaps_top = cmf.mk_cmap(sc_med, thr)
             for n, cmap in enumerate(cmaps_top):
-                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig))
+                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig), norm_n=True)
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
-                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig))
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True)
 
 class FlexTask(CABSTask):
     """Class of CABSFlex jobs."""
