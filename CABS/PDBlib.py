@@ -87,9 +87,9 @@ class Pdb(object):
             if chains:
                 logger.debug(_name, 'Selected chains <{}>'.format(chains))
                 if selection:
-                    selection += ' and chain {}'.format(chains)
+                    selection += ' and (chain {})'.format(" or chain ".join(chains))
                 else:
-                    selection = 'chain {}'.format(chains)
+                    selection = '(chain {})'.format(" or chain ".join(chains))
 
             if selection:
                 logger.debug(_name, 'Selecting <{}> from <{}>'.format(selection, name ))
