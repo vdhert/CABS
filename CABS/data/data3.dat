@@ -170,7 +170,7 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 --align,METHOD,"Method to be used to align terget with reference pdb. Available options are: SW -- Smith-Waterman (default), blastp -- protein BLAST (requires NCBI+ package installed), trivial -- simple sequential alignment, used only in case of one-chain input and reference of the same length.
 ",SW,,
 --reference-alignment,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,,,
---cc_threshold,NUM,Cmap contact criterion for side chain (SC) distance threshold.,4.5,,float
+--cc_threshold,NUM,Cmap contact criterion for side chain (SC) distance threshold.,6.5,,float
 ,,,,,
 #group,OUTPUT OPTIONS,Output options,,,
 --output-models,NUM,set number of final models to be generated,10,,int
