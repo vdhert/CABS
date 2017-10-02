@@ -102,7 +102,6 @@ CABSdock uses internal temperature units which do not correspond straightforward
 --image-file-format,FMT,produces all the image files in given format,svg,,
 --work-dir,DIR,set working directory to DIR,.,,
 --dssp-command,PATH,provide path to dssp binary,mkdssp,,
---stride-command,PATH,provide path to stride binary,stride,,
 --fortran-command,PATH,provide path to fortran compiler binary,gfortran,,
 --save-config-file,PATH,"generates a config file that may be used to re-run the docking or, together with TRAF and SEQ output files (see --save-cabs-files option), to run analysis on finished jobs (see --load-cabs-files option).",,,
 --save-cabs-files,,save CABSdock simulation files,,store_true,
