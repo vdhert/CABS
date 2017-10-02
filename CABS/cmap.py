@@ -6,8 +6,8 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
-from cabsDock.plots import mk_histo
-from cabsDock.utils import _chunk_lst
+from plots import mk_histo
+from utils import _chunk_lst
 
 import matplotlib.pyplot
 import matplotlib.ticker
@@ -21,7 +21,7 @@ class ContactMapFactory(object):
         Arguments:
         chains1 -- list or str; chars for 1st chain(s).
         chains2 -- list or str; chars for 2nd chain(s).
-        temp -- cabsDock.atom.Atoms instance containing both given chains.
+        temp -- CABS.atom.Atoms instance containing both given chains.
 
         """
         chs = {}
@@ -93,7 +93,7 @@ class ContactMap(object):
 
         Arguments:
         mtx -- 2D numpy.array of distances between (pseudo)atoms.
-        atoms1, atoms2 -- cabsDock.atom.Atoms instance; template for cmap.
+        atoms1, atoms2 -- CABS.atom.Atoms instance; template for cmap.
         n -- number of frames.
         """
         self.cmtx = mtx

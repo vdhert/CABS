@@ -1,9 +1,11 @@
 from setuptools import setup
 
+__version__ = '0.9.2'
+
 setup(
     name='CABS',
-    version='1.0',
-    packages=['cabsDock'],
+    version=__version__,
+    packages=['CABS'],
     url='https://bitbucket.org/lcbio/cabsdock',
     license='free for non-commercial users',
     author='Laboratory of Computational Biology',
@@ -12,9 +14,9 @@ setup(
     description='CABS in python',
     entry_points={
         'console_scripts': [
-            'cabsDock = cabsDock.__main__:run_dock',
-            'cabsFlex = cabsDock.__main__:run_flex'
+            'cabsDock = CABS.__main__:run_dock',
+            'cabsFlex = CABS.__main__:run_flex'
         ]
     },
-    package_data={'cabsDock': ['data/*.dat']}
+    package_data={'CABS': ['data/*.dat']}
 )

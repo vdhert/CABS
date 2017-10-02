@@ -256,7 +256,7 @@ class Trajectory(object):
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
         ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment against all chains is calculated.
-        align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
+        align_mth -- str; name of aligning method to be used. See CABS.align documentation for more information.
         alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
         path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
         pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.

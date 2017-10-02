@@ -1,16 +1,15 @@
 import matplotlib.pyplot
 from matplotlib.ticker import MaxNLocator
-from matplotlib.ticker import MultipleLocator
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import IndexFormatter
-from matplotlib.ticker import NullFormatter
 
 import numpy
 from itertools import chain
 
-from cabsDock.utils import _chunk_lst
+from CABS.utils import _chunk_lst
 
 matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+
 
 def set_fixed_ar(plt, ratio):
     """
