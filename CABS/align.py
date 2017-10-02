@@ -203,7 +203,7 @@ class SmithWaterman(AbstractAlignMethod):
 
     methodname = 'SW'
 
-    def execute(self, atoms1, atoms2, ident_threshold=.9, **kwargs):
+    def execute(self, atoms1, atoms2, ident_threshold=.5, **kwargs):
         # filling matrix
         mtx = numpy.zeros((len(atoms1) + 1, len(atoms2) + 1), dtype=numpy.int)
         for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):
