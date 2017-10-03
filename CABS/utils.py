@@ -42,7 +42,7 @@ AA_NAMES = {
     'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'
 }
 
-modified_residue_substitute = {
+AA_SUB_NAMES = {
     '0CS': 'ALA',  ##  0CS ALA  3-[(S)-HYDROPEROXYSULFINYL]-L-ALANINE
     '1AB': 'PRO',  ##  1AB PRO  1,4-DIDEOXY-1,4-IMINO-D-ARABINITOL
     '1LU': 'LEU',  ##  1LU LEU  4-METHYL-PENTANOIC ACID-2-OXYL GROUP
@@ -786,8 +786,9 @@ def check_peptide_sequence(sequence):
     for residue in sequence:
         if residue not in standard_one_letter_residues:
             raise Exception(
-                "The input peptide sequence contains a non-standard residue \"{0}\" that is currently not supported. The simulation cannot be performed.".format(
-                    residue))
+                "The input peptide sequence contains a non-standard residue \"{0}\" that is currently not supported."
+                "The simulation cannot be performed.".format(residue)
+            )
     return True
 
 
@@ -799,14 +800,15 @@ def fix_residue(residue):
                 raises exception if the residue is non-standard and there is no substitution available.
     """
     standard_three_letter_residues = AA_NAMES.values()
-    known_non_standard_three_letter_residues = modified_residue_substitute.keys()
+    known_non_standard_three_letter_residues = AA_SUB_NAMES.keys()
     if residue in standard_three_letter_residues:
         return residue
     elif residue in known_non_standard_three_letter_residues:
-        modified = modified_residue_substitute[residue]
+        modified = AA_SUB_NAMES[residue]
         warnings.warn(
-            "In the current version residue \"{0}\" is not supported. \"{0}\" was replaced with \"{1}\" to perform the simulation.".format(
-                residue, modified), UserWarning)
+            "In the current version residue \"{0}\" is not supported."
+            "\"{0}\" was replaced with \"{1}\" to perform the simulation.".format(residue, modified), UserWarning
+        )
         return modified
     else:
         raise Exception("The PDB file contains unknown residue \"{0}\"".format(residue))

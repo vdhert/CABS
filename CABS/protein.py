@@ -97,12 +97,6 @@ class Receptor(Atoms):
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
-        self.check_residue_modifications()
-
-    def check_residue_modifications(self):
-        for atom in self:
-            atom.resname = utils.fix_residue(atom.resname)
-        return self
 
     def convert_patch(self, location):
         if location not in self.patches:
