@@ -401,16 +401,21 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
-        for pept_chain in self.initial_complex.ligand_chains:
-            aln_path = None if not save else self.config[
-                                                 'work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
+        for pept_chain, ref_pept_chain in zip(self.initial_complex.ligand_chains, self.reference[2]):
+            if save:
+                paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'
+                paln_pep = paln_trg.replace('.csv', '_%s.csv' % pept_chain)
+            else:
+                paln_trg, paln_pep = None, None
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
-                self.initial_complex.receptor_chains,
-                ref_pdb=reference_pdb,
-                pept_chain=pept_chain,
+                ref_stc=self.reference[0],
+                trg_chids=self.initial_complex.receptor_chains,
+                pept_chid=pept_chain,
+                ref_trg_chids=self.reference[1],
+                ref_pept_chid=ref_pept_chain,
                 align_mth=self.config['align'],
                 alignment=self.config['reference_alignment'],
-                path=aln_path,
+                path=(paln_trg, paln_pep),
                 pept_align_kwargs={'fname': self.config['reference_alignment']},
                 target_align_kwargs={'fname': self.config['reference_alignment']}
             )
