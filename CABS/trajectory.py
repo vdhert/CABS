@@ -5,7 +5,6 @@ import logger
 import utils
 import numpy as np
 from atom import Atom, Atoms
-from PDBlib import Pdb
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
@@ -250,7 +249,7 @@ class Trajectory(object):
             bar.done(True)
         return result
 
-    def rmsd_to_reference(self, ref_stc, trg_chids, pept_chid, ref_trg_chids, ref_pept_chid, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
+    def rmsd_to_reference(self, ref_stc, trg_chids, pept_chid, ref_trg_chids, ref_pept_chid, align_mth='SW', alignments=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
         """
         Arguments:
         ref_stc -- CABS.PDBlib.PDB instance of reference structure.
@@ -282,14 +281,14 @@ class Trajectory(object):
         except TypeError:   #alignment is None
             #aligning target
             ref_target = ref_stc.select("CHAIN %s" % " or CHAIN ".join(ref_trg_chids))
-            temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(trg_ids))
+            temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(trg_chids))
             mtch_mtx = numpy.zeros((len(ref_trg_chids), len(trg_chids)), dtype=int)
             algs = {}
             key = 1
             # rch -- reference chain
             # tch -- template chain
-            for n, rch in enumerate(ref_target_ids):
-                for m, tch in enumerate(temp_target_ids):
+            for n, rch in enumerate(ref_trg_chids):
+                for m, tch in enumerate(trg_chids):
                     ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
                     tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
                     #~ if 0 in (len(ref), len(tmp)): continue  #??? whai?
@@ -309,11 +308,11 @@ class Trajectory(object):
             trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
 
         #saving alignment
-        if path and not alignment:
-            save_csv(path, ('ref', 'cabs'), trg_aln)
-            save_fasta(path.replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), trg_aln)
-            save_csv(path, ('ref', 'cabs'), pept_aln)
-            save_fasta(path.replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), pept_alg)
+        if path and not alignments:
+            save_csv(path[0], ('ref', 'cabs'), trg_aln)
+            save_fasta(path[0].replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), trg_aln)
+            save_csv(path[1], ('ref', 'cabs'), pept_aln)
+            save_fasta(path[1].replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), pept_aln)
 
         #picking aligned parts
         ref_target_mers, temp_target_mers = zip(*trg_aln)

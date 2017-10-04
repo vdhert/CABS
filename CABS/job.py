@@ -8,15 +8,16 @@ import time
 from os import getcwd, mkdir
 from os.path import exists, isdir, abspath
 
-from cabs import CabsRun
-from cluster import Clustering
-from cmap import ContactMapFactory
-from plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
-from utils import SCModeler
-from filter import Filter
-from protein import ProteinComplex
-from restraints import Restraints
-from trajectory import Trajectory
+from CABS.cabs import CabsRun
+from CABS.PDBlib import Pdb
+from CABS.cluster import Clustering
+from CABS.cmap import ContactMapFactory
+from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
+from CABS.utils import SCModeler
+from CABS.filter import Filter
+from CABS.protein import ProteinComplex
+from CABS.restraints import Restraints
+from CABS.trajectory import Trajectory
 from math import ceil
 import logger
 
@@ -381,6 +382,19 @@ class DockTask(CABSTask):
 
     def setup_job(self):
         self.initial_complex = ProteinComplex(self.config)
+        if self.config['reference_pdb']:
+            try:
+                ent, trg_chids, pept_chids = self.config['reference_pdb'].split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids + pept_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids, pept_chids = '', ''
+                if ":" in ent:
+                    raise ValueError('Wrong reference structure format.')
+            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids, pept_chids)
+            if len(self.initial_complex.ligand_chains) != len(self.reference[2]):
+                raise ValueError("Number of reference peptide chains differ from number of given peptides.")
 
     def load_output(self, ftraf=None, fseq=None):
         """
@@ -415,7 +429,7 @@ class DockTask(CABSTask):
                 ref_trg_chids=self.reference[1],
                 ref_pept_chid=ref_pept_chain,
                 align_mth=self.config['align'],
-                alignment=self.config['reference_alignment'],
+                alignments=self.config['reference_alignment'],
                 path=(paln_trg, paln_pep),
                 pept_align_kwargs={'fname': self.config['reference_alignment']},
                 target_align_kwargs={'fname': self.config['reference_alignment']}
@@ -575,8 +589,16 @@ class FlexTask(CABSTask):
         self.config.update(conf)
 
     def setup_job(self):
-        # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
+        if self.config['reference_pdb']:
+            try:
+                ent, trg_chids = self.config['reference_pdb'].split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids = ''
+            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Filtering the trajectory

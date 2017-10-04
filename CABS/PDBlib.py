@@ -255,8 +255,11 @@ class Pdb(object):
 
         return out, err
 
-    def __repr__(self):
+    def __str__(self):
         return self.body
+
+    def __repr__(self):
+        return "<PDB from %s, %i atoms>" % (self.name, len(self.atoms))
 
 
 if __name__ == '__main__':
