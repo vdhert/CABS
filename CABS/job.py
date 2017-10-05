@@ -81,7 +81,9 @@ class CABSTask(object):
             excluding_distance=5.0,
             modeller_iterations=3,
             output_models=10,
-            cc_threshold=6.5):
+            cc_threshold=6.5,
+            reference_pdb=None
+    ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
         else:
@@ -130,6 +132,7 @@ class CABSTask(object):
             'excluding_distance': excluding_distance,
             'verbose': verbose,
             'cc_threshold': cc_threshold,
+            'reference_pdb': reference_pdb
         }
 
         # Job attributes collected.
@@ -144,6 +147,7 @@ class CABSTask(object):
         self.clusters = None
         self.rmslst = {}
         self.results = None
+        self.reference = None
 
         # Workdir processing:
         # making sure work_dir is abspath
@@ -175,7 +179,8 @@ class CABSTask(object):
         self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'],
                            number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
-            self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+            self.parse_reference(self.config['reference_pdb'])
+            self.calculate_rmsd(reference_pdb=self.reference)
         self.save_config()
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
@@ -188,6 +193,10 @@ class CABSTask(object):
 
     @abstractmethod
     def calculate_rmsd(self):
+        pass
+
+    @abstractmethod
+    def parse_reference(self, ref):
         pass
 
     def draw_plots(self, plots_dir=None):
@@ -538,11 +547,13 @@ class DockTask(CABSTask):
                         out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
                     progress.update(ceil(100.0/len(pdb_medoids)))
                 progress.done()
-        logger.log_file(module_name=_name, msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
+        logger.log_file(module_name=_name, msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/')
         logger.debug(module_name=_name, msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
-        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(ca_traj, meds, clusts, top1k_inds, thr, plots_dir)
+        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
+            ca_traj, meds, clusts, top1k_inds, thr, plots_dir
+        )
 
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
@@ -568,6 +579,14 @@ class DockTask(CABSTask):
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True)
+
+    def parse_reference(self, ref):
+        try:
+            source, rec, pep = ref.split(':')
+            self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True), pep)
+        except (ValueError, Pdb.InvalidPdbInput):
+            logger.warning(_name, 'Invalid reference {}'.format(ref))
+
 
 class FlexTask(CABSTask):
     """Class of CABSFlex jobs."""
@@ -640,3 +659,9 @@ class FlexTask(CABSTask):
         for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10k', 'top1k')):
             cmap.zero_diagonal()
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
+
+    def parse_reference(self, ref):
+        try:
+            self.reference = Pdb(ref, selection='name CA', no_exit=True, verify=True)
+        except Pdb.InvalidPdbInput:
+            logger.warning(_name, 'Invalid reference {}'.format(ref))
