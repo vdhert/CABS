@@ -6,20 +6,39 @@ from cabsDock.pbsgen import PbsGenerator
 import time
 from subprocess import call
 
+class MBRunner(object):
+    def run_standard(self):
+        with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
+            print("Bound benchmarks:")
+            log.write("MB Bound benchmarks:\n")
+            for i in range(1,4):
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_bound_{}.txt'.format(i), runtype='bound')
+                time.sleep(1)
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+            print("Unbound benchmarks:")
+            log.write("MB Unbound benchmarks:\n")
+            for i in range(1,4):
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_unbound_{}.txt'.format(i), runtype='unbound')
+                time.sleep(1)
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+
 class StandardRunner(object):
     def run_standard(self):
         with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
             print("Bound benchmarks:")
-            log.write("Bound benchmarks:\n")
+            log.write("Standard Bound benchmarks:\n")
             for i in xrange(3):
-                print('... Run {}'.format(i))
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
                 time.sleep(1)
                 command = br.run_benchmark(test=True)
                 log.write(command)
                 log.write(';\n')
             print("Unbound benchmarks:")
-            log.write("Unbound benchmarks:\n")
+            log.write("Standard Unbound benchmarks:\n")
             for i in xrange(3):
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
                 time.sleep(1)
@@ -89,7 +108,7 @@ class BenchmarkRunner(object):
 
     def setup(self):
         if self.name == '':
-            benchdir = getcwd()+'/benchrun_'
+            benchdir = '/STORAGE/DATA/mciem'+'/benchrun_'
         else:
             benchdir = self.name
         benchdir+=time.strftime("%c").replace(' ','_')+''

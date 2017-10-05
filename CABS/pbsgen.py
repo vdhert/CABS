@@ -71,13 +71,6 @@ class PbsGenerator(object):
             name = case.receptor.split(':')[0]
             #print name
             with open(scriptdir+'/{}.pbs'.format(name), 'w') as scriptfile:
-                scriptfile.write(self.standard_header)
-                scriptfile.write(
-                    self.standard_err_out.format(
-                        self.rundir + '/{}'.format(name),
-                        self.rundir + '/{}'.format(name)
-                        )
-                    )
                 scriptfile.write(self.standard_cd)
                 scriptfile.write(case.run_command()+' '+additional_options+'\n')
 
