@@ -2,9 +2,12 @@ from glob import glob
 from os import mkdir, getcwd
 from shutil import copyfile
 
-from cabsDock.pbsgen import PbsGenerator
+
 import time
 from subprocess import call
+
+from CABS.pbsgen import PbsGenerator
+
 
 class MBRunner(object):
     def run_standard(self):
