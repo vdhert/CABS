@@ -590,7 +590,7 @@ class Atoms(object):
             s = ''
             for m in models:
                 s += 'MODEL%9i\n' % m[0].model
-                s += m.__repr__()
+                s += str(m)
                 s += '\nENDMDL\n'
                 if bar:
                     bar.update()
