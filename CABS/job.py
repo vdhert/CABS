@@ -637,6 +637,6 @@ class FlexTask(CABSTask):
         cmaptop = reduce(operator.add, cmf.mk_cmap(sc_med, thr))
         cmap1k = reduce(operator.add, cmf.mk_cmap(sc_traj_1k, thr))
 
-        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10k', 'top1k')):
+        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10', 'top1k')):
             cmap.zero_diagonal()
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
