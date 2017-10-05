@@ -590,15 +590,15 @@ class FlexTask(CABSTask):
 
     def setup_job(self):
         self.initial_complex = ProteinComplex(self.config)
-        if self.config['reference_pdb']:
-            try:
-                ent, trg_chids = self.config['reference_pdb'].split(":")
-                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
-            except ValueError:
-                ent = self.config['reference_pdb']
-                sele = 'name CA and not HETERO'
-                trg_chids = ''
-            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+        #~ if self.config['reference_pdb']:
+            #~ try:
+                #~ ent, trg_chids = self.config['reference_pdb'].split(":")
+                #~ sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+            #~ except ValueError:
+                #~ ent = self.config['reference_pdb']
+                #~ sele = 'name CA and not HETERO'
+                #~ trg_chids = ''
+            #~ self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Filtering the trajectory
