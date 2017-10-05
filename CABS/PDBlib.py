@@ -2,17 +2,20 @@
 
 import re
 import os
-import logger
 import gzip
 import json
 import requests as req
+
 from tempfile import mkstemp
 from time import sleep
 from requests.exceptions import HTTPError, ConnectionError
 from os.path import expanduser, isfile, join, isdir
 from subprocess import Popen, PIPE
-from atom import Atom, Atoms
 from collections import OrderedDict
+
+from CABS import logger
+from CABS.atom import Atom, Atoms
+from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
 
@@ -26,16 +29,30 @@ class Pdb(object):
     class InvalidPdbInput(Exception):
         pass
 
-    def __init__(self, source, selection='', remove_alternative_locations=True, no_exit=False):
+    def __init__(
+            self,
+            source,
+            selection='',
+            remove_alternative_locations=True,
+            fix_non_standard_aa=True,
+            remove_water=True,
+            remove_hetero=True,
+            no_exit=False  # does not exit on error, raises InvalidPdbInput instead
+    ):
 
         logger.debug(_name, 'Creating Pdb object from <{}>'.format(source))
         self.atoms = Atoms()
 
-        if ':' in source:
-            name, chains = source.split(':')
-        else:
-            name = source
-            chains = ''
+        words = source.split(':')
+        try:
+            name, rec, pep = words
+            chains = rec + pep
+        except ValueError:
+            try:
+                name, chains = words
+            except ValueError:
+                name = words[0]
+                chains = ''
 
         try:
             self.body = self.read(name)
@@ -87,9 +104,9 @@ class Pdb(object):
             if chains:
                 logger.debug(_name, 'Selected chains <{}>'.format(chains))
                 if selection:
-                    selection += ' and (chain {})'.format(" or chain ".join(chains))
+                    selection = '({}) and chain {}'.format(selection, ','.join(chains))
                 else:
-                    selection = '(chain {})'.format(" or chain ".join(chains))
+                    selection = 'chain {}'.format(','.join(chains))
 
             if selection:
                 logger.debug(_name, 'Selecting <{}> from <{}>'.format(selection, name ))
@@ -98,6 +115,39 @@ class Pdb(object):
             if remove_alternative_locations:
                 logger.debug(_name, 'Removing alternative locations from <{}>'.format(name))
                 self.atoms.remove_alternative_locations()
+
+            if remove_water:
+                logger.debug(_name, 'Removing water molecules from <{}>'.format(name))
+                self.atoms = self.atoms.drop('resname HOH')
+
+            if fix_non_standard_aa:
+                logger.debug(_name, 'Scanning <{}> for non-standard amino acids'.format(name))
+                aa_names = [AA_NAMES[k] for k in AA_NAMES]
+                for residue in self.atoms.residues():
+                    resname = residue[0].resname
+                    if resname not in aa_names:
+                        if resname not in AA_SUB_NAMES:
+                            logger.warning(
+                                module_name=_name,
+                                msg='Unknown residue {} at {} in {}'.format(
+                                    resname, residue[0].resid_id(), name
+                                )
+                            )
+                        else:
+                            sub_name = AA_SUB_NAMES[resname]
+                            for atom in residue:
+                                atom.resname = sub_name
+                                atom.hetatm = False
+                            logger.warning(
+                                module_name=_name,
+                                msg='Substitution {} -> {} for {} in {}'.format(
+                                    resname, sub_name, residue[0].resid_id(), name
+                                )
+                            )
+
+            if remove_hetero:
+                logger.debug(_name, 'Removing heteroatoms from <{}>'.format(name))
+                self.atoms = self.atoms.drop('hetero')
 
             if not len(self.atoms):
                 raise Exception('{} contains no atoms'.format(source))
@@ -263,4 +313,6 @@ class Pdb(object):
 
 
 if __name__ == '__main__':
-    pass
+    logger.log_level = 3
+    p = Pdb(source='1z9l', no_exit=True, selection='name CA')
+    print p.atoms
