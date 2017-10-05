@@ -1,23 +1,20 @@
-from copy import deepcopy
-from itertools import chain
-
 import StringIO
 import numpy
 import operator
+import logger
+import utils
 import numpy as np
-
 from atom import Atom, Atoms
-from pdb import Pdb
-from utils import ranges
-from utils import kabsch
 from align import AbstractAlignMethod
 from align import AlignError
 from align import save_csv
 from align import save_fasta
 from align import load_csv
-from logger import ProgressBar
+from copy import deepcopy
+
 
 __all__ = ['Trajectory', 'Header']
+_name = 'Trajectory'
 
 
 class Header:
@@ -213,7 +210,7 @@ class Trajectory(object):
             aligned = self.template.select(selection)
         else:
             aligned = template_aligned
-        pieces = ranges([self.template.atoms.index(a) for a in aligned])
+        pieces = utils.ranges([self.template.atoms.index(a) for a in aligned])
 
         t = target.to_matrix()
         t_com = np.average(t, 0)
@@ -224,7 +221,7 @@ class Trajectory(object):
             query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
             q_com = np.average(query, 0)
             q = np.subtract(query, q_com)
-            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), kabsch(t, q, concentric=True)), t_com))
+            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(t, q, concentric=True)), t_com))
 
     def rmsd_matrix(self, msg=''):
         """
@@ -240,7 +237,7 @@ class Trajectory(object):
         dim = len(models)
         result = np.zeros((dim, dim))
         if msg:
-            bar = ProgressBar((dim * dim - dim) / 2, msg=msg)
+            bar = logger.ProgressBar((dim * dim - dim) / 2, msg=msg)
         else:
             bar = None
         for i in range(dim):
@@ -252,20 +249,106 @@ class Trajectory(object):
             bar.done(True)
         return result
 
-    def rmsd_to_reference(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
+    def rmsd_to_reference(self, ref_stc, trg_chids, pept_chid, ref_trg_chids, ref_pept_chid, align_mth='SW', alignments=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
+        """
+        Arguments:
+        ref_stc -- CABS.PDBlib.PDB instance of reference structure.
+        trg_chids -- str; chain id(s) of target.
+        pept_chid -- str; chain id of peptide (only one!).
+        ref_trg_chids -- str; chain id(s) of target in reference structure.
+        ref_pept_chid -- str; chain id of peptide in reference structure.
+        align_mth -- str; name of aligning method to be used. See CABS.align documentation for more information.
+        alignments -- sequence of strs; paths to csv alignment files: aligning target and peptide. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
+        path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
+        pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.
+        target_align_kwargs -- as above, but used when aligning target protein.
+        """
+        mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
+
+        try:
+            with open(alignments[1]) as f:
+                pept_aln = load_csv(f, ref_stc, self.template)
+        except TypeError:   #alignment is None
+            # aligning peptide
+            ref_pept = ref_stc.select('name CA and not HETERO and chain %s' % ref_pept_chid)
+            temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chid)
+            pept_aln = mth.execute(ref_pept, temp_pept, short=True, **pept_align_kwargs)
+        ref_pept, temp_pept = [Atoms(arg=list(i)) for i in zip(*pept_aln)]
+
+        try:
+            with open(alignments[0]) as f:
+                trg_aln = load_csv(f, ref_stc, self.template)
+        except TypeError:   #alignment is None
+            #aligning target
+            ref_target = ref_stc.select("CHAIN %s" % " or CHAIN ".join(ref_trg_chids))
+            temp_target = self.template.select("CHAIN %s" % " or CHAIN ".join(trg_chids))
+            mtch_mtx = numpy.zeros((len(ref_trg_chids), len(trg_chids)), dtype=int)
+            algs = {}
+            key = 1
+            # rch -- reference chain
+            # tch -- template chain
+            for n, rch in enumerate(ref_trg_chids):
+                for m, tch in enumerate(trg_chids):
+                    ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
+                    tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
+                    #~ if 0 in (len(ref), len(tmp)): continue  #??? whai?
+                    try:
+                        algs[key] = mth.execute(ref, tmp, **target_align_kwargs)
+                    except AlignError:
+                        continue
+                    mtch_mtx[n, m] = key
+                    key += 1
+
+            # joining cabs chains 
+            pickups = []
+            for n, refch in enumerate(mtch_mtx):
+                inds = numpy.nonzero(refch)
+                pickups.extend(refch[inds])
+                mtch_mtx[n + 1:, inds] = 0
+            trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+
+        #saving alignment
+        if path and not alignments:
+            save_csv(path[0], ('ref', 'cabs'), trg_aln)
+            save_fasta(path[0].replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), trg_aln)
+            save_csv(path[1], ('ref', 'cabs'), pept_aln)
+            save_fasta(path[1].replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), pept_aln)
+
+        #picking aligned parts
+        ref_target_mers, temp_target_mers = zip(*trg_aln)
+        ref_target = Atoms(arg=list(ref_target_mers))
+        target = Atoms(arg=list(temp_target_mers))
+        peptide = numpy.array(ref_pept.to_matrix())
+
+        #RMSD calculation
+        def rmsd(m1, m2, length):
+            return np.sqrt(np.sum((m1 - m2) ** 2) / length)
+
+        self.align_to(ref_target, template_aligned=target)
+        models_peptide_traj = self.select("chain " + pept_chid)
+        peptide_length = len(models_peptide_traj.template)
+        models_peptide = models_peptide_traj.coordinates.reshape(-1, peptide_length, 3)
+        result = np.zeros(len(models_peptide))
+        for i, h in zip(range(len(models_peptide)), self.headers):
+            result[i] = rmsd(models_peptide[i], peptide, peptide_length)
+            h.rmsd = result[i]
+        return result
+
+    def rmsd_to_reference_old(self, temp_target_ids, ref_pdb, pept_chain, ref_pept_chid=None, align_mth='SW', alignment=None, path=None, pept_align_kwargs={}, target_align_kwargs={}):
         """
         Arguments:
         ref_pdb -- str; pdb code of reference structure.
         pept_chain -- str; peptide chain name (template).
-        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment agains all chains is calculated.
-        align_mth -- str; name of aligning method to be used. See cabsDock.align documentation for more information.
+        ref_pept_chain -- str; optional. If set, appropriate chain is picked from reference structure. Otherwise alignment against all chains is calculated.
+        align_mth -- str; name of aligning method to be used. See CABS.align documentation for more information.
         alignment -- str; path to csv alignment file. None by default. If so -- no alignment is loaded. Otherwise target protein is not aligned, instead alignemnt from file is loaded.
         path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
         pept_align_kwargs -- dict of kwargs to be passed to aligning method while aligning peptide.
         target_align_kwargs -- as above, but used when aligning target protein.
         """
         mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
-        ref_stc = Pdb(ref_pdb,selection='name CA and not HETERO').atoms
+        ref_stc = Pdb(ref_pdb, selection='name CA and not HETERO').atoms
+
         # aligning peptide
         if ref_pept_chid is None:
             temp_pept = self.template.select('name CA and not HETERO and chain %s' % pept_chain)
@@ -305,17 +388,17 @@ class Trajectory(object):
                 inds = numpy.nonzero(refch)
                 pickups.extend(refch[inds])
                 mtch_mtx[n + 1:, inds] = 0
-            best_alg = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+            trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
         else:
             with open(alignment) as f:
-                best_alg = load_csv(f, ref_stc, self.template)
+                trg_aln = load_csv(f, ref_stc, self.template)
 
         #saving alignment
         if path and not alignment:
-            save_csv(path, ('ref', 'cabs'), best_alg)
-            save_fasta(path.replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), best_alg)
+            save_csv(path, ('ref', 'cabs'), trg_aln)
+            save_fasta(path.replace('csv', 'fasta'), ('ref', 'cabs'), (self.template, ref_stc), trg_aln)
 
-        ref_target_mers, temp_target_mers = zip(*best_alg)
+        ref_target_mers, temp_target_mers = zip(*trg_aln)
         structure = Atoms(arg=list(ref_target_mers))
         template_aligned = Atoms(arg=list(temp_target_mers))
         peptide = numpy.array(ref_pept.to_matrix())

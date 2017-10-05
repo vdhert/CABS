@@ -56,7 +56,7 @@ def save_csv(fname, stcs, aligned_mers):
     Argument:
     fname -- str; name of file to be created.
     stcs -- tuple of structure names.
-    aligned_mers -- sequence of tuples containing aligned cabsDock.atoms.Atom instances.
+    aligned_mers -- sequence of tuples containing aligned CABS.atoms.Atom instances.
     """
     with open(fname, 'w') as f:
         f.write("\t".join(stcs) + "\n")
@@ -70,8 +70,8 @@ def save_fasta(fname, stcs_names, stcs, aligned_mers):
     Arguments:
     fname -- str; name of the file to be created.
     stcs_names -- tuple of strings; names of structures to be saved.
-    stcs -- cabsDock.Atoms instances with atoms attribute. Full aligned structures.
-    aligned_mers -- sequence of tuples containing only aligned cabsDock.atoms.Atom instances.
+    stcs -- CABS.Atoms instances with atoms attribute. Full aligned structures.
+    aligned_mers -- sequence of tuples containing only aligned CABS.atoms.Atom instances.
     """
     it1, it2 = map(iter, [i.atoms for i in stcs])
     txt1 = ''
@@ -101,7 +101,7 @@ def load_csv(fname, *stcs):
 
     Arguments:
     fname -- filelike object; stream containing alignment in csv format.
-    stcs -- cabsDock.atom.Atoms instances.
+    stcs -- CABS.atom.Atoms instances.
     """
     dcts = [{fmt_csv(atm): atm for atm in stc.select('name CA and not HETERO')} for stc in stcs]
 
@@ -203,7 +203,7 @@ class SmithWaterman(AbstractAlignMethod):
 
     methodname = 'SW'
 
-    def execute(self, atoms1, atoms2, ident_threshold=.9, **kwargs):
+    def execute(self, atoms1, atoms2, ident_threshold=.5, **kwargs):
         # filling matrix
         mtx = numpy.zeros((len(atoms1) + 1, len(atoms2) + 1), dtype=numpy.int)
         for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):

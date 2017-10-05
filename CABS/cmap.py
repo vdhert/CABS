@@ -6,8 +6,8 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
-from cabsDock.plots import mk_histo
-from cabsDock.utils import _chunk_lst
+from plots import mk_histo
+from utils import _chunk_lst
 
 import matplotlib.pyplot
 import matplotlib.ticker
@@ -21,7 +21,7 @@ class ContactMapFactory(object):
         Arguments:
         chains1 -- list or str; chars for 1st chain(s).
         chains2 -- list or str; chars for 2nd chain(s).
-        temp -- cabsDock.atom.Atoms instance containing both given chains.
+        temp -- CABS.atom.Atoms instance containing both given chains.
 
         """
         chs = {}
@@ -93,7 +93,7 @@ class ContactMap(object):
 
         Arguments:
         mtx -- 2D numpy.array of distances between (pseudo)atoms.
-        atoms1, atoms2 -- cabsDock.atom.Atoms instance; template for cmap.
+        atoms1, atoms2 -- CABS.atom.Atoms instance; template for cmap.
         n -- number of frames.
         """
         self.cmtx = mtx
@@ -114,7 +114,7 @@ class ContactMap(object):
         break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
         #TODO: taking min and max out of data + [50] should be done once
-        wdh_cnst = 50
+        wdh_cnst = 60
         wdth = self.cmtx.shape[0]
         chunks = _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
         lngst = max(map(len, chunks))
@@ -127,7 +127,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#e80915', '#666666', '#4b8f24', '#000000']))
+                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']))
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
@@ -152,7 +152,7 @@ class ContactMap(object):
                         )
             for lbls, n_tcks, tck_loc, tck_lab in settings:
                 nloc = break_long_x if break_long_x else wdh_cnst
-                ntcks = min(nloc, n_tcks)
+                ntcks = n_tcks if n_tcks < nloc else nloc / 2
                 inds = numpy.linspace(0, len(lbls) -1, ntcks).astype(int)
                 locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
                 tck_loc(inds)

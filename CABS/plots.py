@@ -1,16 +1,18 @@
 import matplotlib.pyplot
 from matplotlib.ticker import MaxNLocator
-from matplotlib.ticker import MultipleLocator
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import IndexFormatter
-from matplotlib.ticker import NullFormatter
 
 import numpy
 from itertools import chain
 
-from cabsDock.utils import _chunk_lst
+from CABS.utils import _chunk_lst
 
-matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+try:
+    matplotlib.pyplot.rcParams['axes.prop_cycle'] = matplotlib.pyplot.cycler(color=['#666666', '#ff4000'])
+except AttributeError:
+    pass
+
 
 def set_fixed_ar(plt, ratio):
     """
@@ -156,7 +158,7 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
 
         plot.set_xlabel('RMSD')
         plot.set_ylabel('%s energy' % etp.capitalize())
-        plot.set_title('CABSdock %s energy vs. RMSD' % etp)
+        plot.set_title('CABS %s energy vs. RMSD' % etp)
         set_fixed_ar(plot, .75)
 
         histo.set_xlim(xlim)

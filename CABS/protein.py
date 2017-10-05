@@ -4,18 +4,18 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 
 import re
 import logger
+import utils
 from copy import deepcopy
 from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
+from PDBlib import Pdb
+from atom import Atoms
+from vector3d import Vector3d
 
-from cabsDock.atom import Atoms
-from cabsDock.pdb import Pdb, InvalidPdbCode
-from cabsDock.vector3d import Vector3d
-from cabsDock.utils import AA_NAMES, RANDOM_LIGAND_LIBRARY, next_letter, fix_residue, check_peptide_sequence
-from cabsDock.utils import PEPtoPEP1 as PP
+_name = 'Protein'
 
-__all__ = ["Protein"]
+
 class Receptor(Atoms):
     """
     Class for the protein receptor molecule. Initialized with job's config dictionary.
@@ -27,9 +27,10 @@ class Receptor(Atoms):
 
         name = config['receptor']
         selection = 'name CA and not HETERO'
+
         pdb = Pdb(name, selection=selection)
         self.atoms = pdb.atoms.models()[0]
-        logger.info(module_name=__all__[0], msg = "Loading %s as receptor" % name)
+        logger.info(module_name=_name, msg="Loading %s as receptor" % name)
         token = config.get('receptor_flexibility')
         if token:
             try:
@@ -51,7 +52,11 @@ class Receptor(Atoms):
                     d, de = self.read_flexibility(join(config['work_dir'], token))
                     self.atoms.update_bfac(d, de)
                 else:
-                    raise Exception('Invalid receptor_flexibility setting in \'%s\'!!!' % token)
+                    logger.warning(
+                        module_name=_name,
+                        msg='Invalid receptor_flexibility setting in \'%s\'. ' % token
+                    )
+                    self.atoms.set_bfac(1.0)
         else:
             self.atoms.set_bfac(1.0)
 
@@ -63,7 +68,7 @@ class Receptor(Atoms):
                 if len(words) == 1:
                     key = 'ALL'
                 else:
-                    key = PP(words[-1])
+                    key = utils.PEPtoPEP1(words[-1])
                 if key in self.exclude:
                     self.exclude[key] += '+' + words[0]
                 else:
@@ -82,7 +87,8 @@ class Receptor(Atoms):
                         chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
-        self.old_ids = self.atoms.update_sec(pdb.dssp(dssp_command=config['dssp_command'],output=config['work_dir'])).fix_broken_chains()
+        ss = pdb.dssp(dssp_command=config['dssp_command'], output=config['work_dir'])
+        self.old_ids = self.atoms.update_sec(ss).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
         for key, val in self.exclude.items():
@@ -91,13 +97,6 @@ class Receptor(Atoms):
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
         self.patches = {}
-        self.check_residue_modifications()
-
-    def check_residue_modifications(self):
-        print self
-        for atom in self:
-            atom.resname = fix_residue(atom.resname)
-        return self
 
     def convert_patch(self, location):
         if location not in self.patches:
@@ -183,25 +182,28 @@ class Ligand(Atoms):
     def __init__(self, config, num):
         self.name, self.conformation, self.location = config['ligand'][num]
         self.selection = 'name CA and not HETERO'
-        logger.info(module_name=__all__[0],
-                    msg = "Loading ligand: name = %s, conformation = %s, location = %s" %
-                          (self.name.split(':')[0], self.conformation, self.location) )
+        logger.info(
+            module_name=_name,
+            msg='Loading ligand: name - {}, conformation - {}, location - {}'.format(
+                self.name, self.conformation, self.location
+            )
+        )
         try:
-            pdb = Pdb(self.name, selection=self.selection)
+            pdb = Pdb(self.name, selection=self.selection, no_exit=True)
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(pdb.dssp(output=config['work_dir']))
-        except InvalidPdbCode:
-            logger.debug(module_name=__all__[0],msg = 'Provided ligand is not a valid pdb code/file')
+        except Pdb.InvalidPdbInput as e:
             seq = self.name.split(':')[0]
-            check_peptide_sequence(seq)
+            utils.check_peptide_sequence(seq)
             atoms = Atoms(self.name)
         atoms.set_bfac(0.0)
         Atoms.__init__(self, atoms)
-        # checks the input peptide sequence for non-standard amino acids.
-        rev_dct = dict(map(reversed, AA_NAMES.items()))
-        [check_peptide_sequence(rev_dct[peptide.resname]) for peptide in atoms.atoms]
 
-    def random_conformation(self, lib=RANDOM_LIGAND_LIBRARY):
+        # checks the input peptide sequence for non-standard amino acids.
+        rev_dct = {v: k for k, v in utils.AA_NAMES.items()}
+        [utils.check_peptide_sequence(rev_dct[peptide.resname]) for peptide in atoms.atoms]
+
+    def random_conformation(self, lib=utils.RANDOM_LIGAND_LIBRARY):
         length = len(self)
         models, max_length, dim = lib.shape
         if length > max_length:
@@ -219,7 +221,7 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, config):
-        logger.debug(module_name=__all__[0], msg = "Preparing the complex")
+        logger.debug(module_name=_name, msg = "Preparing the complex")
         Atoms.__init__(self)
         self.separation = config['initial_separation']
 
@@ -235,7 +237,7 @@ class ProteinComplex(Atoms):
             for num, ligand in enumerate(config['ligand']):
                 l = Ligand(config, num)
                 if l[0].chid in taken_chains:
-                    l.change_chid(l[0].chid, next_letter(taken_chains))
+                    l.change_chid(l[0].chid, utils.next_letter(taken_chains))
                 taken_chains += l[0].chid
                 self.ligand_chains += l[0].chid
                 ligands.append(l)
@@ -269,7 +271,7 @@ class ProteinComplex(Atoms):
             self.atoms.extend(model)
             self.receptor = receptor
             self.ligands = ligands
-        logger.debug(module_name=__all__[0], msg="Complex successfully created")
+        logger.debug(module_name=_name, msg="Complex successfully created")
 
     def insert_ligand(self, receptor, ligand):
 
@@ -286,6 +288,7 @@ class ProteinComplex(Atoms):
             ligand.random_conformation()
 
         ligand.move_to(location)
+
 
 if __name__ == '__main__':
     pass

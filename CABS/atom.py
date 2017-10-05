@@ -16,7 +16,7 @@ from vector3d import Vector3d
 from logger import ProgressBar
 
 
-class Atom:
+class Atom(object):
     """
     Class for representation of a single atom.
     """
@@ -226,7 +226,7 @@ class Atom:
         return self
 
 
-class Atoms:
+class Atoms(object):
     """
     Container for atoms. Has most methods of a list. Also has methods common
     for all multi-atom objects: move, rotate etc.
@@ -302,8 +302,11 @@ class Atoms:
     def extend(self, other):
         self.atoms.extend(other.atoms)
 
-    def __repr__(self):
+    def __str__(self):
         return '\n'.join(str(atom) for atom in self.atoms)
+
+    def __repr__(self):
+        return "<Atoms: %i>" % len(self.atoms)
 
     def __eq__(self, other):
         if len(self.atoms) != len(other.atoms):

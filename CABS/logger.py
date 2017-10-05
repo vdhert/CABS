@@ -1,12 +1,13 @@
-import os,sys
+import os, sys
 from threading import Thread
 from threading import Event
 from subprocess import check_output
 from sys import stderr
 from os.path import exists
 from time import time, strftime, gmtime, sleep
+import textwrap
 
-__all__ = ["Logger"]
+_name = "Logger"
 
 colors = {
     "blue": '\033[94m',
@@ -47,11 +48,10 @@ def setup_log_level(new_level):
     if type(new_level) is int and new_level < 4 and new_level >= -1:
         log_level = new_level
     else:
-        log_level = 1
-        warning(module_name=__all__[0],msg="Verbose should be a number between -1 and 3")
-    info(module_name=__all__[0] ,msg="Verbosity set to: " + str(log_level) + " - " + log_levels[log_level])
+        warning(module_name=_name,msg="Verbose should be a number between -1 and 3")
+    info(module_name=_name ,msg="Verbosity set to: " + str(log_level) + " - " + log_levels[log_level])
 
-def coloring(color_name = "blue", msg = ""):
+def coloring(color_name = "light_blue", msg = ""):
     if color:
         return colors[color_name] + msg + colors["end"]
     return msg
@@ -59,44 +59,76 @@ def coloring(color_name = "blue", msg = ""):
 def log(module_name = "MISC", msg = "Processing ", l_level = 1, out = stream):
     if l_level <= log_level:
         t = gmtime(time() - _init_time)
-        msg = '%-20s %-19s%-75s %s\n' % (
-            prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , msg,strftime('(%H:%M:%S)', t))
-        out.write(msg)
-        out.flush()
+        if len(msg) < 76:
+            msg = '%-20s %-19s%-75s %s\n' % (
+                prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , msg,strftime('(%H:%M:%S)', t))
+            out.write(msg)
+            out.flush()
+        else:
+            lines = textwrap.wrap(msg,width=75)
+            firstLine = '%-20s %-19s%-75s \n' % (prefix[l_level] , coloring(msg=module_name+":",color_name='light_blue') , lines[0])
+            out.write(firstLine)
+            for lineNumber in xrange(1,len(lines)-1):
+                line = '%-22s%-75s \n' % (" ", lines[lineNumber])
+                out.write(line)
+            finalLine = '%-22s%-75s %s\n' % (" ", lines[-1], strftime('(%H:%M:%S)', t))
+            out.write(finalLine)
+            out.flush()
 
 
-def critical(module_name = "cabsDock", msg = ""):
+def critical(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=-1)
 
-def warning(module_name = "cabsDock", msg = ""):
+def warning(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=0)
 
-def info(module_name = "cabsDock", msg = ""):
+def info(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=1)
 
-def log_file(module_name = "cabsDock", msg = ""):
+def log_file(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=2)
 
-def debug(module_name = "cabsDock", msg = ""):
+def debug(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=3)
 
-def to_file(filename='',content='',msg=''):
+def to_file(filename='',content='',msg='',allowErr=True,traceback=True):
+    """
+
+    :param filename: path for the file to be saved
+    :param content: a string to be saved (be careful not to pass a string that is too long
+    :param msg: optional: a message to be logged
+    :param allowErr: if True a warning will be logged on OSError, if False program exit call will be made
+    :param traceback: if True an Exception will be raised on exit call
+    :return:
+    """
     if filename and content:
         try:
-            if os.path.isfile(filename): warning(module_name=__all__[0],msg = "Overwriting %s" % filename)
+            if os.path.isfile(filename): log_file(module_name=_name,msg = "Overwriting %s" % filename)
             with open(filename,'w') as f:
                 f.write(content)
-        except OSError:
-            warning(module_name=__all__[0],msg ="OSError while writing to: %s" % filename)
+        except IOError:
+            if allowErr:
+                warning(module_name=_name,msg ="IOError while writing to: %s" % filename)
+            else:
+                exit_program(module_name=_name,msg ="IOError while writing to: %s" % filename,traceback=traceback)
     if msg:
-        log_file(module_name=__all__[0],msg = msg)
-    else:
-        log_file(module_name=__all__,msg="Data saved to %s" % filename)
+        log_file(module_name=_name,msg = msg)
+
+def exit_program(module_name =_name, msg="Shutting down",traceback=True,exc=None):
+    '''In debug mode Exception is raised unless specifically prevented '''
+    critical(module_name=module_name,msg=msg)
+    if log_level > 2 and traceback:
+        debug(module_name=module_name, msg="Raising Exception to provide traceback")
+        if exc:
+            raise exc
+        else:
+            raise Exception()
+    sys.exit(1)
 
 class ProgressBar:
     ''' This class assumes a manual call to done() will be made to exit the bar'''
-    WIDTH = 60
-    FORMAT = '[%s] %.1f%%\r'
+    WIDTH = 65
+    FORMAT = '%-20s %-19s[%s] %.1f%%\r'
     BAR0 = ' '
     BAR1 = '#'
 
@@ -109,6 +141,7 @@ class ProgressBar:
         self.job_name = job_name
         self.is_done = False
         self.module_name = module_name
+        self.prefix = prefix[1]
         if start_msg:
             self.stream.write(coloring(msg=start_msg) + '\n')
         if self.job_name:
@@ -122,7 +155,7 @@ class ProgressBar:
         num = int(self.WIDTH * percent)
         percent = round(100. * percent, 1)
         bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
-        self.stream.write(self.FORMAT % (bar, percent))
+        self.stream.write(self.FORMAT % (self.prefix,coloring(msg=self.module_name+":"),bar, percent))
         self.stream.flush()
 
     def update(self, state=False):
@@ -156,7 +189,7 @@ class ProgressBar:
 
 class cabs_observer(Thread):
 
-    def __init__ (self,interval=0.5,traj='',n_lines = 0, job_name ='cabsDock simulation',msg =''):
+    def __init__ (self,interval=0.5,traj='',n_lines = 0, job_name ='CABS simulation',msg =''):
         Thread.__init__(self)
         self.exit_event=Event()
         self.interval=interval

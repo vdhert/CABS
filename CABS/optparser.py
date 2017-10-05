@@ -1,6 +1,9 @@
 import csv
 import argparse
 import re
+from pkg_resources import require
+
+__version__ = require('CABS')[0].version
 
 
 class CustomFormatter(argparse.RawTextHelpFormatter):
@@ -67,6 +70,7 @@ class ParserFactory:
     @staticmethod
     def _build_parser(lines):
         d = {l[0]: l[1] for l in lines[1:]}
+        d['version'] = __version__
         return argparse.ArgumentParser(formatter_class=CustomFormatter, **d)
 
     def _populate_parser(self, _groups, _parser):
@@ -88,7 +92,7 @@ class ParserFactory:
         help = line[2]
         default = line[3].split()
         action = line[4]
-        type = line[5]
+        argtype = line[5]
 
         kwargs = {}
         if name[-1][2:] in self.required:
@@ -114,9 +118,9 @@ class ParserFactory:
         if action == 'count':
             kwargs.pop('metavar')
 
-        if type == 'int':
+        if argtype == 'int':
             kwargs['type'] = int
-        elif type == 'float':
+        elif argtype == 'float':
             kwargs['type'] = float
 
         _group.add_argument(*name, **kwargs)
