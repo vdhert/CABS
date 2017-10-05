@@ -19,14 +19,14 @@ class PbsGenerator(object):
                 #print row
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[4])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + ':' + str(row[4])
                 sc_rests = []
                 if len(row) > 5:
                     sc_rests = (str(row[5]), str(row[6]))
             elif runtype=='unbound':
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[4]) + ':' + str(row[5])+str(row[6])
+                reference_pdb = str(row[4]) + ':' + str(row[5]) + ':' + str(row[6])
                 sc_rests = []
                 #print row
                 if len(row) > 7:
@@ -34,7 +34,7 @@ class PbsGenerator(object):
             elif runtype=='frompdb':
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[0]) + ':' + str(row[2])
-                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[2])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + ':' + str(row[2])
                 sc_rests = []
                 #print row
                 if len(row) > 3:
