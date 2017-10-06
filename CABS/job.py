@@ -603,21 +603,11 @@ class FlexTask(CABSTask):
                                         receptor_restraints=structure_restraints,
                                         receptor_flexibility=structure_flexibility,
                                         **kwargs)
-        conf = {    'receptor': structure,
-                    'reference_pdb': True}
+        conf = {'receptor': structure}
         self.config.update(conf)
 
     def setup_job(self):
         self.initial_complex = ProteinComplex(self.config)
-        #~ if self.config['reference_pdb']:
-            #~ try:
-                #~ ent, trg_chids = self.config['reference_pdb'].split(":")
-                #~ sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
-            #~ except ValueError:
-                #~ ent = self.config['reference_pdb']
-                #~ sele = 'name CA and not HETERO'
-                #~ trg_chids = ''
-            #~ self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Filtering the trajectory
@@ -661,7 +651,17 @@ class FlexTask(CABSTask):
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
 
     def parse_reference(self, ref):
-        try:
-            self.reference = Pdb(ref, selection='name CA', no_exit=True, verify=True)
-        except Pdb.InvalidPdbInput:
-            logger.warning(_name, 'Invalid reference {}'.format(ref))
+        if ref:
+            try:
+                ent, trg_chids = ref.split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids = ''
+            try:
+                self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+            except Pdb.InvalidPdbInput:
+                logger.warning(_name, 'Invalid reference {}'.format(ref))
+        else:
+            self.reference = (self.initial_complex, self.initial_complex.receptor_chains)
