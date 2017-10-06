@@ -3,15 +3,16 @@ Classes Receptor, Ligand, Protein - prepares initial complex.
 """
 
 import re
-import logger
-import utils
 from copy import deepcopy
 from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
-from PDBlib import Pdb
-from atom import Atoms
-from vector3d import Vector3d
+
+from CABS import utils
+from CABS import logger
+from CABS.PDBlib import Pdb
+from CABS.atom import Atoms
+from CABS.vector3d import Vector3d
 
 _name = 'Protein'
 

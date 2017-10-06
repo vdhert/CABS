@@ -1,27 +1,28 @@
 """
 Module for running cabsDock jobs.
 """
-
 import operator
 import time
 from os import getcwd, mkdir
 from os.path import exists, isdir, abspath
-
-from cabs import CabsRun
-from cluster import Clustering
-from cmap import ContactMapFactory
-from plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
-from utils import SCModeler
-from filter import Filter
-from protein import ProteinComplex
-from restraints import Restraints
-from trajectory import Trajectory
 from math import ceil
-import logger
+from abc import ABCMeta, abstractmethod
+
+from CABS import logger
+from CABS.cabs import CabsRun
+from CABS.PDBlib import Pdb
+from CABS.cluster import Clustering
+from CABS.cmap import ContactMapFactory
+from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
+from CABS.utils import SCModeler
+from CABS.filter import Filter
+from CABS.protein import ProteinComplex
+from CABS.restraints import Restraints
+from CABS.trajectory import Trajectory
+
 
 __all__ = ['Job']
 _name = 'JOB'
-from abc import ABCMeta, abstractmethod
 
 
 class CABSTask(object):
@@ -79,13 +80,17 @@ class CABSTask(object):
             excluding_distance=5.0,
             modeller_iterations=3,
             output_models=10,
-            cc_threshold=6.5):
+            cc_threshold=6.5,
+            reference_pdb=None
+    ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
         else:
             file_TRAF = file_SEQ = None
 
-        # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
+        # TODO replace self.config dictionary with regular attributes.
+        # Clean up all usages of self.config in job methods.
+
         self.config = {
             'work_dir': work_dir,
             'replicas': replicas,
@@ -128,6 +133,7 @@ class CABSTask(object):
             'excluding_distance': excluding_distance,
             'verbose': verbose,
             'cc_threshold': cc_threshold,
+            'reference_pdb': reference_pdb
         }
 
         # Job attributes collected.
@@ -142,6 +148,8 @@ class CABSTask(object):
         self.clusters = None
         self.rmslst = {}
         self.results = None
+        self.reference = None
+        self.modeller_iterations = modeller_iterations
 
         # Workdir processing:
         # making sure work_dir is abspath
@@ -173,7 +181,8 @@ class CABSTask(object):
         self.score_results(n_filtered=self.config['filtering'], number_of_medoids=self.config['clustering_nmedoids'],
                            number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
-            self.calculate_rmsd(reference_pdb=self.config['reference_pdb'])
+            self.parse_reference(self.config['reference_pdb'])
+            self.calculate_rmsd(reference_pdb=self.reference)
         self.save_config()
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
@@ -186,6 +195,10 @@ class CABSTask(object):
 
     @abstractmethod
     def calculate_rmsd(self):
+        pass
+
+    @abstractmethod
+    def parse_reference(self, ref):
         pass
 
     def draw_plots(self, plots_dir=None):
@@ -344,9 +357,9 @@ class CABSTask(object):
             if self.config['AA_rebuild']:
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
-                    ca2all( fname,
-                            output=output_folder + '/' + 'model_{0}.pdb'.format(i),
-                            iterations=1)
+                    ca2all(
+                        fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i),
+                        iterations=self.modeller_iterations)
 
 
 class DockTask(CABSTask):
@@ -380,6 +393,19 @@ class DockTask(CABSTask):
 
     def setup_job(self):
         self.initial_complex = ProteinComplex(self.config)
+        if self.config['reference_pdb']:
+            try:
+                ent, trg_chids, pept_chids = self.config['reference_pdb'].split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids + pept_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids, pept_chids = '', ''
+                if ":" in ent:
+                    raise ValueError('Wrong reference structure format.')
+            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids, pept_chids)
+            if len(self.initial_complex.ligand_chains) != len(self.reference[2]):
+                raise ValueError("Number of reference peptide chains differ from number of given peptides.")
 
     def load_output(self, ftraf=None, fseq=None):
         """
@@ -401,16 +427,21 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
-        for pept_chain in self.initial_complex.ligand_chains:
-            aln_path = None if not save else self.config[
-                                                 'work_dir'] + '/output_data/target_alignment_%s.csv' % pept_chain
+        for pept_chain, ref_pept_chain in zip(self.initial_complex.ligand_chains, self.reference[2]):
+            if save:
+                paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'
+                paln_pep = paln_trg.replace('.csv', '_%s.csv' % pept_chain)
+            else:
+                paln_trg, paln_pep = None, None
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
-                self.initial_complex.receptor_chains,
-                ref_pdb=reference_pdb,
-                pept_chain=pept_chain,
+                ref_stc=self.reference[0],
+                trg_chids=self.initial_complex.receptor_chains,
+                pept_chid=pept_chain,
+                ref_trg_chids=self.reference[1],
+                ref_pept_chid=ref_pept_chain,
                 align_mth=self.config['align'],
-                alignment=self.config['reference_alignment'],
-                path=aln_path,
+                alignments=self.config['reference_alignment'],
+                path=(paln_trg, paln_pep),
                 pept_align_kwargs={'fname': self.config['reference_alignment']},
                 target_align_kwargs={'fname': self.config['reference_alignment']}
             )
@@ -514,15 +545,21 @@ class DockTask(CABSTask):
                 progress = logger.ProgressBar(module_name="MODELLER",job_name="Modeller")
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
-                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                        out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
+                    ca2all(
+                        fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i),
+                        iterations=self.modeller_iterations,
+                        out_mdl=self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i),
+                        work_dir=self.config['work_dir']
+                    )
                     progress.update(ceil(100.0/len(pdb_medoids)))
                 progress.done()
-        logger.log_file(module_name=_name, msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/'   )
+        logger.log_file(module_name=_name, msg="Modeller output saved to "+self.config['work_dir'] + '/output_data/')
         logger.debug(module_name=_name, msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
-        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(ca_traj, meds, clusts, top1k_inds, thr, plots_dir)
+        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
+            ca_traj, meds, clusts, top1k_inds, thr, plots_dir
+        )
 
         rchs = self.initial_complex.receptor_chains
         lchs = self.initial_complex.ligand_chains
@@ -549,6 +586,14 @@ class DockTask(CABSTask):
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
                 ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True)
 
+    def parse_reference(self, ref):
+        try:
+            source, rec, pep = ref.split(':')
+            self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+        except (ValueError, Pdb.InvalidPdbInput):
+            logger.warning(_name, 'Invalid reference {}'.format(ref))
+
+
 class FlexTask(CABSTask):
     """Class of CABSFlex jobs."""
 
@@ -564,12 +609,10 @@ class FlexTask(CABSTask):
                                         receptor_restraints=structure_restraints,
                                         receptor_flexibility=structure_flexibility,
                                         **kwargs)
-        conf = {    'receptor': structure,
-                    'reference_pdb': True}
+        conf = {'receptor': structure}
         self.config.update(conf)
 
     def setup_job(self):
-        # Preparing the initial complex
         self.initial_complex = ProteinComplex(self.config)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
@@ -609,6 +652,22 @@ class FlexTask(CABSTask):
         cmaptop = reduce(operator.add, cmf.mk_cmap(sc_med, thr))
         cmap1k = reduce(operator.add, cmf.mk_cmap(sc_traj_1k, thr))
 
-        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10k', 'top1k')):
+        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10', 'top1k')):
             cmap.zero_diagonal()
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
+
+    def parse_reference(self, ref):
+        if ref:
+            try:
+                ent, trg_chids = ref.split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids = ''
+            try:
+                self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+            except Pdb.InvalidPdbInput:
+                logger.warning(_name, 'Invalid reference {}'.format(ref))
+        else:
+            self.reference = (self.initial_complex, self.initial_complex.receptor_chains)

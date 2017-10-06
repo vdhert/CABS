@@ -5,18 +5,19 @@ Atoms is a container for Atom objects, without actually specyfing if they are in
 
 import re
 import numpy as np
+
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict
 
-from utils import CABS_SS, aa_to_long, smart_flatten, kabsch
-from vector3d import Vector3d
-from logger import ProgressBar
+from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch
+from CABS.vector3d import Vector3d
+from CABS.logger import ProgressBar
 
 
-class Atom:
+class Atom(object):
     """
     Class for representation of a single atom.
     """
@@ -226,7 +227,7 @@ class Atom:
         return self
 
 
-class Atoms:
+class Atoms(object):
     """
     Container for atoms. Has most methods of a list. Also has methods common
     for all multi-atom objects: move, rotate etc.
@@ -302,8 +303,11 @@ class Atoms:
     def extend(self, other):
         self.atoms.extend(other.atoms)
 
-    def __repr__(self):
+    def __str__(self):
         return '\n'.join(str(atom) for atom in self.atoms)
+
+    def __repr__(self):
+        return "<Atoms: %i>" % len(self.atoms)
 
     def __eq__(self, other):
         if len(self.atoms) != len(other.atoms):
@@ -582,12 +586,12 @@ class Atoms:
         else:
             bar = None
         if len(models) == 1:
-            s = self.__repr__()
+            s = str(self)
         else:
             s = ''
             for m in models:
                 s += 'MODEL%9i\n' % m[0].model
-                s += m.__repr__()
+                s += str(m)
                 s += '\nENDMDL\n'
                 if bar:
                     bar.update()
