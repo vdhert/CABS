@@ -1,6 +1,6 @@
 import numpy
 
-from trajectory import Trajectory
+from CABS.trajectory import Trajectory
 
 
 class Clustering(object):

@@ -109,10 +109,6 @@ class Pdb(object):
                 else:
                     selection = 'chain {}'.format(','.join(chains))
 
-            if selection:
-                logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name ))
-                self.atoms = self.atoms.select(selection)
-
             if remove_alternative_locations:
                 logger.debug(_name, 'Removing alternative locations from {}'.format(name))
                 self.atoms.remove_alternative_locations()
@@ -149,6 +145,10 @@ class Pdb(object):
             if remove_hetero:
                 logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
                 self.atoms = self.atoms.drop('hetero')
+
+            if selection:
+                logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name ))
+                self.atoms = self.atoms.select(selection)
 
             if not len(self.atoms):
                 raise Exception('{} contains no atoms'.format(source))

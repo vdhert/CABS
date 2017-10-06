@@ -1,13 +1,12 @@
 """Module for handling CABS simulation"""
 
-import os
 import re
-import numpy as np
 import tarfile
-import logger
-from os.path import join, exists, isdir
+import numpy as np
+
+from os.path import join
 from operator import attrgetter
-from subprocess import Popen, PIPE, check_output
+from subprocess import Popen, PIPE
 from random import randint
 from threading import Thread
 from pkg_resources import resource_filename
@@ -15,11 +14,12 @@ from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime
 
-from vector3d import Vector3d
-from trajectory import Trajectory
+from CABS import logger
+from CABS.vector3d import Vector3d
+from CABS.trajectory import Trajectory
 
-__all__ = ['CABS']
 
+_name = 'CABS'
 
 class CabsLattice:
     """
@@ -117,9 +117,9 @@ class CabsRun(Thread):
         """
         #~ import pdb; pdb.set_trace()
         Thread.__init__(self)
-        logger.debug(module_name=__all__[0],msg="Loading structures...")
+        logger.debug(module_name=_name,msg="Loading structures...")
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
-        logger.debug(module_name=__all__[0], msg="Loading restraints...")
+        logger.debug(module_name=_name, msg="Loading restraints...")
         restr, maxres = CabsRun.load_restraints(
             restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
         )
@@ -147,7 +147,7 @@ class CabsRun(Thread):
         with open(join(cabs_dir, 'INP'), 'w') as f:
             f.write(inp + restr + exclude)
 
-        logger.debug(module_name=__all__[0], msg="Building exe...")
+        logger.debug(module_name=_name, msg="Building exe...")
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('CABS', 'data/data0.dat'),
@@ -277,7 +277,7 @@ class CabsRun(Thread):
         monitor = logger.cabs_observer(interval=0.2,traj = join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
         CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'],stderr=PIPE,stdin=PIPE)
         (stdout, stderr) = CABS.communicate()
-        if stderr: logger.warning(module_name=__all__[0],msg=stderr)
+        if stderr: logger.warning(module_name=_name, msg=stderr)
         monitor.exit()
 
     def get_trajectory(self):

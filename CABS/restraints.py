@@ -1,6 +1,6 @@
 """Module for handling distance restraints"""
 
-from utils import PEPtoPEP1 as PP
+from CABS.utils import PEPtoPEP1 as PP
 
 
 class Restraint:

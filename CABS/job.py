@@ -1,13 +1,14 @@
 """
 Module for running cabsDock jobs.
 """
-
-
 import operator
 import time
 from os import getcwd, mkdir
 from os.path import exists, isdir, abspath
+from math import ceil
+from abc import ABCMeta, abstractmethod
 
+from CABS import logger
 from CABS.cabs import CabsRun
 from CABS.PDBlib import Pdb
 from CABS.cluster import Clustering
@@ -18,12 +19,10 @@ from CABS.filter import Filter
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
-from math import ceil
-import logger
+
 
 __all__ = ['Job']
 _name = 'JOB'
-from abc import ABCMeta, abstractmethod
 
 
 class CABSTask(object):
@@ -89,7 +88,9 @@ class CABSTask(object):
         else:
             file_TRAF = file_SEQ = None
 
-        # TODO replace self.config dictionary with regular attributes. Clean up all usages of self.config in job methods.
+        # TODO replace self.config dictionary with regular attributes.
+        # Clean up all usages of self.config in job methods.
+
         self.config = {
             'work_dir': work_dir,
             'replicas': replicas,
@@ -148,6 +149,7 @@ class CABSTask(object):
         self.rmslst = {}
         self.results = None
         self.reference = None
+        self.modeller_iterations = modeller_iterations
 
         # Workdir processing:
         # making sure work_dir is abspath
@@ -355,9 +357,9 @@ class CABSTask(object):
             if self.config['AA_rebuild']:
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
-                    ca2all( fname,
-                            output=output_folder + '/' + 'model_{0}.pdb'.format(i),
-                            iterations=1)
+                    ca2all(
+                        fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i),
+                        iterations=self.modeller_iterations)
 
 
 class DockTask(CABSTask):
@@ -545,11 +547,15 @@ class DockTask(CABSTask):
                 progress = logger.ProgressBar(module_name="MODELLER",job_name="Modeller")
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
-                    ca2all(fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i), iterations=1,
-                        out_mdl= self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i))
+                    ca2all(
+                        fname, output=output_folder + '/' + 'model_{0}.pdb'.format(i),
+                        iterations=self.modeller_iterations,
+                        out_mdl=self.config['work_dir'] + '/output_data/modeller_output_{0}.txt'.format(i),
+                        work_dir=self.config['work_dir']
+                    )
                     progress.update(ceil(100.0/len(pdb_medoids)))
                 progress.done()
-        logger.log_file(module_name=_name, msg = "Modeller output saved to "+self.config['work_dir'] + '/output_data/')
+        logger.log_file(module_name=_name, msg="Modeller output saved to "+self.config['work_dir'] + '/output_data/')
         logger.debug(module_name=_name, msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
@@ -585,7 +591,7 @@ class DockTask(CABSTask):
     def parse_reference(self, ref):
         try:
             source, rec, pep = ref.split(':')
-            self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True), pep)
+            self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
         except (ValueError, Pdb.InvalidPdbInput):
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
@@ -605,21 +611,11 @@ class FlexTask(CABSTask):
                                         receptor_restraints=structure_restraints,
                                         receptor_flexibility=structure_flexibility,
                                         **kwargs)
-        conf = {    'receptor': structure,
-                    'reference_pdb': True}
+        conf = {'receptor': structure}
         self.config.update(conf)
 
     def setup_job(self):
         self.initial_complex = ProteinComplex(self.config)
-        #~ if self.config['reference_pdb']:
-            #~ try:
-                #~ ent, trg_chids = self.config['reference_pdb'].split(":")
-                #~ sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
-            #~ except ValueError:
-                #~ ent = self.config['reference_pdb']
-                #~ sele = 'name CA and not HETERO'
-                #~ trg_chids = ''
-            #~ self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Filtering the trajectory
@@ -663,7 +659,17 @@ class FlexTask(CABSTask):
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
 
     def parse_reference(self, ref):
-        try:
-            self.reference = Pdb(ref, selection='name CA', no_exit=True, verify=True)
-        except Pdb.InvalidPdbInput:
-            logger.warning(_name, 'Invalid reference {}'.format(ref))
+        if ref:
+            try:
+                ent, trg_chids = ref.split(":")
+                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+            except ValueError:
+                ent = self.config['reference_pdb']
+                sele = 'name CA and not HETERO'
+                trg_chids = ''
+            try:
+                self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+            except Pdb.InvalidPdbInput:
+                logger.warning(_name, 'Invalid reference {}'.format(ref))
+        else:
+            self.reference = (self.initial_complex, self.initial_complex.receptor_chains)
