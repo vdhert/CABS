@@ -6,12 +6,12 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
-from plots import mk_histo
-from utils import _chunk_lst
-
 import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.colors
+
+from CABS.plots import mk_histo
+from CABS.utils import _chunk_lst
 
 
 class ContactMapFactory(object):

@@ -1,6 +1,5 @@
 import os, glob, re, sys
 import argparse
-import logger
 
 from tempfile import mkstemp
 from os.path import basename
@@ -8,12 +7,15 @@ from contextlib import closing
 from modeller import *
 from modeller.automodel import *
 
+from CABS import logger
 
-__all__ = ['ca2all']
+_name = 'MODELLER'
 
 
-def ca2all(filename, output=None, iterations=1,
-           out_mdl=os.getcwd()+'/output_data/modeller_output_0.txt'):
+def ca2all(
+        filename, output=None, iterations=1, work_dir='.',
+        out_mdl=os.getcwd()+'/output_data/modeller_output_0.txt'
+):
     """
     Rebuilds ca to all-atom
     """
@@ -24,7 +26,7 @@ def ca2all(filename, output=None, iterations=1,
     else:
         sys.stdout = open('/dev/null', 'w')
 
-    pdb = mkstemp(prefix='.', suffix='.pdb', dir='.', text=True)[1]
+    pdb = mkstemp(prefix='.', suffix='.pdb', dir=work_dir, text=True)[1]
     prefix = basename(pdb).rsplit('.', 1)[0]
 
     aa_names = {
@@ -41,16 +43,6 @@ def ca2all(filename, output=None, iterations=1,
     pattern = re.compile('ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*')
 
     try:
-        # MC: Fixed support for StringIO in context manager.
-        # with open(filename, 'r') as f, open(pdb, 'w') as tmp:
-        #     for line in f:
-        #         if line.startswith('ENDMDL'):
-        #             break
-        #         else:
-        #             match = re.match(pattern, line)
-        #             if match:
-        #                 atoms.append(match.groups())
-        #                 tmp.write(line)
         with closing(filename) as f, open(pdb, 'w') as tmp:
             for line in f:
                 if line.startswith('ENDMDL'):
@@ -101,7 +93,7 @@ structure:%s:FIRST:@:END:@::::
         )
 
         mdl.md_level = refine.slow
-        mdl.auto_align()
+        mdl.auto_align(matrix_file=prefix + '.mat')
         mdl.starting_model = 1
         mdl.ending_model = int(iterations)
         mdl.final_malign3d = True
@@ -137,8 +129,11 @@ structure:%s:FIRST:@:END:@::::
                 else:
                     outfile.write(line)
     finally:
-        junk = ['family.mat'] + glob.glob(prefix + '*')
-        map(os.remove, junk)
+        junk = glob.glob(prefix + '*')
+        try:
+            map(os.remove, junk)
+        except OSError as e:
+            logger.warning(_name, e.message)
 
 
 if __name__ == '__main__':

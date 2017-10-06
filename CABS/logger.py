@@ -43,6 +43,7 @@ stream = sys.stderr
 if color: prefix = color_prefix
 else: prefix = log_levels
 
+
 def setup_log_level(new_level):
     global log_level
     if type(new_level) is int and new_level < 4 and new_level >= -1:
@@ -51,10 +52,12 @@ def setup_log_level(new_level):
         warning(module_name=_name,msg="Verbose should be a number between -1 and 3")
     info(module_name=_name ,msg="Verbosity set to: " + str(log_level) + " - " + log_levels[log_level])
 
+
 def coloring(color_name = "light_blue", msg = ""):
     if color:
         return colors[color_name] + msg + colors["end"]
     return msg
+
 
 def log(module_name = "MISC", msg = "Processing ", l_level = 1, out = stream):
     if l_level <= log_level:
@@ -79,17 +82,22 @@ def log(module_name = "MISC", msg = "Processing ", l_level = 1, out = stream):
 def critical(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=-1)
 
+
 def warning(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=0)
+
 
 def info(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=1)
 
+
 def log_file(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=2)
 
+
 def debug(module_name = "_name", msg = ""):
     log(module_name=module_name, msg=msg, l_level=3)
+
 
 def to_file(filename='',content='',msg='',allowErr=True,traceback=True):
     """
@@ -114,6 +122,7 @@ def to_file(filename='',content='',msg='',allowErr=True,traceback=True):
     if msg:
         log_file(module_name=_name,msg = msg)
 
+
 def exit_program(module_name =_name, msg="Shutting down",traceback=True,exc=None):
     '''In debug mode Exception is raised unless specifically prevented '''
     critical(module_name=module_name,msg=msg)
@@ -124,6 +133,7 @@ def exit_program(module_name =_name, msg="Shutting down",traceback=True,exc=None
         else:
             raise Exception()
     sys.exit(1)
+
 
 class ProgressBar:
     ''' This class assumes a manual call to done() will be made to exit the bar'''
@@ -185,8 +195,6 @@ class ProgressBar:
             self.is_done = True
 
 
-
-
 class cabs_observer(Thread):
 
     def __init__ (self,interval=0.5,traj='',n_lines = 0, job_name ='CABS simulation',msg =''):
@@ -196,7 +204,7 @@ class cabs_observer(Thread):
         self.progress_bar = ProgressBar(module_name='CABS',job_name=job_name,start_msg=msg)
         self.traj = traj
         self.n_lines = n_lines
-        self.daemon = True  #In case main program ends abruptly
+        self.daemon = True  # In case main program ends abruptly
         self.start()
 
     def exit(self):

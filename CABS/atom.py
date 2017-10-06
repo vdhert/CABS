@@ -5,15 +5,16 @@ Atoms is a container for Atom objects, without actually specyfing if they are in
 
 import re
 import numpy as np
+
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict
 
-from utils import CABS_SS, aa_to_long, smart_flatten, kabsch
-from vector3d import Vector3d
-from logger import ProgressBar
+from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch
+from CABS.vector3d import Vector3d
+from CABS.logger import ProgressBar
 
 
 class Atom(object):
@@ -585,7 +586,7 @@ class Atoms(object):
         else:
             bar = None
         if len(models) == 1:
-            s = self.__repr__()
+            s = str(self)
         else:
             s = ''
             for m in models:

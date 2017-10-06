@@ -1,8 +1,8 @@
-import logger
 import os
-from optparser import ParserFactory, ConfigFileParser
 from pkg_resources import resource_filename
 from sys import argv
+from CABS import logger
+from CABS.optparser import ParserFactory, ConfigFileParser
 
 
 class Config(dict):
@@ -111,4 +111,4 @@ def run_flex():
 
 
 if __name__ == '__main__':
-    run_flex()
+    run_dock()

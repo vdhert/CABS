@@ -1,10 +1,11 @@
 import numpy
-from abc import ABCMeta
-from abc import abstractmethod
+
+from abc import ABCMeta, abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
-from utils import aa_to_short
+
+from CABS.utils import aa_to_short
 
 
 BLOSUM62 = numpy.array([[ 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2, -1,  1,  0, -3, -2,  0, -2, -1,  0, -4],
