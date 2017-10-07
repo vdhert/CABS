@@ -1,4 +1,6 @@
 import os
+import matplotlib
+matplotlib.use('Agg')
 from pkg_resources import resource_filename
 from sys import argv
 from CABS import logger
