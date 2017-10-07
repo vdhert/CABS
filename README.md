@@ -12,23 +12,18 @@ sudo apt install python-pip
 #!bash
 wget https://bitbucket.org/lcbio/cabsdock/downloads/CABS-<version>.tar.gz
 ```
-####3. Extract CABS-<version>.tar.gz
-```
-#!bash
-tar xzf CABS-<version>.tar.gz
-```
-####4. Install CABS with pip (make sure you are using pip for python 2.7.*)
+####3. Install CABS with pip (make sure you are using pip for python 2.7.*)
 #####For all users
 ```
 #!bash
-sudo -H pip install CABS-<version>/
+sudo -H pip install CABS-<version>.tar.gz
 ```
 #####Locally
 ```
 #!bash
-pip install CABS-<version>/ --user  
+pip install CABS-<version>.tar.gz --user  
 ```
-####5. To uninstall CABS with pip run:
+####4. To uninstall CABS with pip run:
 #####For all users
 ```
 #!bash
