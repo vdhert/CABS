@@ -16,7 +16,7 @@ wget https://bitbucket.org/lcbio/cabsdock/downloads/CABS-<version>.tar.gz
 #####For all users
 ```
 #!bash
-sudo -H pip install CABS-<version>.tar.gz
+sudo pip install CABS-<version>.tar.gz
 ```
 #####Locally
 ```
