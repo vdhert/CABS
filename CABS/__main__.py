@@ -111,4 +111,4 @@ def run_flex():
 
 
 if __name__ == '__main__':
-    run_dock()
+    pass

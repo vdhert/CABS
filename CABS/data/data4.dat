@@ -1,7 +1,7 @@
 #parser,,,,,
-prog,CABSdock,,,,
+prog,CABSflex,,,,
 description,CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.,,,,
-epilog,CABSdock repository: https://bitbucket.org/lcbio/cabsdock,,,,
+epilog,CABS repository: https://bitbucket.org/lcbio/cabsdock,,,,
 ,,,,,
 #group,BASIC OPTIONS,Basic options allow to run protein flexibility simulation using only information about starting structure.,,,
 "-S, --structure",STRUCTURE,"Loads structure.
