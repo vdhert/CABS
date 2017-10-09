@@ -427,24 +427,17 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
+        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(self.reference[0], self.reference[1], self.initial_complex.receptor_chains)
+        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        if save:
+            paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'
+            #TODO save
         for pept_chain, ref_pept_chain in zip(self.initial_complex.ligand_chains, self.reference[2]):
+            ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(self.reference[0], ref_pept_chain, pept_chain)
             if save:
-                paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'
                 paln_pep = paln_trg.replace('.csv', '_%s.csv' % pept_chain)
-            else:
-                paln_trg, paln_pep = None, None
-            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
-                ref_stc=self.reference[0],
-                trg_chids=self.initial_complex.receptor_chains,
-                pept_chid=pept_chain,
-                ref_trg_chids=self.reference[1],
-                ref_pept_chid=ref_pept_chain,
-                align_mth=self.config['align'],
-                alignments=self.config['reference_alignment'],
-                path=(paln_trg, paln_pep),
-                pept_align_kwargs={'fname': self.config['reference_alignment']},
-                target_align_kwargs={'fname': self.config['reference_alignment']}
-            )
+                #TODO save
+            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(ref_pep_stc, self_pep_stc)
             rmsds = [header.rmsd for header in self.medoids.headers]
             results = {}
             results['rmsds_all'] = [header.rmsd for header in self.trajectory.headers]
