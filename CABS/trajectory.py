@@ -293,11 +293,11 @@ class Trajectory(object):
         for n, refch in enumerate(mtch_mtx):
             inds = np.nonzero(refch)
             pickups.extend(refch[inds])
-            mtch_mtx[n + 1:, inds] = 0
+            #~ mtch_mtx[n + 1:, inds] = 0
         trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
         ref_mrs, tmp_mrs = zip(*trg_aln)
-        ref_sstc = Atoms(arg=list(ref_target_mers))
-        tmp_sstc = Atoms(arg=list(temp_target_mers))
+        ref_sstc = Atoms(arg=list(ref_mrs))
+        tmp_sstc = Atoms(arg=list(tmp_mrs))
         # sstc -- selected substructure (only aligned part)
         return ref_sstc, tmp_sstc, trg_aln
 
@@ -315,7 +315,7 @@ class Trajectory(object):
             return np.sqrt(np.sum((m1 - m2) ** 2) / length)
 
         ref_trg = np.array(ref_sstc.to_matrix())
-        aln_traj = self.select("chain " + pept_chid)
+        aln_traj = self.select(template=self_sstc)
         length = len(aln_traj.template)
         models = aln_traj.coordinates.reshape(-1, length, 3)
         result = np.zeros(len(models))
@@ -369,12 +369,12 @@ class Trajectory(object):
 
     def rmsf(self, chains = ''):
         """
-        Calculates the RMSF for each of the residues.
+        Calculates the RMSF for each residue.
         :param chains: string chains for which RMSF should be calculated.
         :return: list of RMSF values.
         """
         mdls = self.select('chain ' + ','.join(chains))
-        mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
+        #~ mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)
         mdls_crds = np.stack(mdls.coordinates.reshape(-1, mdl_lth, 3), axis=1)
         avg = [np.mean(rsd, axis=0) for rsd in mdls_crds]

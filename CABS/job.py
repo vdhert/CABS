@@ -182,7 +182,7 @@ class CABSTask(object):
                            number_of_iterations=self.config['clustering_niterations'])
         if self.config['reference_pdb']:
             self.parse_reference(self.config['reference_pdb'])
-            self.calculate_rmsd(reference_pdb=self.reference)
+            self.calculate_rmsd()
         self.save_config()
         self.draw_plots()
         self.save_models(replicas=self.config['save_replicas'], topn=self.config['save_topn'],
@@ -322,7 +322,11 @@ class CABSTask(object):
             logger.debug(module_name=_name, msg = "Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.template.update_ids(self.initial_complex.receptor.old_ids, pedantic=False)
-        self.trajectory.align_to(self.initial_complex.receptor)
+        chs = ''.join(self.initial_complex.receptor_chains)
+        tchs = ''.join(set(chs).intersection(self.trajectory.template.list_chains().keys()))
+        self.trajectory.tmp_target_chs = tchs   #TODO -- target chains of trajectory template... should not be added here. or even: should not be needed to add at all.
+        ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(self.initial_complex.receptor, chs, tchs, align_mth='SW')
+        self.trajectory.superimpose_to(ic_stc, tt_stc)
         logger.info(module_name=_name, msg = "Trajectories loaded successfully")
         return self.trajectory
 
@@ -418,7 +422,7 @@ class DockTask(CABSTask):
         ret.number_of_peptides = len(self.config['ligand'])
         return ret
 
-    def calculate_rmsd(self, reference_pdb=None, save=True):
+    def calculate_rmsd(self, save=True):
         logger.debug(module_name=__all__[0], msg = "RMSD calculations starting...")
         if save:
             odir = self.config['work_dir'] + '/output_data'
@@ -427,7 +431,7 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
-        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(self.reference[0], self.reference[1], self.initial_complex.receptor_chains)
+        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(self.reference[0], self.reference[1], self.trajectory.tmp_target_chs)
         self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
             paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'

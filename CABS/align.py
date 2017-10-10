@@ -146,6 +146,8 @@ class TrivialAlign(AbstractAlignMethod):
     methodname = 'trivial'
 
     def execute(self, atoms1, atoms2, **kwargs):
+        if len(atoms1) != len(atoms2):
+            raise AlignError("Structure of different size passed to trivial alignment.")
         return tuple(zip(atoms1.atoms, atoms2.atoms))
 
 
