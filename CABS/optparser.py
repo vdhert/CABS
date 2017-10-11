@@ -6,9 +6,27 @@ from pkg_resources import require
 __version__ = require('CABS')[0].version
 
 
-def mk_parser():
+def mk_parser(def_prot_rest, def_temp, def_replicas):
     parser = argparse.ArgumentParser()
-    parser.add_argument_group('parser')
+    parser.add_argument_group('BASIC OPTIONS')
+    parser.add_argument(    '-P',
+                            '--protein',
+                            )
+
+    parser.add_argument_group('PROTEIN OPTIONS')
+    parser.add_argument(    "-f",
+                            "--protein-flexibility",
+                            metavar="FLEXBILITY",
+                            default=1.0,
+                            type=float,
+                            help="""""")
+
+    parser.add_argument(    "-R",
+                            "--protein-restraints",
+                            metavar="MODE GAP MIN MAX",
+                            nargs=4,
+                            default=def_prot_rest,
+                            help="""""")
 
     parser.add_argument_group('RESTRAINTS OPTIONS', "Restraints options allows to set up distance restraints, either between C-alpha atoms (CA) or Side Chains (SC), where SCs are geometric centers of side chains atoms (as defined in CABS coarse-grained model).")
     parser.add_argument(    "--ca-rest-add",
@@ -85,7 +103,7 @@ def mk_parser():
     parser.add_argument(    "--replicas",
                             metavar="NUM",
                             type=int,
-                            default=10,
+                            default=def_replicas,
                             help="""Sets number of replicas to be used in Replica Exchange Monte Carlo (NUM > 0, default value = 10, changing default value is recommended only for advanced users).""")
 
     parser.add_argument(    "--replicas-dtemp",
@@ -98,7 +116,7 @@ def mk_parser():
                             metavar="TINIT TFINAL",
                             nargs=2,
                             type=float,
-                            default=(2.0, 1.0),
+                            default=def_temp,
                             help="""Sets temperature range for simulated annealing TINIT - initial temperature, TFINAL - final temperature (default values TINIT=2.0, TFINAL=1.0, changing default value is recommended only for advanced users). CABSdock uses temperature units, which do not correspond straightforwardly to real temperatures. Temperature around 1.0 roughly corresponds to nearly frozen conformation, folding temperature of small proteins in the CABS model is usually around 2.0.""")
 
     parser.add_argument(    "-s",
@@ -252,6 +270,13 @@ def mk_parser():
 
     return parser
 
+def mk_flex_parser():
+    parser = mk_parser(def_prot_rest=('ss2', 3, 3.8, 8.0), def_temp=(1.4, 1.4), def_replicas=1)
+    return parser
+
+def mk_dock_parser():
+    parser = mk_parser(def_prot_rest=('all', 5, 5.0, 15.0), def_temp=(2.0, 1.0), def_replicas=10)
+    return parser
 
 class ConfigFileParser:
 
