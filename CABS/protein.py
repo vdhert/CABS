@@ -181,7 +181,9 @@ class Ligand(Atoms):
     """
 
     def __init__(self, config, num):
-        self.name, self.conformation, self.location = config['ligand'][num]
+        print(config['ligand'])
+        #self.name, self.conformation, self.location = config['ligand'][num]
+        self.name, self.conformation, self.location = config['ligand']
         self.selection = 'name CA and not HETERO'
         logger.info(
             module_name=_name,

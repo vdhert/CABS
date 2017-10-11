@@ -1,6 +1,31 @@
 from os import mkdir
 from os.path import exists, isdir
 
+class Multirunner(object):
+    def py_script(self, scriptdir, receptor, peptide, mutadis_mutandis=['']):
+        self.scriptdir = scriptdir
+        self.standard_header = '#!/bin/bash\n'
+        self.standard_cd = 'cd {}\n'.format(self.scriptdir)
+        try:
+            mkdir(scriptdir)
+        except OSError:
+            pass
+        for mutant in mutadis_mutandis:
+            name = receptor.split(':')[0]+mutant.replace(' ','_').replace('=','').replace('\'','')
+            with open(scriptdir + '/{}.py'.format(name), 'w') as pyfile:
+                pyfile.write('from CABS.job import DockTask\n')
+                command = 'cabstask = DockTask('
+                command += 'receptor=\'{}\', ligand={}, {},'.format(
+                    receptor, peptide, mutant)
+                command += ' mc_annealing=20, mc_cycles=50, mc_steps=50, work_dir=\'{}/{}\')'.format(
+                    self.scriptdir, name)
+                command += '\ncabstask.run()'
+                print command
+                pyfile.write(command)
+            with open(scriptdir + '/{}.pbs'.format(name), 'w') as pbsfile:
+                pbsfile.write(self.standard_header)
+                pbsfile.write(self.standard_cd)
+                pbsfile.write('python {}.py'.format(name))
 
 class PbsGenerator(object):
     def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}, runtype='standard'):
@@ -74,6 +99,7 @@ class PbsGenerator(object):
                 scriptfile.write(self.standard_cd)
                 scriptfile.write(case.run_command()+' '+additional_options+'\n')
 
+
 class Case(object):
     def __init__(
             self,
@@ -100,3 +126,5 @@ class Case(object):
 #usage
 #pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
 #pbsgntr.pbs_script('pbs')
+mltrnr = Multirunner()
+mltrnr.py_script(scriptdir='..', receptor='2GB1:A', peptide='(\'MACIEK\', \'keep\', \'keep\')', mutadis_mutandis=['receptor_restraints=(\'all\', 5, 5.0, 15.0)'])
