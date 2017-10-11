@@ -255,7 +255,7 @@ class Trajectory(object):
             q = np.subtract(query, q_com)
             np.copyto(model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(t, q, concentric=True)), t_com))
 
-    def align_to(self, ref_stc, ref_chs, self_chs, align_mth='SW', path=None, kwargs={}):
+    def align_to(self, ref_stc, ref_chs, self_chs, align_mth='SW', kwargs={}):
         """Calculates alignment of template to given reference structure.
 
         Arguments:
@@ -263,7 +263,6 @@ class Trajectory(object):
         ref_chs -- str; chain id(s) of reference selection.
         self_chs -- str; chain id(s) of trajectory structure selection.
         align_mth -- str; name of aligning method to be used. See CABS.align documentation for more information.
-        path -- str; path to working directory in which alignment is to be saved. None by default. If so -- no file is created.
         kwargs -- as above, but used when aligning target protein.
 
         One needs to specify chains to be taken into account during alignment calculation.

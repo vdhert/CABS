@@ -1,11 +1,11 @@
 #parser,,,,,
-prog,CABSdock,,,,
+dock,CABSdock,,,,
 description,"CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
 
 CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.",,,,
 epilog,CABSdock repository: https://bitbucket.org/lcbio/cabsdock,,,,
 ,,,,,
-#group,BASIC OPTIONS,"Basic options allow tu run protein-peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to peptide sequence, a peptide secondary structure information may be provided.",,,
+#group,BASIC OPTIONS,"Basic options allow to run protein-peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to peptide sequence, a peptide secondary structure information may be provided.",,,
 "-r, --receptor",RECEPTOR,"Loads receptor structure.
 
 RECEPTOR can be either:
@@ -156,10 +156,10 @@ Can be used multiple times to add multiple restraints.",,append,
 
 PDB must be either:
 
-* [pdb code]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
-* [pdb file]:[receptor chains]:[peptide1 chain]:[peptide2 chain]...
+* [pdb code]:[receptor chains]:[peptide(s) chain(s)]
+* [pdb file]:[receptor chains]:[peptide(s) chain(s)]
 
-i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
+i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE",,,
 --clustering-iterations,NUM,Sets number of iterations of the clustering k-medoids algorithm.,100,,int
 --filtering-number,NUM,Sets number of low-energy models from trajectories to be clustered (default 1000),1000,,int
 --filtering-fromeach,,Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory. ,,store_true,
@@ -169,8 +169,9 @@ i.e 1abc:AB:C, 1abc:AB:C:D, myfile.pdb:AB:C, myfile.pdb.gz:AB:C:D:E",,,
 ",,store_true,
 --align,METHOD,"Method to be used to align terget with reference pdb. Available options are: SW -- Smith-Waterman (default), blastp -- protein BLAST (requires NCBI+ package installed), trivial -- simple sequential alignment, used only in case of one-chain input and reference of the same length.
 ",SW,,
---reference-alignment,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,,,
---cc_threshold,NUM,Cmap contact criterion for side chain (SC) distance threshold.,6.5,,float
+--alignment-options,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,[],append,lambda x: x.split('=')
+--alignment-peptide-options,PATH,Path to alignment with reference structure. If set 'align' option is ignored.,[],append,lambda x: x.split('=')
+--cc-threshold,NUM,Cmap contact criterion for side chain (SC) distance threshold.,6.5,,float
 ,,,,,
 #group,OUTPUT OPTIONS,Output options,,,
 --output-models,NUM,set number of final models to be generated,10,,int

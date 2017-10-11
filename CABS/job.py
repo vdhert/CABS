@@ -9,16 +9,19 @@ from math import ceil
 from abc import ABCMeta, abstractmethod
 
 from CABS import logger
+from CABS.align import save_csv
 from CABS.cabs import CabsRun
-from CABS.PDBlib import Pdb
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
-from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
-from CABS.utils import SCModeler
 from CABS.filter import Filter
+from CABS.PDBlib import Pdb
+from CABS.plots import graph_RMSF
+from CABS.plots import plot_E_RMSD
+from CABS.plots import plot_RMSD_N
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
+from CABS.utils import SCModeler
 
 
 __all__ = ['Job']
@@ -81,7 +84,8 @@ class CABSTask(object):
             modeller_iterations=3,
             output_models=10,
             cc_threshold=6.5,
-            reference_pdb=None
+            reference_pdb=None,
+            alignment_options=[],
     ):
         if load_cabs_files and len(load_cabs_files) is 2:
             file_TRAF, file_SEQ = load_cabs_files
@@ -133,7 +137,8 @@ class CABSTask(object):
             'excluding_distance': excluding_distance,
             'verbose': verbose,
             'cc_threshold': cc_threshold,
-            'reference_pdb': reference_pdb
+            'reference_pdb': reference_pdb,
+            'align-opt': dict(alignment_options),
         }
 
         # Job attributes collected.
@@ -379,6 +384,7 @@ class DockTask(CABSTask):
                     align='SW',
                     reference_alignment=None,
                     cc_threshold=4.5,
+                    alignment_peptide_options=None,
                     **kwargs):
         super(DockTask, self).__init__( mc_annealing=mc_annealing,
                                         temperature=temperature,
@@ -389,7 +395,8 @@ class DockTask(CABSTask):
                     'ligand': ligand,
                     'reference_pdb': reference_pdb,
                     'align': align,
-                    'reference_alignment': reference_alignment,}
+                    'reference_alignment': reference_alignment,
+                    'align-pep-opt': dict(alignment_peptide_options) if alignment_peptide_options else self.config['align-opt']}
         self.config.update(conf)
 
     def __repr__(self):
@@ -431,16 +438,17 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
-        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(self.reference[0], self.reference[1], self.trajectory.tmp_target_chs)
+        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(self.reference[0], self.reference[1], self.trajectory.tmp_target_chs, align_mth=self.config['align'], kwargs=self.config['align-opt'])
         self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
-            paln_trg = self.config['work_dir'] + '/output_data/target_alignment.csv'
-            #TODO save
+            sfname = self.config['work_dir'] + '/output_data/reference_alignment'
+            paln_trg = sfname + '_target.csv'
+            save_csv(paln_trg, ('reference', 'template'), trg_aln)
         for pept_chain, ref_pept_chain in zip(self.initial_complex.ligand_chains, self.reference[2]):
-            ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(self.reference[0], ref_pept_chain, pept_chain)
+            ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(self.reference[0], ref_pept_chain, pept_chain, align_mth=self.config['align'], kwargs=self.config['align-pep-opt'])
             if save:
-                paln_pep = paln_trg.replace('.csv', '_%s.csv' % pept_chain)
-                #TODO save
+                paln_pep = sfname + '_%s.csv' % pept_chain
+                save_csv(paln_pep, ('reference', 'template'), pep_aln)
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(ref_pep_stc, self_pep_stc)
             rmsds = [header.rmsd for header in self.medoids.headers]
             results = {}
