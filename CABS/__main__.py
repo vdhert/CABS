@@ -40,7 +40,7 @@ def run_dock():
         cfg_args = ConfigFileParser(args.config).args
 
     parser = ParserFactory(
-        filecsv=resource_filename('CABS', 'data/data3.dat'), required=['receptor', 'peptide']
+        filecsv=resource_filename('CABS', 'data/data3.dat'), required=['receptor']
     ).parser
 
     args = parser.parse_args(cfg_args + argv[1:])

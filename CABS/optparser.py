@@ -110,6 +110,8 @@ class ParserFactory:
                 kwargs['default'] = string_cast(default[0])
         else:
             pass
+        if any('=' in i for i in usage):
+            kwargs['nargs'] = '+'
 
         kwargs['help'] = help
         if action:
@@ -122,6 +124,8 @@ class ParserFactory:
             kwargs['type'] = int
         elif argtype == 'float':
             kwargs['type'] = float
+        elif 'lambda' in argtype:
+            kwargs["type"] = lambda x: x.split('=')
 
         _group.add_argument(*name, **kwargs)
 
