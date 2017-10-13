@@ -1,285 +1,9 @@
-import csv
 import argparse
+import textwrap
 import re
-from pkg_resources import require
 
-__version__ = require('CABS')[0].version
-
-
-def mk_parser(def_prot_rest, def_temp, def_replicas):
-    parser = argparse.ArgumentParser()
-    parser.add_argument_group('BASIC OPTIONS')
-    parser.add_argument(    '-P',
-                            '--protein',
-                            )
-
-    parser.add_argument_group('PROTEIN OPTIONS')
-    parser.add_argument(    "-f",
-                            "--protein-flexibility",
-                            metavar="FLEXBILITY",
-                            default=1.0,
-                            type=float,
-                            help="""""")
-
-    parser.add_argument(    "-R",
-                            "--protein-restraints",
-                            metavar="MODE GAP MIN MAX",
-                            nargs=4,
-                            default=def_prot_rest,
-                            help="""""")
-
-    parser.add_argument_group('RESTRAINTS OPTIONS', "Restraints options allows to set up distance restraints, either between C-alpha atoms (CA) or Side Chains (SC), where SCs are geometric centers of side chains atoms (as defined in CABS coarse-grained model).")
-    parser.add_argument(    "--ca-rest-add",
-                            metavar="RESI RESJ DIST WEIGHT",
-                            action='append',
-                            help="""Adds distance restraint between C-alpha (CA) atom in residue RESI and C-alpha atom in residue RESJ").
-
-                                DIST is a distance between these atoms and WEIGHT is restraint's weight from [0, 1].
-
-                                In order to add restraints between the peptide and the receptor, or between two peptides, use PEP1, PEP2, ... as chain identifiers of the peptides (even when peptide is read from a pdb file its chain identifier is ignored).
-
-                                i.e. ""123:A 5:PEP1 8.7 1.0"" adds restraint between the C-alpha atom of the residue number 123 in the chain A of the receptor and the C-alpha atom of the 5th residue of the peptide.
-
-                                If you add only one peptide both 'PEP' and 'PEP1' is a valid chain identifier.
-
-                                If you add multiple peptides they will be ordered as follows: [1] from config file added by the 'peptide' option [2] from config file added by the 'add-peptide' option [3] from command line added by the '-p, --peptide' option [4] from command line added by the '--add-peptide' option.
-
-                                Peptides added by the same method preserve the order by which they appear in the config file, or on the command line.
-
-                                Can be used multiple times to add multiple restraints."
-                        """)
-
-    parser.add_argument(    "--sc-rest-add",
-                            metavar="RESI RESJ DIST WEIGHT",
-                            action='append',
-                            help="""Adds distance restraint between SC pseudoatom in residue RESI and SC pseudoatom in residue RESJ; DIST is a distance between these pseudoatoms (geometric centers of side chain atoms) and WEIGHT is restraint's weight from [0, 1]. Can be used multiple times to add multiple restraints.""")
-
-    parser.add_argument(    "--ca-rest-weight",
-                            metavar="WEIGHT",
-                            action='append',
-                            default=1.0,
-                            type=float,
-                            help="""Set global weight for all C-alpha restraints (including automatically generated restraints for the receptor).""")
-
-    parser.add_argument(    "--sc-rest-weight",
-                            metavar="WEIGHT",
-                            action='append',
-                            default=1.0,
-                            type=float,
-                            help="""Set global weight for all SC restraints.""")
-
-    parser.add_argument(    "--ca-rest-file",
-                            metavar="FILE",
-                            action='append',
-                            type=open,
-                            help="""Read C-alpha restraints from file (use multiple times to add multiple files).""")
-
-    parser.add_argument(    "--sc-rest-file",
-                            metavar="FILE",
-                            action='append',
-                            type=open,
-                            help="""Read SC restraints from file (use multiple times to add multiple files).""")
-
-    parser.add_argument_group('SIMULATION OPTIONS', description="""Simulation options allow to modify different parameters of Replica Exchange Monte Carlo simulation procedure""")
-
-    parser.add_argument(    "--mc-annealing",
-                            metavar="NUM",
-                            type=int,
-                            default=20,
-                            help="""Sets number of Monte Carlo temperature annealing cycles to NUM (NUM > 0, default value = 20, changing default value is recommended only for advanced users).""")
-
-    parser.add_argument(    "--mc-cycles",
-                            metavar="NUM",
-                            type=int,
-                            default=50,
-                            help="""Sets number of Monte Carlo cycles to NUM (NUM>0, default value = 50). Total number of snapshots generated for each replica/trajectory = [mc-annealing] x [mc-cycles], default: 20x50=1000.""")
-
-    parser.add_argument(    "--mc-steps",
-                            metavar="NUM",
-                            type=int,
-                            default=50,
-                            help="""Sets number of Monte Carlo cycles between trajectory frames to NUM (NUM > 0, default value = 50). NUM = 1 means that every generated conformation will occur in trajectory. This option enables to increase the simulation length (between printed snapshots) and doesn't impact the number of snapshots in trajectories (see also --mc-steps description).""")
-
-    parser.add_argument(    "--replicas",
-                            metavar="NUM",
-                            type=int,
-                            default=def_replicas,
-                            help="""Sets number of replicas to be used in Replica Exchange Monte Carlo (NUM > 0, default value = 10, changing default value is recommended only for advanced users).""")
-
-    parser.add_argument(    "--replicas-dtemp",
-                            metavar="DELTA",
-                            type=float,
-                            default=0.5,
-                            help="""Sets temperature increment between replicas (DELTA > 0, default value = 0.5, changing default value is recommended only for advanced users).""")
-
-    parser.add_argument(    "--temperature",
-                            metavar="TINIT TFINAL",
-                            nargs=2,
-                            type=float,
-                            default=def_temp,
-                            help="""Sets temperature range for simulated annealing TINIT - initial temperature, TFINAL - final temperature (default values TINIT=2.0, TFINAL=1.0, changing default value is recommended only for advanced users). CABSdock uses temperature units, which do not correspond straightforwardly to real temperatures. Temperature around 1.0 roughly corresponds to nearly frozen conformation, folding temperature of small proteins in the CABS model is usually around 2.0.""")
-
-    parser.add_argument(    "-s",
-                            "--random-seed",
-                            metavar="NUM",
-                            type=int,
-                            help="""Sets seed for random number generator.""")
-
-    parser.add_argument_group('ALL-ATOM RECONSTRUCTION OPTIONS', description="""All-atom reconstruction options allow to set up details of all-atom reconstruction and refinement procedure, which is performed using MODELLER package""")
-
-    parser.add_argument(    "--no-aa-rebuild",
-                            action='store_true',
-                            help="""Skip the all-atom reconstruction. Saves CA models for the top scored binding poses instead.""")
-
-    parser.add_argument(    "--modeller-iterations",
-                            metavar='NUM',
-                            default=3,
-                            type=int,
-                            help="""Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigger numbers may result in more accurate models, but reconstruction takes longer.""")
-
-    parser.add_argument_group('ANALYSIS OPTIONS', description='''Analysis options allow to perform comparison analyses (to provided reference complex structure) and for repeated scoring and analysis of CABSdock trajectories.''')
-
-    parser.add_argument(    "--reference-pdb",
-                            metavar='PDB',
-                            default=3,
-                            type=int,
-                            help="""Load reference complex structure. This option allows for comparison with the reference complex structure and triggers additional analysis features
-
-                            PDB must be either:
-
-                            * [pdb code]:[receptor chains]:[peptide(s) chain(s)]
-                            * [pdb file]:[receptor chains]:[peptide(s) chain(s)]
-
-                            i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE""")
-
-    parser.add_argument(    "--clustering-iterations",
-                            metavar='NUM',
-                            default=100,
-                            type=int,
-                            help="""Sets number of iterations of the clustering k-medoids algorithm.""")
-
-    parser.add_argument(    "--filtering-number",
-                            metavar='NUM',
-                            default=1000,
-                            type=int,
-                            help="""Sets number of low-energy models from trajectories to be clustered (default 1000).""")
-
-    parser.add_argument(    "--filtering-fromeach",
-                            action='store_true',
-                            help="""Picks (filtering-number/replicas) models from each replica. If False picks (filtering-number) low-energy models from the whole trajectory.""")
-
-    parser.add_argument(    "--clustering-medoids",
-                            metavar='NUM',
-                            default=10,
-                            type=int,
-                            help="""Sets number of medoids in k-medoids clustering algorithm.""")
-
-    parser.add_argument(    "--load-cabs-files",
-                            metavar='FILE',
-                            type=int,
-                            help="""Loads CABSdock simulation files and allows for repeated scoring and analysis of CABSdock trajectories (with new settings, for example using a reference complex structure and --reference option).""")
-
-    parser.add_argument(    "--contact-maps",
-                            action='store_true',
-                            help="""Stores contact maps matrix plots and histograms of contact frequencies.""")
-
-    parser.add_argument(    "--align",
-                            metavar='METHOD',
-                            default='SW',
-                            help="""Method to be used to align terget with reference pdb. Available options are: SW -- Smith-Waterman (default), blastp -- protein BLAST (requires NCBI+ package installed), trivial -- simple sequential alignment, used only in case of one-chain input and reference of the same length.""")
-
-    parser.add_argument(    "--alignment-options",
-                            metavar='KEY1=VAL1 KEY2=VAL2...',
-                            action='append',
-                            default=[],
-                            type=lambda x: x.split('='),
-                            help="""Path to alignment with reference structure. If set 'align' option is ignored.""")
-
-    parser.add_argument(    "--alignment-peptide-options",
-                            metavar='KEY1=VAL1 KEY2=VAL2...',
-                            action='append',
-                            default=[],
-                            type=lambda x: x.split('='),
-                            help="""Path to alignment with reference structure. If set 'align' option is ignored.""")
-
-    parser.add_argument(    "--cc-threshold",
-                            metavar='NUM',
-                            default=6.5,
-                            type=float,
-                            help="""Cmap contact criterion for side chain (SC) distance threshold.""")
-
-    parser.add_argument_group('OUTPUT OPTIONS', description='Output options')
-
-    parser.add_argument(    "--output-models",
-                            metavar='NUM',
-                            default=10,
-                            type=int,
-                            help="""Set number of final models to be generated.""")
-
-    parser.add_argument(    "--output-clusters",
-                            action='store_true',
-                            help="""Save pdb files with clusters.""")
-
-    parser.add_argument(    "--output-trajectories",
-                            action='store_true',
-                            help="""Save pdb files with trajectories.""")
-
-    parser.add_argument_group('MISCELLANEOUS OPTIONS', description='Miscellaneous options')
-
-    parser.add_argument(    "-c",
-                            "--config",
-                            metavar='CONFIG',
-                            type=open,
-                            help="""Read options from configuration file CONFIG.""")
-
-    parser.add_argument(    "--image-file-format",
-                            metavar='FMT',
-                            default='svg',
-                            help="""Produces all the image files in given format.""")
-
-
-    parser.add_argument(    "--work-dir",
-                            metavar='DIR',
-                            default='.',
-                            help="""""")
-
-    parser.add_argument(    "--dssp-command",
-                            metavar='PATH',
-                            default='mkdssp',
-                            help="""""")
-
-    parser.add_argument(    "--fortran-command",
-                            metavar='PATH',
-                            help="""""")
-
-    parser.add_argument(    "--save-config-file",
-                            metavar='PATH',
-                            default='svg',
-                            help="""""")
-
-    parser.add_argument(    "--save-cabs-files",
-                            action='store_true',
-                            help="""""")
-
-    parser.add_argument(    "-V",
-                            "--verbose",
-                            metavar='VERBOSITY',
-                            default=1,
-                            type=int,
-                            help="""""")
-
-    return parser
-
-def mk_flex_parser():
-    parser = mk_parser(def_prot_rest=('ss2', 3, 3.8, 8.0), def_temp=(1.4, 1.4), def_replicas=1)
-    return parser
-
-def mk_dock_parser():
-    parser = mk_parser(def_prot_rest=('all', 5, 5.0, 15.0), def_temp=(2.0, 1.0), def_replicas=10)
-    return parser
 
 class ConfigFileParser:
-
     OPTIONRE = re.compile(
         r'(?P<option>[^:=]*)'
         r'[:=]'
@@ -301,5 +25,581 @@ class ConfigFileParser:
                     self.args.extend(line.split('#')[0].split(';')[0].split())
 
 
-if __name__ == '__main__':
-    pass
+_HELPW = 100
+_wrapper = textwrap.TextWrapper(width=_HELPW, break_long_words=True, expand_tabs=False)
+
+
+def _wrap(text):
+    lines = []
+    for line in text.split('\n'):
+        _list = _wrapper.wrap(line)
+        if not _list:
+            _list = ['\n']
+        lines.extend(_list)
+    return '\n'.join(lines)
+
+
+class CABSFormatter(argparse.RawTextHelpFormatter):
+    def __init__(self, prog, indent_increment=2, max_help_position=4, width=_HELPW):
+        super(CABSFormatter, self).__init__(prog, indent_increment, max_help_position, width)
+
+    def _split_lines(self, text, width):
+        return super(CABSFormatter, self)._split_lines(text, width) + [' ']
+
+
+def mk_parser(parser_dict, group_dict, option_dict):
+
+    parser_dict['description'] = _wrap(parser_dict['description'])
+    parser_dict['epilog'] = _wrap(parser_dict['epilog'])
+
+    groups = parser_dict.pop('groups')
+    defaults = parser_dict.pop('defaults', {})
+    parser = argparse.ArgumentParser(formatter_class=CABSFormatter, **parser_dict)
+    for group_name, options in groups:
+        group = group_dict[group_name]
+        group['description'] = _wrap(group['description'])
+        group = parser.add_argument_group(title=group_name, **group)
+        for opt_name in options:
+            option = next(v for k, v in option_dict.items() if k == opt_name)
+            name = ['--' + opt_name]
+            flag = option.pop('flag', None)
+            if flag:
+                name.insert(0, flag)
+            if opt_name in defaults:
+                option['default'] = defaults[opt_name]
+            option['help'] = _wrap(option['help'])
+            group.add_argument(*name, **option)
+    return parser
+
+
+dock_dict = {
+    'prog': 'CABSdock',
+    'description':
+        'CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible'
+        ' docking (also with large-scale conformational changes) and without the knowledge about the binding site. '
+        'CABSdock enables peptide docking using only information about the peptide sequence and the protein protein '
+        'structure. Additionally many advanced options are available that allow for manipulation of the simulation '
+        'setup, the degree of protein flexibility or guiding the peptide binding etc.\n\n'
+        'CABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015'
+        '; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application [submitted to '
+        'publication] provides the same modeling methodology equipped with many additional features and customizable '
+        'options.',
+    'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
+    'add_help': False,
+    'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
+    'groups': [
+        ('BASIC OPTIONS', ['input-protein', 'peptide']),
+        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
+        ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts']),
+        ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
+                                'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
+        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
+                                'replicas-dtemp', 'temperature', 'random-seed']),
+        ('ALL_ATOM RECONSTRUCTION OPTIONS', ['modeller-iterations', 'no-aa-rebuild']),
+        ('ANALYSIS OPTIONS', ['reference-pdb', 'filtering-count', 'filtering-mode', 'clustering-medoids',
+                              'clustering-iterations','contact-maps', 'contact-threshold', 'align',
+                              'alignment-options', 'alignment-peptide-options']),
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'no-pdb-output']),
+        ('MISCELLANEOUS OPTIONS', ['config', 'work-dir', 'dssp-command', 'fortran-command', 'image-file-format',
+                                   'verbose', 'help', 'version'])
+    ]
+}
+flex_dict = {
+    'prog': 'CABSflex',
+    'description': 'CABSflex: versatile tool for the simulation of structure flexibility of folded globular p'
+                   'roteins.',
+    'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
+    'add_help': False,
+    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('all', 3, 3.8, 8.0)},
+    'groups': [
+        ('BASIC OPTIONS', ['input-protein']),
+        ('PROTEIN OPTIONS',['protein-flexibility', 'protein-restraints']),
+        ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
+                                'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
+        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
+                                'replicas-dtemp', 'temperature', 'random-seed']),
+        ('ALL_ATOM RECONSTRUCTION OPTIONS', ['modeller-iterations', 'no-aa-rebuild']),
+        ('ANALYSIS OPTIONS', ['reference-pdb', 'filtering-count', 'filtering-mode', 'clustering-medoids',
+                              'clustering-iterations','contact-maps', 'contact-threshold', 'align',
+                              'alignment-options', 'alignment-peptide-options']),
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'no-pdb-output']),
+        ('MISCELLANEOUS OPTIONS', ['config', 'work-dir', 'dssp-command', 'fortran-command', 'image-file-format',
+                                   'verbose', 'help', 'version'])
+    ]
+}
+groups = {
+    'BASIC OPTIONS': {
+        'description':
+            'Basic options allow tu run protein-peptide docking using only information about the peptide sequence and '
+            'the protein structure. In addition to peptide sequence, a peptide secondary structure information may be '
+            'provided.'
+    },
+    'PROTEIN OPTIONS': {
+        'description':
+            'Protein options allow to exclude some of the protein residues from docking search and to manipulate the '
+            'degree of protein flexibility (using either --protein-flexibility or --protein-restraints).'
+    },
+    'PEPTIDE OPTIONS': {
+        'description':
+            'Peptide options, apart from providing peptide sequence, allow to introduce starting peptide '
+            'conformations and locations (when these additional options are not used, starting peptide '
+            'conformations and locations are random).'
+    },
+    'RESTRAINTS OPTIONS': {
+        'description':
+            'Restraints options allow to set up distance restraints, either between C-alpha atoms (CA) or Side Chains '
+            '(SC), where SCs are geometric centers of side chains atoms (as defined in the CABS coarse-grained model).'
+    },
+    'SIMULATION OPTIONS': {
+        'description':
+            'Simulation options allow to modify different parameters of Replica Exchange Monte Carlo simulation '
+            'procedure.'
+    },
+    'ALL_ATOM RECONSTRUCTION OPTIONS': {
+        'description':
+            'All-atom reconstruction options allow to set up details of all-atom reconstruction and refinement '
+            'procedure, which is performed using MODELLER package.'
+        },
+    'ANALYSIS OPTIONS': {
+        'description':
+            'Analysis options allow to perform comparison analyses (to provided reference complex structure) and for '
+            'repeated scoring and analysis of CABSdock trajectories.'
+        },
+    'OUTPUT OPTIONS': {'description': 'Output options.'},
+    'MISCELLANEOUS OPTIONS': {'description': 'Miscellaneous options.'}
+}
+options = {
+    'input-protein': {
+        'flag': '-i',
+        'metavar': 'INPUT',
+#        'required': True,
+        'help':
+            'Loads input protein structure.\n\n'
+            'INPUT can be either:\n\n'
+            '[1] PDB code (optionally with chain IDs) i.e. \'-P 1CE1:HL\' loads chains H and L of 1CE1 protein'
+            'structure downloaded from the PDB database\n'
+            '[2] PDB file (optionally gzipped)',
+
+    },
+    'peptide': {
+        'flag': '-p',
+        'action': 'append',
+        'metavar': 'PEPTIDE',
+        'help':
+            'Loads peptide sequence and optionally peptide secondary structure in one-letter code (can be used multiple'
+            ' times to add multiple peptides).\n\n'
+            'PEPTIDE can be either:\n\n'
+            '[1] amino acid sequence in one-letter code (optionally annotated with secondary structure: H - helix, E - '
+            'sheet, C - coil) i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with the secondary '
+            'structure assignemnt: CHHHHHHHHC\n\n'
+            'HINT: If possible, it is always recommended to use secondary structure information/prediction. For '
+            'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the'
+            'regular (H - helix or E - extended) type of structure.\n\n'
+            '[2] PDB code (optionally with chain ID) i.e. \'-p 1CE1:P\' loads the sequence of the chain P from 1CE1 '
+            'protein\n\n'
+            '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
+            '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
+    },
+    'exclude': {
+        'flag': '-e',
+        'action': 'append',
+        'metavar': 'RESIDUES',
+        'help':
+            'Excludes proteins residues listed in RESIDUES from the docking search, therefore enforces more effective '
+            'search in other areas of the protein surface, for example, it may be known that some parts of the protein '
+            'are not accessible to peptide (due to binding to other proteins) and therefore it could be useful to '
+            'exclude these regions from the search procedure.\n\n'
+            'RESIDUES must be a single string of characters (no whitespaces) consisting of residue identifiers (i. e. '
+            '123:A) or chain identifiers (i. e. A) joined with the \'+\' sign. \'-\' is also allowed to specify a '
+            'continuous range of residues, or chains.\n\n'
+            'Examples:\n'
+            '\'-e 123:A\'            excludes residue 123 from chain A\n'
+            '\'-e 123:A+125:A\'      residues 123 and 125 from chain A\n'
+            '\'-e 123:A-125:A\'      residues 123, 124 and 125 from chain A\n'
+            '\'-e A\'                whole chain A\n'
+            '\'-e A+C\'              chains A and C\n'
+            '\'-e A-C\'              chains A, B and C\n\n'
+            'Adding @PEP<N> at the end of the string limits the excluding to only N-th peptide. i.e. \'-e 123:A@PEP1\' '
+            'will exclude residue 123 in chain A for binding with the first peptide only. If @PEP<N> is omitted the '
+            'exclusion list affects all peptides.\n\n'
+            'This option can be used multiple times to add multiple sets of excluded residues.'
+    },
+    'excluding-distance': {
+        'default': 5.0,
+        'type': float,
+        'metavar': 'DISTANCE',
+        'help':
+            'Sets minimum distance between side chain atoms of peptide(s) and proteins residues marked as \'excluded\''
+            '(default: %(default)s)'
+    },
+    'protein-flexibility': {
+        'flag': '-f',
+        'default': 1.0,
+        'metavar': 'FLEXIBILITY',
+        'help':
+            'Modifies flexibility of selected protein\'s residues:\n\n'
+            'f = 0 - fully flexible backbone\n'
+            'f = 1 - almost stiff backbone (default value)\n'
+            'f > 1 - increasing stiffnes\n\n'
+            'FLEXIBILITY can be either:\n\n'
+            '[1] positive real number - all protein residues are assigned the same flexiblity equal that number\n\n'
+            '[2] \'bf\' - flexibility for each residue is read from the beta factor column of the CA atom in the pdb '
+            'input file (Note that standard beta factor in pdb file has opposite meaning to CABSdock flexibillity, '
+            'edit pdb accordingly or use FLEXIBILITY = \'bfi\')\n\n'
+            '[3] \'bfi\' - flexibility is assigned from the inverted beta factors in the input pdb file so that '
+            'bf = 0.0 -> f = 1.0 and bf >= 1.0 -> f = 0.0\n\n'
+            '[4] <filename> - flexibility is read from file <filename> in the format of single residue entries: '
+            'resid_ID <flexibility> i.e. 12:A 0.75, or residue ranges: resid_ID - resid_ID <flexibility> '
+            'i.e. 12:A - 15:A  0.75\n\n'
+            'Default value for residues not explicitely specified can be set by inserting at the top of the file a '
+            'following line: default <default flexibility value>, if omitted default is %(default)s. Multiple entries '
+            'can be used.',
+    },
+    'protein-restraints': {
+        'flag': '-g',
+        'default': ('all', 5, 5.0, 15.0),
+        'nargs': 4,
+        'metavar': ('MODE', 'GAP', 'MIN', 'MAX'),
+        'help':
+            'This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the '
+            'protein in predefined conformation. (default: %(default)s)\n\n'
+            'MODE can be either:\n'
+            '[1] \'all\' - generate restraints for all protein residues\n\n'
+            '[2] \'ss1\' - generate restraints only when at least one restrained residue is assigned regular secondary '
+            'structure (helix or sheet)\n\n'
+            '[3] \'ss2\' - generate restraints only when both restrained residues are assigned regular secondary '
+            'structure (helix, sheet)\n\n'
+            'GAP specifies minimal gap along the main chain for two resiudes to be restrained\n\n'
+            'MIN and MAX are min and max values in Angstroms for two residues to be restrained'
+    },
+    'add-peptide': {
+        'flag': '-P',
+        'action': 'append',
+        'metavar': 'PEPTIDE CONFORMATION LOCATION',
+        'help':
+            'Add peptide to the complex. This option can be used multiple times to add multiple peptides.\n\n'
+            'PEPTIDE must be either:\n\n'
+            '[1] amino acid sequence in one-letter code (optionally annotated with secondary structure: '
+            'H - helix, E - sheet, C - coil) i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with '
+            'the secondary structure assignemnt: CHHHHHHHHC\n\n'
+            'HINT: If possible, it is always recommended to use secondary structure information/prediction. For '
+            'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than '
+            'the regular (H - helix or E - extended) type of structure.\n\n'
+            '[2] pdb file (may be gzipped)\n\n'
+            '[3] pdb code (optionally with chain_id i.e. 1abc:D)\n\n'
+            'CONFORMATION sets initial conformation of the peptide. Must be either:\n\n'
+            '[1] \'random\' - random conformation is generated\n\n'
+            '[2] \'keep\' - preserve conformation from file. This has no effect if PEPTIDE=SEQUENCE.\n\n'
+            'LOCATION sets initial location for the peptide. Must be either:\n\n'
+            '[1] \'random\' - peptide is placed in a random location on the surface of a sphere centered at the '
+            'protein\'s geometrical center at distance defined by the \'--separation\' option from the surface of '
+            'the protein.\n\n'
+            '[2] keep - preserve location from file. This has no effect if PEPTIDE=SEQUENCE\n\n'
+            '[3] PATCH - list of protein\'s residues (i.e 123:A+125:A+17:B). Peptide will be placed above the '
+            'geometrical center of listed residues at distance defined by the \'--separation\' option from the '
+            'surface of the protein.\n\n'
+            'WARNING: residues listed in patch should be on the surface of the protein and close to each other.'
+    },
+    'separation': {
+        'flag': '-d',
+        'default': 20.0,
+        'type': float,
+        'metavar': 'SEP',
+        'help':
+            'This option enables advanced settings of building starting conformations of modelled complexes (to be '
+            'used only in specific protocols). The option sets separation distance in Angstroms between the peptide '
+            'and the surface of the protein (default: %(default)s Angstroms)'
+    },
+    'insertion-clash': {
+        'default': 1.0,
+        'type': float,
+        'metavar': 'DIST',
+        'help':
+            'This option enables advanced settings of building starting conformations of modelled complexes. The '
+            'option sets distance in Angstroms between any two atoms (of different modeled chains) at which a clash '
+            'occurs while building initial complex (default: %(default)s Angstrom)'
+    },
+    'insertion-attempts': {
+        'default': 1000,
+        'type': int,
+        'metavar': 'NUM',
+        'help':
+            'This option enables advanced settings of building starting conformations of modelled complexes. The '
+            'option sets number of attempts to insert peptide while building inital complex (default: %(default)s)',
+    },
+    'ca-rest-add': {
+        'action': 'append',
+        'metavar': ('RESI', 'RESJ', 'DIST', 'WEIGHT'),
+        'nargs': 4,
+        'help':
+            'Adds distance restraint between C-alpha (CA) atom in residue RESI and C-alpha atom in residue RESJ.\n'
+            'DIST is a distance between these atoms and WEIGHT is restraint\'s weight (number from [0, 1]).\n'
+            'In order to add restraints between the peptide and the protein, or between two peptides, use PEP1, '
+            'PEP2, ... as chain identifiers of the peptides (even when peptide is read from a pdb file its chain '
+            'identifier is ignored).\n'
+            'i.e. \'--ca-rest-add 123:A 5:PEP1 8.7 1.0\' adds restraint between the C-alpha atom of the residue number '
+            '123 in the chain A of the protein and the C-alpha atom of the 5th residue of the peptide. If you add only '
+            'one peptide both \'PEP\' and \'PEP1\' is a valid chain identifier. If you add multiple peptides they will '
+            'be ordered as follows:\n\n'
+            '[1] from config file added by the \'peptide\' option\n'
+            '[2] from config file added by the \'add-peptide\' option\n'
+            '[3] from command line added by the \'-p, --peptide\' option\n'
+            '[4] from command line added by the \'--add-peptide\' option.\n\n'
+            'Peptides added by the same method preserve the order by which they appear in the config file, or on the '
+            'command line. Option can be used multiple times to add multiple restraints.'
+    },
+    'sc-rest-add':{
+        'action': 'append',
+        'nargs': 4,
+        'metavar': ('RESI', 'RESJ', 'DIST', 'WEIGHT'),
+        'help':
+            'Adds distance restraint between SC pseudoatom in residue RESI and SC pseudoatom in residue RESJ.\n'
+            'For more details see help for \'--ca-rest-add\''
+    },
+    'ca-rest-weight': {
+        'default': 1.0,
+        'type': float,
+        'metavar': 'WEIGHT',
+        'help':
+            'Set global weight for all C-alpha restraints (including automatically generated restraints for the '
+            'protein) (default: %(default)s',
+    },
+    'sc-rest-weight': {
+        'default': 1.0,
+        'type': float,
+        'metavar': 'WEIGHT',
+        'help': 'Set global weight for all SC restraints (default: %(default)s)'
+    },
+    'ca-rest-file': {
+        'action': 'append',
+        'metavar': 'FILE',
+        'help': 'Read C-alpha restraints from file (use multiple times to add multiple files)'
+    },
+    'sc-rest-file': {
+        'action': 'append',
+        'metavar': 'FILE',
+        'help': 'Read SC restraints from file (use multiple times to add multiple files)'
+    },
+    'mc-annealing': {
+        'flag': '-a',
+        'default': 20,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'set number of Monte Carlo temperature annealing cycles to NUM (NUM > 0, default: %(default)s)'
+    },
+    'mc-cycles': {
+        'flag': '-y',
+        'default': 50,
+        'type': int,
+        'metavar': 'NUM',
+        'help':
+            'set number of Monte Carlo cycles to NUM (NUM>0, default: %(default)s).\n'
+            'Total number of snapshots generated for each replica/trajectory = [mc-annealing] x [mc-cycles], '
+            '(default: 20 x 50 = 1000)'
+    },
+    'mc-steps': {
+        'flag': '-s',
+        'default': 50,
+        'type': int,
+        'metavar': 'NUM',
+        'help':
+            'sets number of Monte Carlo cycles between trajectory frames to NUM (NUM > 0, default: %(default)s).\n'
+            'NUM = 1 means that every generated conformation will occur in trajectory. This option enables to increase '
+            'the simulation length (between printed snapshots) and doesn\'t impact the number of snapshots in '
+            'trajectories (see also --mc-cycles description).'
+    },
+    'replicas': {
+        'flag': '-R',
+        'default': 10,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'sets number of replicas to be used in Replica Exchange Monte Carlo (NUM > 0, default: %(default)s)'
+    },
+    'replicas-dtemp': {
+        'flag': '-D',
+        'default': 0.5,
+        'type': float,
+        'metavar': 'DELTA',
+        'help': 'sets temperature increment between replicas (DELTA > 0, default: %(default)s)'
+    },
+    'temperature': {
+        'flag': '-T',
+        'default': (2.0, 1.0),
+        'type': float,
+        'metavar': 'TINIT TFINAL',
+        'help':
+            'sets temperature range for simulated annealing TINIT - initial temperature, TFINAL - final temperature '
+            '(default values for (TINIT, TFINAL) = %(default)s. CABSdock uses temperature units, whic'
+                'h do not correspond straightforwardly to real temperatures. Temperature around 1.0 roughly c'
+                'orresponds to nearly frozen conformation, folding temperature of small proteins in the CABS '
+                'model is usually around 2.0'
+    },
+    'random-seed': {
+        'flag': '-z',
+        'type': int,
+        'metavar': 'SEED',
+        'help': 'sets seed for random number generator.'
+    },
+    'no-aa-rebuild': {
+        'flag': '-n',
+        'action': 'store_false',
+        'dest': 'aa_rebuild',
+        'help': 'skip the all-atom reconstruction. Saves CA models for the top scored binding poses instead.'
+    },
+    'modeller-iterations': {
+        'flag': '-m',
+        'default': 3,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigg'
+                'er numbers may result in more accurate models, but reconstruction takes longer.'
+    },
+    'reference-pdb': {
+        'flag': '-t',
+        'metavar': 'REF',
+        'help': 'Load reference complex structure. This option allows for comparison with the reference comple'
+                'x structure and triggers additional analysis features.\n\nREF must be either:\n\t *[pdb code]'
+                ':[protein chains]:[peptide1 chain]:[peptide2 chain]...\n\t*[pdb file]:[protein chains]:[pep'
+                'tide1 chain]:[peptide2 chain]...\n\ni.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz'
+                ':AB:CDE'
+    },
+    'clustering-medoids': {
+        'flag': '-k',
+        'default': 10,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'Sets number of medoids in k-medoids clustering algorithm.'
+    },
+    'clustering-iterations': {
+        'default': 100,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'Sets number of iterations of the k-medoids clustering algorithm. (default 100)'
+    },
+    'filtering-count': {
+        'flag': '-F',
+        'default': 1000,
+        'type': int,
+        'metavar': 'NUM',
+        'help': 'Set number of low-energy models from trajectories to be clustered (default 1000)'
+    },
+    'filtering-mode': {
+        'choices': ['each', 'all'],
+        'default': 'each',
+        'metavar': 'MODE',
+        'help': 'Choose filtering mode to select NUM (set by \'--filtering-count\') models for clustering.\nM'
+                'ODE can be either:\n\t* \'each\' - models are ordered by protein-peptide(s) binding energy a'
+                'nd top n = [NUM / R] (R is the number of replicas) is selected from EACH replica\n\t* \'all'
+                '\' - models are ordered by protein-peptide(s) binding energy and top NUM is selected from AL'
+                'L replicas combined'
+    },
+    'save-cabs-files': {
+        'flag': '-S',
+        'action': 'store_true',
+        'help': 'Save CABSdock simulation files'
+    },
+    'load-cabs-files': {
+        'flag': '-L',
+        'metavar': 'FILE',
+        'help': 'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectorie'
+                's (with new settings, for example using a reference complex structure and --reference option'
+                ').'
+    },
+    'contact-maps': {
+        'flag': '-C',
+        'action': 'store_true',
+        'help': 'Store contact maps matrix plots and histograms of contact frequencies.'
+    },
+    'align': {
+        'default': 'SW',
+        'metavar': 'METHOD',
+        'help': 'Method to be used to align terget with reference pdb.\nAvailable options are:\n\t* SW - Smit'
+                'h-Waterman (default)\n\t* blastp - protein BLAST (requires NCBI+ package installed)\n\t* tri'
+                'vial - simple sequential alignment, used only in case of one-chain input and reference of th'
+                'e same length'
+    },
+    'alignment-options': {
+        'metavar': 'KEY=VAL',
+        'nargs': '+',
+        'default': [],
+        'type': lambda x: x.split('='),
+        'help': 'Path to alignment with reference structure. If set, the \'--align\' option is ignored'
+    },
+    'alignment-peptide-options': {
+        'metavar': 'KEY=VAL',
+        'nargs': '+',
+        'default': [],
+        'type': lambda x: x.split('='),
+        'help': 'Path to alignment with reference structure. If set, the \'--align\' option is ignored'
+    },
+    'contact-threshold': {
+        'default': 6.5,
+        'type': float,
+        'metavar': 'DIST',
+        'help': 'Set contact distance between side chains pseudoatoms (SC) for contact map plotting'
+    },
+    'no-pdb-output': {
+        'flag': '-x',
+        'action': 'store_true',
+        'help': 'if this flag is used no pdb output will be generated',
+    },
+    'config': {
+        'flag': '-c',
+        'metavar': 'FILE',
+        'help': 'read options from FILE'
+    },
+    'image-file-format': {
+        'default': 'svg',
+        'metavar': 'FMT',
+        'help': 'save all the image files in given format'
+    },
+    'work-dir': {
+        'flag': '-w',
+        'default': '.',
+        'metavar': 'DIR',
+        'help': 'set working directory to DIR'
+    },
+    'dssp-command': {
+        'default': 'dssp',
+        'metavar': 'PATH',
+        'help': 'provide path to dssp binary (default is \'dssp\')'
+    },
+    'fortran-command': {
+        'default': 'gfortran',
+        'metavar': 'PATH',
+        'help': 'provide path to fortran compiler binary (default is \'gfortran\')'
+    },
+    'verbose': {
+        'flag': '-v',
+        'choices': [-1, 0, 1, 2, 3],
+        'default': 1,
+        'type': int,
+        'metavar': 'LEVEL',
+        'help': 'Set verbosity LEVEL:\n\t-1 - silent mode (only critical messages)\n\t3 - maximum verbosity\n'
+                '\tdefault is 1'
+    },
+    'help': {
+        'flag': '-h',
+        'action': 'store_true',
+        'help': 'print help and exit'
+    },
+    'version': {
+        'flag': '-V',
+        'action': 'store_true',
+        'help': 'print version and exit'
+    }
+}
+
+
+DockParser = mk_parser(dock_dict, groups, options)
+FlexParser = mk_parser(flex_dict, groups, options)
+
+
+def preparse(_args):
+    _p = argparse.ArgumentParser(add_help=False)
+    _p.add_argument('-c', '--config')
+    _config, _remains = _p.parse_known_args(_args)
+    try:
+        return ConfigFileParser(_config.config).args + _remains
+    except Exception:
+        return _remains
