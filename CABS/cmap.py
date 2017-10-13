@@ -104,7 +104,7 @@ class ContactMap(object):
     def zero_diagonal(self):
         numpy.fill_diagonal(self.cmtx, 0)
 
-    def save_fig(self, fname, fmt='svg', norm_n=False, break_long_x=50):
+    def save_fig(self, fname, fmt='svg', norm_n=False, break_long_x=50, colors_lst=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         """Saves cmap as matrix plot.
 
         Arguments:
@@ -127,7 +127,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']))
+                zip([0., .01, .1, .4, .7, 1.], colors_lst))
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
