@@ -1,32 +1,11 @@
 import os
 import re
+import sys
 import argparse
-from sys import argv, exit
 from CABS import logger, __version__
 
 
-class Config(dict):
-    def __init__(self, config):
-        """
-        Smart dictionary that reads argparse.Namespace returned by argparse.parse_args().
-        also checks / updates some of the parsed options
-        :param config: argparse.Namespace
-        """
-
-        # config.peptide + config.add_peptide -> config.ligand
-        config.ligand = []
-        if config.peptide:
-            config.ligand.extend([[p, 'random', 'random'] for p in config.peptide])
-        if config.add_peptide:
-            config.ligand.extend([p for p in config.add_peptide if p])
-
-        dict.__init__(self, vars(config))
-
-    def __repr__(self):
-        return '\n'.join([k + ': ' + str(v) for k, v in sorted(self.items())])
-
-
-def run_dock():
+def run_dock(cmd_line=sys.argv[1:]):
 
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
     from CABS.optparser import DockParser as parser, ConfigFileParser
@@ -36,18 +15,18 @@ def run_dock():
     preparser.add_argument('--version', action='store_true')
     preparser.add_argument('-h', '--help', action='store_true')
 
-    preargs, remains = preparser.parse_known_args()
+    preargs, remains = preparser.parse_known_args(cmd_line)
     if preargs.help:
         _help = parser.format_help()
         print re.sub("\n( *)\n( *)\n", "\n\n", _help)
-        exit(0)
+        sys.exit(0)
     elif preargs.version:
         print __version__
-        exit(0)
+        sys.exit(0)
     elif preargs.config:
         remains = ConfigFileParser(preargs.config).args + remains
 
-    config = Config(parser.parse_args(remains))
+    config = vars(parser.parse_args(remains))
 
     from CABS.job import DockTask
     job = DockTask(**config)
@@ -71,7 +50,8 @@ def run_dock():
         map(os.removedirs, junk)
 
 
-def run_flex():
+def run_flex(cmd_line=sys.argv[1:]):
+
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
     from CABS.optparser import FlexParser as parser, ConfigFileParser
 
@@ -80,36 +60,54 @@ def run_flex():
     preparser.add_argument('--version', action='store_true')
     preparser.add_argument('-h', '--help', action='store_true')
 
-    preargs, remains = preparser.parse_known_args()
+    preargs, remains = preparser.parse_known_args(cmd_line)
     if preargs.help:
         _help = parser.format_help()
         print re.sub("\n( *)\n( *)\n", "\n\n", _help)
-        exit(0)
+        sys.exit(0)
     elif preargs.version:
         print __version__
-        exit(0)
+        sys.exit(0)
     elif preargs.config:
         remains = ConfigFileParser(preargs.config).args + remains
 
-    config = Config(parser.parse_args(remains))
+    config = vars(parser.parse_args(remains))
 
     from CABS.job import FlexTask
     job = FlexTask(**config)
 
-    # start flexing
+    # start docking
     try:
         job.run()
     except KeyboardInterrupt:
         logger.info(
-            module_name='CABSdock',
+            module_name='CABSflex',
             msg='Interrupted by user.'
         )
     except Exception as e:
         logger.exit_program(
-            module_name='CABSdock',
+            module_name='CABSflex',
             msg=e.message,
             exc=e,
             traceback=(logger.log_level > 2)
         )
     finally:
         map(os.removedirs, junk)
+
+
+if __name__ == '__main__':
+    try:
+        cmd = sys.argv[1]
+        options = sys.argv[2:]
+
+        if cmd == 'dock':
+            run_dock(options)
+        elif cmd == 'flex':
+            run_flex(options)
+        else:
+            raise IndexError
+
+    except IndexError:
+        print 'usage: python CABS <cmd> <options>\n\tcmd: dock or flex.\n\t' \
+              'For the list of <options> run \'python CABS <cmd> -h\''
+        sys.exit(0)
