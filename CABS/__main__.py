@@ -1,6 +1,7 @@
 import os
 import re
-from sys import argv
+import argparse
+from sys import argv, exit
 from CABS import logger, __version__
 
 
@@ -28,25 +29,25 @@ class Config(dict):
 def run_dock():
 
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
-    from CABS.optparser import DockParser as parser
-    from CABS.optparser import preparse
+    from CABS.optparser import DockParser as parser, ConfigFileParser
 
-    config = Config(
-        parser.parse_args(
-            preparse(argv[1:])
-        )
-    )
+    preparser = argparse.ArgumentParser(add_help=False)
+    preparser.add_argument('-c', '--config')
+    preparser.add_argument('--version', action='store_true')
+    preparser.add_argument('-h', '--help', action='store_true')
 
-    if config['help']:
+    preargs, remains = preparser.parse_known_args()
+    if preargs.help:
         _help = parser.format_help()
         print re.sub("\n( *)\n( *)\n", "\n\n", _help)
         exit(0)
-    elif config['version']:
+    elif preargs.version:
         print __version__
         exit(0)
-    else:
-        print config
-        exit(0)
+    elif preargs.config:
+        remains = ConfigFileParser(preargs.config).args + remains
+
+    config = Config(parser.parse_args(remains))
 
     from CABS.job import DockTask
     job = DockTask(**config)
@@ -72,19 +73,30 @@ def run_dock():
 
 def run_flex():
     junk = []  # put here filepaths to whatever should be deleted if cabs crashes
+    from CABS.optparser import FlexParser as parser, ConfigFileParser
 
-    # parser = mk_flex_parser()
-    #
-    # config = Config(
-    #     parser.parse_args(
-    #         collect_args(argv)
-    #     )
-    # )
+    preparser = argparse.ArgumentParser(add_help=False)
+    preparser.add_argument('-c', '--config')
+    preparser.add_argument('--version', action='store_true')
+    preparser.add_argument('-h', '--help', action='store_true')
+
+    preargs, remains = preparser.parse_known_args()
+    if preargs.help:
+        _help = parser.format_help()
+        print re.sub("\n( *)\n( *)\n", "\n\n", _help)
+        exit(0)
+    elif preargs.version:
+        print __version__
+        exit(0)
+    elif preargs.config:
+        remains = ConfigFileParser(preargs.config).args + remains
+
+    config = Config(parser.parse_args(remains))
 
     from CABS.job import FlexTask
     job = FlexTask(**config)
 
-    # start docking
+    # start flexing
     try:
         job.run()
     except KeyboardInterrupt:
@@ -101,7 +113,3 @@ def run_flex():
         )
     finally:
         map(os.removedirs, junk)
-
-
-if __name__ == '__main__':
-    run_dock()

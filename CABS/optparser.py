@@ -1,28 +1,7 @@
 import argparse
 import textwrap
 import re
-
-
-class ConfigFileParser:
-    OPTIONRE = re.compile(
-        r'(?P<option>[^:=]*)'
-        r'[:=]'
-        r'(?P<value>.*)$'
-    )
-
-    def __init__(self, filename):
-        self.args = []
-        with open(filename) as f:
-            for line in f:
-                if line == '' or line[0] in ';#\n':
-                    continue
-                match = self.OPTIONRE.match(line)
-                if match:
-                    option, value = match.groups()
-                    self.args.append('--' + option.strip())
-                    self.args.extend(value.split('#')[0].split(';')[0].split())
-                else:
-                    self.args.extend(line.split('#')[0].split(';')[0].split())
+from copy import deepcopy as dc
 
 
 _HELPW = 100
@@ -47,6 +26,28 @@ class CABSFormatter(argparse.RawTextHelpFormatter):
         return super(CABSFormatter, self)._split_lines(text, width) + [' ']
 
 
+class ConfigFileParser:
+    OPTIONRE = re.compile(
+        r'(?P<option>[^:=]*)'
+        r'[:=]'
+        r'(?P<value>.*)$'
+    )
+
+    def __init__(self, filename):
+        self.args = []
+        with open(filename) as f:
+            for line in f:
+                if line == '' or line[0] in ';#\n':
+                    continue
+                match = self.OPTIONRE.match(line)
+                if match:
+                    option, value = match.groups()
+                    self.args.append('--' + option.strip())
+                    self.args.extend(value.split('#')[0].split(';')[0].split())
+                else:
+                    self.args.extend(line.split('#')[0].split(';')[0].split())
+
+
 def mk_parser(parser_dict, group_dict, option_dict):
 
     parser_dict['description'] = _wrap(parser_dict['description'])
@@ -54,7 +55,11 @@ def mk_parser(parser_dict, group_dict, option_dict):
 
     groups = parser_dict.pop('groups')
     defaults = parser_dict.pop('defaults', {})
-    parser = argparse.ArgumentParser(formatter_class=CABSFormatter, **parser_dict)
+    parser = argparse.ArgumentParser(
+        formatter_class=CABSFormatter,
+        add_help=False,
+        **parser_dict
+    )
     for group_name, options in groups:
         group = group_dict[group_name]
         group['description'] = _wrap(group['description'])
@@ -85,7 +90,6 @@ dock_dict = {
         'publication] provides the same modeling methodology equipped with many additional features and customizable '
         'options.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'add_help': False,
     'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide']),
@@ -100,8 +104,8 @@ dock_dict = {
                               'clustering-iterations','contact-maps', 'contact-threshold', 'align',
                               'alignment-options', 'alignment-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'no-pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['config', 'work-dir', 'dssp-command', 'fortran-command', 'image-file-format',
-                                   'verbose', 'help', 'version'])
+        ('MISCELLANEOUS OPTIONS', ['work-dir', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
+                                   'config', 'version', 'help'])
     ]
 }
 flex_dict = {
@@ -109,7 +113,6 @@ flex_dict = {
     'description': 'CABSflex: versatile tool for the simulation of structure flexibility of folded globular p'
                    'roteins.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'add_help': False,
     'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('all', 3, 3.8, 8.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein']),
@@ -123,8 +126,8 @@ flex_dict = {
                               'clustering-iterations','contact-maps', 'contact-threshold', 'align',
                               'alignment-options', 'alignment-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'no-pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['config', 'work-dir', 'dssp-command', 'fortran-command', 'image-file-format',
-                                   'verbose', 'help', 'version'])
+        ('MISCELLANEOUS OPTIONS', ['work-dir', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
+                                   'config', 'version', 'help'])
     ]
 }
 groups = {
@@ -172,7 +175,7 @@ options = {
     'input-protein': {
         'flag': '-i',
         'metavar': 'INPUT',
-#        'required': True,
+        'required': True,
         'help':
             'Loads input protein structure.\n\n'
             'INPUT can be either:\n\n'
@@ -196,7 +199,7 @@ options = {
             'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the'
             'regular (H - helix or E - extended) type of structure.\n\n'
             '[2] PDB code (optionally with chain ID) i.e. \'-p 1CE1:P\' loads the sequence of the chain P from 1CE1 '
-            'protein\n\n'
+            'protein\n'
             '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
             '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
     },
@@ -242,12 +245,12 @@ options = {
             'f = 1 - almost stiff backbone (default value)\n'
             'f > 1 - increasing stiffnes\n\n'
             'FLEXIBILITY can be either:\n\n'
-            '[1] positive real number - all protein residues are assigned the same flexiblity equal that number\n\n'
+            '[1] positive real number - all protein residues are assigned the same flexiblity equal that number\n'
             '[2] \'bf\' - flexibility for each residue is read from the beta factor column of the CA atom in the pdb '
             'input file (Note that standard beta factor in pdb file has opposite meaning to CABSdock flexibillity, '
-            'edit pdb accordingly or use FLEXIBILITY = \'bfi\')\n\n'
+            'edit pdb accordingly or use FLEXIBILITY = \'bfi\')\n'
             '[3] \'bfi\' - flexibility is assigned from the inverted beta factors in the input pdb file so that '
-            'bf = 0.0 -> f = 1.0 and bf >= 1.0 -> f = 0.0\n\n'
+            'bf = 0.0 -> f = 1.0 and bf >= 1.0 -> f = 0.0\n'
             '[4] <filename> - flexibility is read from file <filename> in the format of single residue entries: '
             'resid_ID <flexibility> i.e. 12:A 0.75, or residue ranges: resid_ID - resid_ID <flexibility> '
             'i.e. 12:A - 15:A  0.75\n\n'
@@ -264,12 +267,12 @@ options = {
             'This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the '
             'protein in predefined conformation. (default: %(default)s)\n\n'
             'MODE can be either:\n'
-            '[1] \'all\' - generate restraints for all protein residues\n\n'
+            '[1] \'all\' - generate restraints for all protein residues\n'
             '[2] \'ss1\' - generate restraints only when at least one restrained residue is assigned regular secondary '
-            'structure (helix or sheet)\n\n'
+            'structure (helix or sheet)\n'
             '[3] \'ss2\' - generate restraints only when both restrained residues are assigned regular secondary '
             'structure (helix, sheet)\n\n'
-            'GAP specifies minimal gap along the main chain for two resiudes to be restrained\n\n'
+            'GAP specifies minimal gap along the main chain for two resiudes to be restrained\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained'
     },
     'add-peptide': {
@@ -285,19 +288,19 @@ options = {
             'HINT: If possible, it is always recommended to use secondary structure information/prediction. For '
             'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than '
             'the regular (H - helix or E - extended) type of structure.\n\n'
-            '[2] pdb file (may be gzipped)\n\n'
+            '[2] pdb file (may be gzipped)\n'
             '[3] pdb code (optionally with chain_id i.e. 1abc:D)\n\n'
             'CONFORMATION sets initial conformation of the peptide. Must be either:\n\n'
-            '[1] \'random\' - random conformation is generated\n\n'
+            '[1] \'random\' - random conformation is generated\n'
             '[2] \'keep\' - preserve conformation from file. This has no effect if PEPTIDE=SEQUENCE.\n\n'
             'LOCATION sets initial location for the peptide. Must be either:\n\n'
             '[1] \'random\' - peptide is placed in a random location on the surface of a sphere centered at the '
             'protein\'s geometrical center at distance defined by the \'--separation\' option from the surface of '
-            'the protein.\n\n'
-            '[2] keep - preserve location from file. This has no effect if PEPTIDE=SEQUENCE\n\n'
+            'the protein.\n'
+            '[2] keep - preserve location from file. This has no effect if PEPTIDE=SEQUENCE\n'
             '[3] PATCH - list of protein\'s residues (i.e 123:A+125:A+17:B). Peptide will be placed above the '
             'geometrical center of listed residues at distance defined by the \'--separation\' option from the '
-            'surface of the protein.\n\n'
+            'surface of the protein.\n'
             'WARNING: residues listed in patch should be on the surface of the protein and close to each other.'
     },
     'separation': {
@@ -362,7 +365,7 @@ options = {
         'metavar': 'WEIGHT',
         'help':
             'Set global weight for all C-alpha restraints (including automatically generated restraints for the '
-            'protein) (default: %(default)s',
+            'protein) (default: %(default)s)',
     },
     'sc-rest-weight': {
         'default': 1.0,
@@ -429,10 +432,9 @@ options = {
         'metavar': 'TINIT TFINAL',
         'help':
             'sets temperature range for simulated annealing TINIT - initial temperature, TFINAL - final temperature '
-            '(default values for (TINIT, TFINAL) = %(default)s. CABSdock uses temperature units, whic'
-                'h do not correspond straightforwardly to real temperatures. Temperature around 1.0 roughly c'
-                'orresponds to nearly frozen conformation, folding temperature of small proteins in the CABS '
-                'model is usually around 2.0'
+            '(default values for (TINIT, TFINAL) = %(default)s. CABSdock uses temperature units, which do not '
+            'correspond straightforwardly to real temperatures. Temperature around 1.0 roughly corresponds to nearly '
+            'frozen conformation, folding temperature of small proteins in the CABS model is usually around 2.0'
     },
     'random-seed': {
         'flag': '-z',
@@ -451,47 +453,54 @@ options = {
         'default': 3,
         'type': int,
         'metavar': 'NUM',
-        'help': 'Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigg'
-                'er numbers may result in more accurate models, but reconstruction takes longer.'
+        'help':
+            'Set number of iterations for reconstruction procedure in MODELLER package (default: %(default)s). Bigger '
+            'numbers may result in more accurate models, but reconstruction takes longer.'
     },
     'reference-pdb': {
         'flag': '-t',
         'metavar': 'REF',
-        'help': 'Load reference complex structure. This option allows for comparison with the reference comple'
-                'x structure and triggers additional analysis features.\n\nREF must be either:\n\t *[pdb code]'
-                ':[protein chains]:[peptide1 chain]:[peptide2 chain]...\n\t*[pdb file]:[protein chains]:[pep'
-                'tide1 chain]:[peptide2 chain]...\n\ni.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz'
-                ':AB:CDE'
+        'help':
+            'Load reference complex structure. This option allows for comparison with the reference complex structure '
+            'and triggers additional analysis features.\n\n'
+            'REF must be either:\n\n'
+            '[1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...\n'
+            '[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\n'
+            'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
     },
     'clustering-medoids': {
         'flag': '-k',
         'default': 10,
         'type': int,
         'metavar': 'NUM',
-        'help': 'Sets number of medoids in k-medoids clustering algorithm.'
+        'help':
+            'Sets number of medoids in k-medoids clustering algorithm. This option also sets number of final models '
+            'to be generated. (default: %(default)s)'
     },
     'clustering-iterations': {
         'default': 100,
         'type': int,
         'metavar': 'NUM',
-        'help': 'Sets number of iterations of the k-medoids clustering algorithm. (default 100)'
+        'help': 'Sets number of iterations of the k-medoids clustering algorithm. (default: %(default)s)'
     },
     'filtering-count': {
         'flag': '-F',
         'default': 1000,
         'type': int,
         'metavar': 'NUM',
-        'help': 'Set number of low-energy models from trajectories to be clustered (default 1000)'
+        'help': 'Set number of low-energy models from trajectories to be clustered (default %(default)s)'
     },
     'filtering-mode': {
         'choices': ['each', 'all'],
         'default': 'each',
         'metavar': 'MODE',
-        'help': 'Choose filtering mode to select NUM (set by \'--filtering-count\') models for clustering.\nM'
-                'ODE can be either:\n\t* \'each\' - models are ordered by protein-peptide(s) binding energy a'
-                'nd top n = [NUM / R] (R is the number of replicas) is selected from EACH replica\n\t* \'all'
-                '\' - models are ordered by protein-peptide(s) binding energy and top NUM is selected from AL'
-                'L replicas combined'
+        'help':
+            'Choose the filtering mode to select NUM (set by \'--filtering-count\') models for clustering.\n\n'
+            'MODE can be either: (default: %(default)s)\n\n'
+            '[1] \'each\' - models are ordered by protein-peptide(s) binding energy and top n = [NUM / R] (R is the '
+            'number of replicas) is selected from EACH replica\n'
+            '[2] \'all\' - models are ordered by protein-peptide(s) binding energy and top NUM is selected from ALL '
+            'replicas combined'
     },
     'save-cabs-files': {
         'flag': '-S',
@@ -501,9 +510,9 @@ options = {
     'load-cabs-files': {
         'flag': '-L',
         'metavar': 'FILE',
-        'help': 'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectorie'
-                's (with new settings, for example using a reference complex structure and --reference option'
-                ').'
+        'help':
+            'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectories (with new '
+            'settings, for example using a reference complex structure and --reference option).'
     },
     'contact-maps': {
         'flag': '-C',
@@ -513,10 +522,13 @@ options = {
     'align': {
         'default': 'SW',
         'metavar': 'METHOD',
-        'help': 'Method to be used to align terget with reference pdb.\nAvailable options are:\n\t* SW - Smit'
-                'h-Waterman (default)\n\t* blastp - protein BLAST (requires NCBI+ package installed)\n\t* tri'
-                'vial - simple sequential alignment, used only in case of one-chain input and reference of th'
-                'e same length'
+        'help':
+            'Select the method to be used to align target with reference pdb.\n\n'
+            'Available options are: (default %(default)s)\n\n'
+            '[1] SW - Smith-Waterman\n'
+            '[2] blastp - protein BLAST (requires NCBI+ package installed)\n'
+            '[3] trivial - simple sequential alignment, used only in case of one-chain input and reference of the same '
+            'length'
     },
     'alignment-options': {
         'metavar': 'KEY=VAL',
@@ -536,7 +548,8 @@ options = {
         'default': 6.5,
         'type': float,
         'metavar': 'DIST',
-        'help': 'Set contact distance between side chains pseudoatoms (SC) for contact map plotting'
+        'help':
+            'Set contact distance between side chains pseudoatoms (SC) for contact map plotting. (default: %(default)s)'
     },
     'no-pdb-output': {
         'flag': '-x',
@@ -551,23 +564,23 @@ options = {
     'image-file-format': {
         'default': 'svg',
         'metavar': 'FMT',
-        'help': 'save all the image files in given format'
+        'help': 'save all the image files in given format. (default: %(default)s)'
     },
     'work-dir': {
         'flag': '-w',
         'default': '.',
         'metavar': 'DIR',
-        'help': 'set working directory to DIR'
+        'help': 'set working directory to DIR. (default: \'%(default)s\')'
     },
     'dssp-command': {
         'default': 'dssp',
         'metavar': 'PATH',
-        'help': 'provide path to dssp binary (default is \'dssp\')'
+        'help': 'provide path to dssp binary (default is \'%(default)s\')'
     },
     'fortran-command': {
         'default': 'gfortran',
         'metavar': 'PATH',
-        'help': 'provide path to fortran compiler binary (default is \'gfortran\')'
+        'help': 'provide path to fortran compiler binary (default is \'%(default)s\')'
     },
     'verbose': {
         'flag': '-v',
@@ -575,31 +588,21 @@ options = {
         'default': 1,
         'type': int,
         'metavar': 'LEVEL',
-        'help': 'Set verbosity LEVEL:\n\t-1 - silent mode (only critical messages)\n\t3 - maximum verbosity\n'
-                '\tdefault is 1'
+        'help': 'Set verbosity LEVEL: (default: %(default)s)\n'
+                '-1 - silent mode (only critical messages)\n'
+                ' 3 - maximum verbosity'
     },
     'help': {
         'flag': '-h',
         'action': 'store_true',
-        'help': 'print help and exit'
+        'help': 'print help and exit program'
     },
     'version': {
-        'flag': '-V',
         'action': 'store_true',
-        'help': 'print version and exit'
+        'help': 'print version and exit program'
     }
 }
 
 
-DockParser = mk_parser(dock_dict, groups, options)
-FlexParser = mk_parser(flex_dict, groups, options)
-
-
-def preparse(_args):
-    _p = argparse.ArgumentParser(add_help=False)
-    _p.add_argument('-c', '--config')
-    _config, _remains = _p.parse_known_args(_args)
-    try:
-        return ConfigFileParser(_config.config).args + _remains
-    except Exception:
-        return _remains
+DockParser = mk_parser(dock_dict, dc(groups), dc(options))
+FlexParser = mk_parser(flex_dict, dc(groups), dc(options))
