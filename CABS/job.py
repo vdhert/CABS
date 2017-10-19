@@ -161,49 +161,14 @@ class CABSTask(object):
     def parse_reference(self, ref):
         pass
 
+    @abstractmethod
     def draw_plots(self, plots_dir=None):
-        # set the plots dir
-        if plots_dir is None:
-            pltdir = os.path.join(self.work_dir, 'plots')
-            try:
-                os.mkdir(pltdir)
-            except OSError:
-                pass
-        else:
-            pltdir = plots_dir
-
-        graph_RMSF(self.trajectory, self.initial_complex.protein_chains, os.path.join(pltdir, 'RMSF'))
-
-        # RMSD-based graphs
-        if self.reference_pdb:
-            for k, rmslst in self.rmslst.items():
-                plot_E_RMSD(
-                    [self.trajectory, self.filtered_trajectory],
-                    [rmslst, rmslst[self.filtered_ndx, ]],
-                    ['all models', 'top 1000 models'],
-                    os.path.join(pltdir, 'E_RMSD_%s' % k)
-                )
-                plot_RMSD_N(
-                    rmslst.reshape(self.replicas, -1),
-                    os.path.join(pltdir, 'RMSD_frame_%s' % k)
-                )
-
-        # Contact maps
-        if self.contact_maps:
-            self.mk_cmaps(
-                self.trajectory,
-                self.medoids,
-                self.clusters_dict,
-                self.filtered_ndx,
-                self.contact_threshold,
-                pltdir
-            )
+        pass
 
     @abstractmethod
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
         scmodeler = SCModeler(ca_traj.template)
         sc_traj_full = scmodeler.calculate_sc_traj(ca_traj.coordinates)
-        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
         sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
         shp = sc_med.shape
         sc_med = sc_med.reshape((shp[1], shp[0]) + shp[2:])
@@ -214,7 +179,7 @@ class CABSTask(object):
         except OSError:
             pass
 
-        return sc_traj_full, sc_traj_1k, sc_med, cmapdir
+        return sc_traj_full, sc_med, cmapdir
 
     def prepare_restraints(self):
 
@@ -330,8 +295,8 @@ class CABSTask(object):
         if 'R' in self.pdb_output:
             self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
         # Saving top1000 models to PDB:
-        if 'F' in self.pdb_output:
-            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+        #~ if 'F' in self.pdb_output:
+            #~ self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
         # Saving clusters in CA representation
         if 'C' in self.pdb_output:
             for i, cluster in enumerate(self.clusters):
@@ -521,9 +486,11 @@ class DockTask(CABSTask):
         logger.debug(module_name=_name, msg='Saving models successful')
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
-        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
+        sc_traj_full, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
+
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
 
         rchs = self.initial_complex.protein_chains
         lchs = self.initial_complex.peptide_chains
@@ -576,12 +543,12 @@ class FlexTask(CABSTask):
             insertion_clash=self.insertion_clash,
             work_dir=self.work_dir
         )
+        if not self.reference_pdb:
+            self.reference_pdb = True
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
-        # Filtering the trajectory
-        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
-        clst = Clustering(self.filtered_trajectory, 'chain ' + ','.join(self.initial_complex.protein_chains))
+        clst = Clustering(self.trajectory, 'chain ' + ','.join(self.initial_complex.protein_chains))
         self.medoids, self.clusters_dict, self.clusters = clst.cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
         self.rmslst = {self.initial_complex.protein_chains: clst.distance_matrix[0]}
 
@@ -604,34 +571,74 @@ class FlexTask(CABSTask):
                 f.write("%.3f\n" % i)
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
-        sc_traj_full, sc_traj_1k, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
+        sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
 
         rchs = self.initial_complex.protein_chains
 
         cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
-        cmap10k = reduce(operator.add, cmf.mk_cmap(sc_traj_full, thr))
+        cmap_all = reduce(operator.add, cmf.mk_cmap(sc_traj_full, thr))
 
         cmaptop = reduce(operator.add, cmf.mk_cmap(sc_med, thr))
-        cmap1k = reduce(operator.add, cmf.mk_cmap(sc_traj_1k, thr))
 
-        for cmap, fname in zip((cmap10k, cmaptop, cmap1k), ('all', 'top10', 'top1k')):
+        for cmap, fname in zip((cmap_all, cmaptop), ('all', 'top10')):
             cmap.zero_diagonal()
             cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
 
     def parse_reference(self, ref):
-        if ref:
-            try:
-                ent, trg_chids = ref.split(":")
-                sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
-            except ValueError:
-                ent = self.config['reference_pdb']
-                sele = 'name CA and not HETERO'
-                trg_chids = ''
-            try:
-                self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
-            except Pdb.InvalidPdbInput:
-                logger.warning(_name, 'Invalid reference {}'.format(ref))
-        else:
+        try:
+            ent, trg_chids = ref.split(":")
+            sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
+        except ValueError:
+            ent = self.config['reference_pdb']
+            sele = 'name CA and not HETERO'
+            trg_chids = ''
+        except AttributeError:  # True has not split; ref is True in no ref was given
             self.reference = (self.initial_complex, self.initial_complex.protein_chains)
+            return
+        try:
+            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+        except Pdb.InvalidPdbInput:
+            logger.warning(_name, 'Invalid reference {}'.format(ref))
+
+    def draw_plots(self, plots_dir=None):
+        # set the plots dir
+        if plots_dir is None:
+            pltdir = os.path.join(self.work_dir, 'plots')
+            try:
+                os.mkdir(pltdir)
+            except OSError:
+                pass
+        else:
+            pltdir = plots_dir
+
+        graph_RMSF(self.trajectory, self.initial_complex.protein_chains, os.path.join(pltdir, 'RMSF'))
+
+        # RMSD-based graphs
+        if self.reference_pdb:
+            for k, rmslst in self.rmslst.items():
+                plot_E_RMSD(
+                    [self.trajectory],
+                    [rmslst],
+                    ['all models'],
+                    os.path.join(pltdir, 'E_RMSD_%s' % k),
+                    self.image_file_format,
+                    interaction=False
+                )
+                plot_RMSD_N(
+                    rmslst.reshape(self.replicas, -1),
+                    os.path.join(pltdir, 'RMSD_frame_%s' % k),
+                    self.image_file_format
+                )
+
+        # Contact maps
+        if self.contact_maps:
+            self.mk_cmaps(
+                self.trajectory,
+                self.medoids,
+                self.clusters_dict,
+                self.filtered_ndx,
+                self.contact_threshold,
+                pltdir
+            )
