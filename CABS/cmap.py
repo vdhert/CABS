@@ -256,11 +256,11 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname, norm_n=False, break_long_x=50):
+    def save_all(self, fname, norm_n=False, break_long_x=50, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)
-        self.save_fig(fname, norm_n=norm_n, break_long_x=break_long_x)
+        self.save_fig(fname, norm_n=norm_n, break_long_x=break_long_x, colors_lst=colors)
 
     def __add__(self, other):
         """Addition of cmaps sums their matrices.

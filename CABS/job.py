@@ -75,6 +75,7 @@ class CABSTask(object):
         self.temperature = kwargs.get('temperature')
         self.verbose = kwargs.get('verbose')
         self.work_dir = kwargs.get('work_dir')
+        self.colors = kwargs.get('contact_map_colors')
 
         # Job attributes collected.
         self.config = kwargs
@@ -129,6 +130,8 @@ class CABSTask(object):
         ftraf = self.file_TRAF
         fseq = self.file_SEQ
         self.setup_job()
+        if self.reference_pdb:
+            self.parse_reference(self.reference_pdb)
         withcabs = True if (ftraf is None or fseq is None) else False
 
         if withcabs:
@@ -142,10 +145,9 @@ class CABSTask(object):
         )
 
         if self.reference_pdb:
-            self.parse_reference(self.reference_pdb)
             self.calculate_rmsd()
         self.save_config_file()
-        self.draw_plots()
+        self.draw_plots(colors=self.colors)
         self.save_models()
         logger.info(module_name=_name, msg='Simulation completed successfully')
 
@@ -162,7 +164,7 @@ class CABSTask(object):
         pass
 
     @abstractmethod
-    def draw_plots(self, plots_dir=None):
+    def draw_plots(self, plots_dir=None, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         pass
 
     @abstractmethod
@@ -406,7 +408,7 @@ class DockTask(CABSTask):
         ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
         logger.info(module_name=_name, msg="Scoring results successful")
 
-    def draw_plots(self, plots_dir=None):
+    def draw_plots(self, plots_dir=None, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         logger.debug(module_name=_name, msg="Drawing plots")
         # set the plots dir
         if plots_dir is None:
@@ -439,7 +441,7 @@ class DockTask(CABSTask):
         # Contact maps
         if self.contact_maps:
             logger.log_file(module_name=_name, msg="Saving contact maps")
-            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir)
+            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir, colors=colors)
         logger.info(module_name=_name, msg="Plots successfully saved")
 
     def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
@@ -485,7 +487,7 @@ class DockTask(CABSTask):
         logger.log_file(_name, "Modeller output saved to {}".format(os.path.join(self.work_dir, 'output_data')))
         logger.debug(module_name=_name, msg='Saving models successful')
 
-    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
+    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         sc_traj_full, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
@@ -499,23 +501,23 @@ class DockTask(CABSTask):
         cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0, norm_n=True)
+        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0, norm_n=True, colors=colors)
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
-                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig), norm_n=True)
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig), norm_n=True, colors=colors)
             cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig, norm_n=True)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig, norm_n=True, colors=colors)
             cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
-            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig, norm_n=True)
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig, norm_n=True, colors=colors)
             cmaps_top = cmf.mk_cmap(sc_med, thr)
             for n, cmap in enumerate(cmaps_top):
-                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig), norm_n=True)
+                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig), norm_n=True, colors=colors)
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
-                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True)
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True, colors=colors)
 
     def parse_reference(self, ref):
         try:
@@ -543,8 +545,6 @@ class FlexTask(CABSTask):
             insertion_clash=self.insertion_clash,
             work_dir=self.work_dir
         )
-        if not self.reference_pdb:
-            self.reference_pdb = True
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
@@ -570,7 +570,7 @@ class FlexTask(CABSTask):
             for i in self.rmslst.values()[0]:
                 f.write("%.3f\n" % i)
 
-    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir):
+    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
@@ -584,25 +584,19 @@ class FlexTask(CABSTask):
 
         for cmap, fname in zip((cmap_all, cmaptop), ('all', 'top10')):
             cmap.zero_diagonal()
-            cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True)
+            cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True, colors=colors)
 
     def parse_reference(self, ref):
         try:
-            ent, trg_chids = ref.split(":")
-            sele = 'name CA and not HETERO and (chain %s)' % " or chain ".join(trg_chids)
-        except ValueError:
-            ent = self.config['reference_pdb']
-            sele = 'name CA and not HETERO'
-            trg_chids = ''
-        except AttributeError:  # True has not split; ref is True in no ref was given
-            self.reference = (self.initial_complex, self.initial_complex.protein_chains)
-            return
-        try:
-            self.reference = (Pdb(ent, selection=sele).atoms, trg_chids)
+            try:
+                dummy, trg_chids = ref.split(":")
+                self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids)
+            except AttributeError: # if ref is None it has no split mth
+                self.reference = (self.initial_complex, self.initial_complex.protein_chains)
         except Pdb.InvalidPdbInput:
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
-    def draw_plots(self, plots_dir=None):
+    def draw_plots(self, plots_dir=None, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         # set the plots dir
         if plots_dir is None:
             pltdir = os.path.join(self.work_dir, 'plots')
@@ -640,5 +634,6 @@ class FlexTask(CABSTask):
                 self.clusters_dict,
                 self.filtered_ndx,
                 self.contact_threshold,
-                pltdir
+                pltdir,
+                colors=colors
             )

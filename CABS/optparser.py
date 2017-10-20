@@ -103,7 +103,7 @@ dock_dict = {
                               'clustering-iterations', 'contact-maps', 'contact-threshold', 'align',
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['work-dir', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
+        ('MISCELLANEOUS OPTIONS', ['work-dir', 'contact-map-colors', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
                                    'config', 'version', 'help'])
     ]
 }
@@ -127,7 +127,7 @@ flex_dict = {
                               'clustering-iterations', 'contact-maps', 'contact-threshold', 'align',
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['work-dir', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
+        ('MISCELLANEOUS OPTIONS', ['work-dir', 'contact-map-colors', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
                                    'config', 'version', 'help'])
     ]
 }
@@ -299,6 +299,13 @@ options = {
         'default': True,
         'metavar': 'True/False',
         'help': 'Store contact maps matrix plots and histograms of contact frequencies. (default: %(default)s)'
+    },
+    'contact-map-colors': {
+        'type': str,
+        'nargs': 6,
+        'default': ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000'],
+        'metavar': 'True/False',
+        'help': 'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.'
     },
     'contact-threshold': {
         'flag': '-T',
