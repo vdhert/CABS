@@ -179,9 +179,7 @@ groups = {
 options = {
     'aa-rebuild': {
         'flag': '-A',
-        'type': bool,
-        'default': True,
-        'metavar': 'True/False',
+        'action': 'store_true',
         'help':
             'Rebuild final models to all-atom representation. (default: %(default)s)'
     },
@@ -295,9 +293,7 @@ options = {
     },
     'contact-maps': {
         'flag': '-M',
-        'type': bool,
-        'default': True,
-        'metavar': 'True/False',
+        'action': 'store_true',
         'help': 'Store contact maps matrix plots and histograms of contact frequencies. (default: %(default)s)'
     },
     'contact-map-colors': {
@@ -567,16 +563,12 @@ options = {
     },
     'save-cabs-files': {
         'flag': '-S',
-        'type': bool,
-        'default': True,
-        'metavar': 'True/False',
+        'action': 'store_true',
         'help': 'Save CABSdock simulation files. (default: %(default)s)'
     },
     'save-config': {
         'flag': '-C',
-        'type': bool,
-        'default': True,
-        'metavar': 'True/False',
+        'action': 'store_true',
         'help': 'Save simulation parameters in config file. (default: %(default)s)'
     },
     'sc-rest-add':{
