@@ -34,8 +34,8 @@ class CABSTask(object):
         self.aa_rebuild = kwargs.get('aa_rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
-        self.align_options = kwargs.get('align_options')
-        self.align_peptide_options = kwargs.get('align_peptide_options')
+        self.align_options = dict(kwargs.get('align_options'))
+        self.align_peptide_options = dict(kwargs.get('align_peptide_options'))
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
         self.ca_rest_weight = kwargs.get('ca_rest_weight')
@@ -545,6 +545,8 @@ class FlexTask(CABSTask):
             insertion_clash=self.insertion_clash,
             work_dir=self.work_dir
         )
+        if self.reference_pdb is None:
+            self.reference_pdb = True
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
@@ -558,17 +560,47 @@ class FlexTask(CABSTask):
         return ret
 
     def calculate_rmsd(self, reference_pdb=None, save=True):
-        if not save:
-            return
-        odir = self.config['work_dir'] + '/output_data'
-        try:
-            os.mkdir(odir)
-        except OSError:
-            pass
-        with open(odir + '/rmsds.csv', 'w') as f:
-            f.write('RMSD\n')
-            for i in self.rmslst.values()[0]:
-                f.write("%.3f\n" % i)
+        
+        logger.debug(module_name=_name, msg="RMSD calculations starting...")
+        if save:
+            odir = os.path.join(self.work_dir, 'output_data')
+            try:
+                os.mkdir(odir)
+            except OSError:
+                pass
+
+        chs_ids = self.trajectory.tmp_target_chs
+
+        ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(
+            self.reference[0], self.reference[1], chs_ids,
+            align_mth=self.align, kwargs=self.align_options
+        )
+        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        if save:
+            sfname = os.path.join(self.work_dir, 'output_data', 'reference_alignment')
+            paln_trg = sfname + '_target.csv'
+            save_csv(paln_trg, ('reference', 'template'), trg_aln)
+        self.rmslst[chs_ids] = self.trajectory.rmsd_to_reference(ref_trg_stc, self_trg_stc)
+        rmsds = [header.rmsd for header in self.medoids.headers]
+        results = {}
+        results['rmsds_all'] = [header.rmsd for header in self.trajectory.headers]
+        results['rmsds_medoids'] = rmsds
+        results['lowest_all'] = sorted(results['rmsds_all'])[0]
+        results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
+        # Saving rmsd results
+        if save:
+            with open(os.path.join(odir, 'lowest_rmsds_%s.txt' % chs_ids), 'w') as outfile:
+                outfile.write(
+                    'lowest_all; lowest_medoids\n {0};{1}'.format(
+                        results['lowest_all'], results['lowest_medoids']
+                    )
+                )
+            for _type in ['all', 'medoids']:
+                with open(os.path.join(odir, '{0}_rmsds_{1}.txt'.format(_type, chs_ids)), 'w') as outfile:
+                    for rmsd in results['rmsds_' + _type]:
+                        outfile.write(str(rmsd) + ';\n')
+        logger.info(module_name=_name, msg="RMSD successfully saved")
+        return {chs_ids: results}
 
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
