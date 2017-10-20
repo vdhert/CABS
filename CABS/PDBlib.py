@@ -18,6 +18,7 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
+_DSSP_COMMAND = 'dssp'
 
 
 class Pdb(object):
@@ -38,7 +39,7 @@ class Pdb(object):
             remove_water=True,
             remove_hetero=True,
             verify=False,
-            no_exit=False  # does not exit on error, raises InvalidPdbInput instead
+            no_exit=False,  # does not exit on error, raises InvalidPdbInput instead
     ):
 
         logger.debug(_name, 'Creating Pdb object from {}'.format(source))
@@ -147,7 +148,7 @@ class Pdb(object):
                 self.atoms = self.atoms.drop('hetero')
 
             if selection:
-                logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name ))
+                logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name))
                 self.atoms = self.atoms.select(selection)
 
             if not len(self.atoms):
@@ -209,13 +210,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, dssp_command='mkdssp', output=''):
+    def dssp(self, output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([dssp_command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([_DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
@@ -258,7 +259,7 @@ class Pdb(object):
         else:
             logger.debug(_name, 'DSSP successful')
             if logger.log_level >= 2 and output:
-                output += '/output_data/DSSP_output_%s.txt' % self.name
+                output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):
                     os.makedirs(d)
@@ -322,8 +323,3 @@ class Pdb(object):
 
     def __repr__(self):
         return "<PDB from %s, %i atoms>" % (self.name, len(self.atoms))
-
-
-if __name__ == '__main__':
-    logger.log_level = 3
-    p = Pdb(source='1kkl:AXC', no_exit=True, selection='name CA', verify=True)

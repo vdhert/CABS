@@ -34,6 +34,46 @@ RANDOM_LIGAND_LIBRARY = np.reshape(
     np.fromfile(resource_filename('CABS', 'data/data2.dat'), sep=' '), (1000, 50, 3)
 )
 
+CONFIG_HEADER = """
+############### CABSdock CONFIGURATION FILE ################
+
+; Options available from the command line can be set here.
+; Run CABSdock with -c <config file name> option
+;
+; Options set from the command line overwrite these set from
+; the config file, unless option supports accumulation of
+; the arguments. In such case arguments are first accumula-
+; ted in order they appear in the config file or on the com-
+; mand line. Finally arguments from the command line are ap-
+; pended to those from the config file.
+
+########################## SYNTAX ##########################
+
+# this is a comment
+; this is also a comment
+
+################### ONE-ARGUMENT OPTIONS ###################
+
+; option = value             OK
+; option : value             OK
+; option value               NO
+
+################ MULTIPLE ARGUMENT OPTIONS #################
+
+; option = value1 value2     OK
+; option : value1 value2     OK
+; option = value1, value2    NO
+
+########################## FLAGS ###########################
+
+; flag                       OK
+; flag = 1                   NO
+; flag = True                NO
+; set flag                   NO
+
+############################################################
+"""
+
 AA_NAMES = {
     'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU',
     'F': 'PHE', 'G': 'GLY', 'H': 'HIS', 'I': 'ILE',
