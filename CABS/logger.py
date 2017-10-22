@@ -5,7 +5,7 @@ from subprocess import check_output
 from sys import stderr
 from os.path import exists
 from time import time, strftime, gmtime, sleep
-import textwrap,trace 
+import textwrap,trace
 
 _name = "Logger"
 
@@ -133,7 +133,7 @@ def exit_program(module_name =_name, msg="Shutting down",traceback=True,exc=None
     :return: None
     """
     critical(module_name=module_name,msg=msg)
-    if log_level > 3 and traceback:
+    if log_level > 2 and traceback:
         if exc:
             debug(module_name=module_name, msg="Exception caught. Printing traceback:")
             for line in trace.format_stack():
