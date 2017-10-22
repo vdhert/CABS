@@ -185,8 +185,9 @@ options = {
     },
     'add-peptide': {
         'flag': '-P',
+        'nargs': 3,
         'action': 'append',
-        'metavar': 'PEPTIDE CONFORMATION LOCATION',
+        'metavar': ('PEPTIDE', 'CONFORMATION', 'LOCATION'),
         'help':
             'Add peptide to the complex. This option can be used multiple times to add multiple peptides.\n\n'
             'PEPTIDE must be either:\n\n'
