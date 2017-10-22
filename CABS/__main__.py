@@ -40,12 +40,10 @@ def run_dock(cmd_line=sys.argv[1:]):
             msg='Interrupted by user.'
         )
     except Exception as e:
-        logger.exit_program(
-            module_name='CABSdock',
-            msg=e.message,
-            exc=e,
-            traceback=(logger.log_level > 2)
-        )
+        logger.critical(
+            module_name="CABSdock",
+            msg="Unhandled Exception caught: %s. Raising" % e.message)
+        raise
     finally:
         map(os.removedirs, junk)
 
@@ -85,12 +83,10 @@ def run_flex(cmd_line=sys.argv[1:]):
             msg='Interrupted by user.'
         )
     except Exception as e:
-        logger.exit_program(
-            module_name='CABSflex',
-            msg=e.message,
-            exc=e,
-            traceback=(logger.log_level > 2)
-        )
+        logger.critical(
+            module_name="CABSflex",
+            msg="Unhandled Exception caught: %s. Raising" % e.message)
+        raise
     finally:
         map(os.removedirs, junk)
 
