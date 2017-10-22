@@ -310,8 +310,11 @@ class CABSTask(object):
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(
-                        fname, output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
-                        iterations=self.modeller_iterations
+                        fname,
+                        output = os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                        iterations = self.modeller_iterations,
+                        out_mdl = os.path.join(self.work_dir, 'output_data','modeller_output_{0}.txt'.format(i)),
+                        work_dir = self.work_dir
                     )
             else:
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
