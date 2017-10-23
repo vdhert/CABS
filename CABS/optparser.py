@@ -91,7 +91,7 @@ dock_dict = {
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
     'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
     'groups': [
-        ('BASIC OPTIONS', ['input-protein', 'peptide']),
+        ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
         ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
@@ -103,8 +103,8 @@ dock_dict = {
                               'clustering-iterations', 'contact-maps', 'contact-threshold', 'align',
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['work-dir', 'contact-map-colors', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
-                                   'config', 'version', 'help'])
+        ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
+                                   'contact-map-colors', 'verbose', 'version', 'help'])
     ]
 }
 
@@ -116,7 +116,7 @@ flex_dict = {
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
     'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('all', 3, 3.8, 8.0)},
     'groups': [
-        ('BASIC OPTIONS', ['input-protein']),
+        ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
@@ -127,8 +127,8 @@ flex_dict = {
                               'clustering-iterations', 'contact-maps', 'contact-threshold', 'align',
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
-        ('MISCELLANEOUS OPTIONS', ['work-dir', 'contact-map-colors', 'dssp-command', 'fortran-command', 'image-file-format', 'verbose',
-                                   'config', 'version', 'help'])
+        ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
+                                   'contact-map-colors', 'verbose', 'version', 'help'])
     ]
 }
 
@@ -301,8 +301,10 @@ options = {
         'type': str,
         'nargs': 6,
         'default': ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000'],
-        'metavar': 'True/False',
-        'help': 'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.'
+        'metavar': 'HEX',
+        'help':
+            'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.\n'
+            '(default: %(default)s)'
     },
     'contact-threshold': {
         'flag': '-T',
@@ -604,8 +606,9 @@ options = {
     'temperature': {
         'flag': '-t',
         'default': (2.0, 1.0),
+        'nargs': 2,
         'type': float,
-        'metavar': 'TINIT TFINAL',
+        'metavar': ('TINIT', 'TFINAL'),
         'help':
             'Set temperature range for simulated annealing.\n'
             'TINIT - initial temperature, TFINAL - final temperature (default: (TINIT, TFINAL) = %(default)s.\n'
