@@ -1,10 +1,11 @@
 import numpy
-from abc import ABCMeta
-from abc import abstractmethod
+
+from abc import ABCMeta, abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
-from utils import aa_to_short
+
+from CABS.utils import aa_to_short
 
 
 BLOSUM62 = numpy.array([[ 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2, -1,  1,  0, -3, -2,  0, -2, -1,  0, -4],
@@ -145,22 +146,26 @@ class TrivialAlign(AbstractAlignMethod):
     methodname = 'trivial'
 
     def execute(self, atoms1, atoms2, **kwargs):
+        if len(atoms1) != len(atoms2):
+            raise AlignError("Structure of different size passed to trivial alignment.")
         return tuple(zip(atoms1.atoms, atoms2.atoms))
 
 
-#~ class LoadCSVAlign(AbstractAlignMethod):
+class LoadCSVAlign(AbstractAlignMethod):
 
-    #~ methodname = 'load_csv'
+    methodname = 'CSV'
 
-    #~ def execute(self, atoms1, atoms2, fname, **kwargs):
-        #~ try:
-            #~ with open(fname) as f:
-                #~ nms1, nms2 = zip(*[i.split('\t') for i in map(str.strip, f.readlines()[1:])])
-        #~ except TypeError:
-            #~ raise AlignError("No alignment file was given.")
-        #~ ats1 = [i for i in atoms1 if fmt_csv(i) in nms1]
-        #~ ats2 = [i for i in atoms1 if fmt_csv(i) in nms2]
-        #~ return zip(ats1, ats2)
+    def execute(self, atoms1, atoms2, fname, **kwargs):
+        try:
+            with open(fname) as f:
+                nms1, nms2 = zip(*[i.split('\t') for i in map(str.strip, f.readlines()[1:])])
+        except TypeError:
+            raise AlignError("No alignment file was given.")
+        ats1 = [i for i in atoms1 if fmt_csv(i) in nms1]
+        ats2 = [i for i in atoms2 if fmt_csv(i) in nms2]
+        if 0 in map(len, (ats1, ats2)):
+            raise AlignError("Empty alignment.")
+        return zip(ats1, ats2)
 
 class BLASTpAlign(AbstractAlignMethod):
 

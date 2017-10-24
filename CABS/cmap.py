@@ -6,12 +6,12 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 import numpy
 import operator
 
-from plots import mk_histo
-from utils import _chunk_lst
-
 import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.colors
+
+from CABS.plots import mk_histo
+from CABS.utils import _chunk_lst
 
 
 class ContactMapFactory(object):
@@ -104,7 +104,7 @@ class ContactMap(object):
     def zero_diagonal(self):
         numpy.fill_diagonal(self.cmtx, 0)
 
-    def save_fig(self, fname, fmt='svg', norm_n=False, break_long_x=50):
+    def save_fig(self, fname, fmt='svg', norm_n=False, break_long_x=50, colors_lst=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         """Saves cmap as matrix plot.
 
         Arguments:
@@ -127,7 +127,7 @@ class ContactMap(object):
         if vmax < 5:
             vmax = 1 if norm_n else 5
         colors = matplotlib.colors.LinearSegmentedColormap.from_list('bambi',
-                zip([0., .01, .1, .4, .7, 1.], ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']))
+                zip([0., .01, .1, .4, .7, 1.], colors_lst))
 
         for n, chunk in enumerate(chunks):
             sfig = matplotlib.pyplot.subplot(grid[n : n + 1, 0])
@@ -256,11 +256,11 @@ class ContactMap(object):
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
 
-    def save_all(self, fname, norm_n=False, break_long_x=50):
+    def save_all(self, fname, norm_n=False, break_long_x=50, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         """Creates txt and png of given name."""
         with open(fname + '.txt', 'w') as f:
             self.save_txt(f)
-        self.save_fig(fname, norm_n=norm_n, break_long_x=break_long_x)
+        self.save_fig(fname, norm_n=norm_n, break_long_x=break_long_x, colors_lst=colors)
 
     def __add__(self, other):
         """Addition of cmaps sums their matrices.

@@ -1,6 +1,5 @@
 from setuptools import setup
-
-__version__ = '0.9.2'
+from CABS import __version__
 
 setup(
     name='CABS',
@@ -14,8 +13,8 @@ setup(
     description='CABS in python',
     entry_points={
         'console_scripts': [
-            'cabsDock = CABS.__main__:run_dock',
-            'cabsFlex = CABS.__main__:run_flex'
+            'CABSdock = CABS.__main__:run_dock',
+            'CABSflex = CABS.__main__:run_flex'
         ]
     },
     package_data={'CABS': ['data/*.dat']}
