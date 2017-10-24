@@ -12,7 +12,7 @@ from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict
 
-from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch
+from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch, check_peptide_sequence
 from CABS.vector3d import Vector3d
 from CABS.logger import ProgressBar
 
@@ -256,6 +256,8 @@ class Atoms(object):
             else:
                 seq = arg
                 sec = 'C' * len(seq)
+
+            check_peptide_sequence(seq)
 
             for i, ch in enumerate(seq):
                 self.atoms.append(

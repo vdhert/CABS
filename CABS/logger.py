@@ -5,7 +5,7 @@ from subprocess import check_output
 from sys import stderr
 from os.path import exists
 from time import time, strftime, gmtime, sleep
-import textwrap
+import textwrap,trace
 
 _name = "Logger"
 
@@ -124,14 +124,22 @@ def to_file(filename='',content='',msg='',allowErr=True,traceback=True):
 
 
 def exit_program(module_name =_name, msg="Shutting down",traceback=True,exc=None):
-    '''In debug mode Exception is raised unless specifically prevented '''
+    """
+    Exits the program, depending on options might do it quietly, raise, or print traceback
+    :param module_name: string with  the calling module's name
+    :param msg: string, message to be printed when the program exits
+    :param traceback: bool, if log level is high traceback will be printed
+    :param exc: a specific exception passed by the caller
+    :return: None
+    """
     critical(module_name=module_name,msg=msg)
     if log_level > 2 and traceback:
-        debug(module_name=module_name, msg="Raising Exception to provide traceback")
         if exc:
-            raise exc
+            debug(module_name=module_name, msg="Exception caught. Printing traceback:")
+            for line in trace.format_stack():
+                stream.write(line)
         else:
-            raise Exception()
+            raise
     sys.exit(1)
 
 

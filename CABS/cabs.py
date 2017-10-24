@@ -18,8 +18,9 @@ from CABS import logger
 from CABS.vector3d import Vector3d
 from CABS.trajectory import Trajectory
 
-
 _name = 'CABS'
+_FORTRAN_COMMAND = 'gfortran -O2'
+
 
 class CabsLattice:
     """
@@ -41,8 +42,8 @@ class CabsLattice:
         for i in range(-dim, dim + 1):
             for j in range(-dim, dim + 1):
                 for k in range(-dim, dim + 1):
-                    l = i * i + j * j + k * k
-                    if r12min <= float(l) <= r12max:
+                    _l = i * i + j * j + k * k
+                    if r12min <= float(_l) <= r12max:
                         self.vectors.append(Vector3d(i, j, k))
 
         n = len(self.vectors)
@@ -108,36 +109,36 @@ class CabsRun(Thread):
     LATTICE = CabsLattice()  # static object CabsLattice used to convert structures to CABS representation
     FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)  # parameters of the CABS force field
 
-    def __init__(self, protein_complex, restraints, config):
+    def __init__(
+            self, protein_complex, restraints, work_dir, replicas, replicas_dtemp, mc_annealing, mc_cycles, mc_steps,
+            temperature, ca_rest_weight, sc_rest_weight, excluding_distance
+    ):
         """
         Initialize CabsRun object.
         :param protein_complex: ProteinComplex object with initial conformation of the complex (many replicas)
         :param restraints: Restraints object with complete list of CA-CA and SG-SG restraints
-        :param config: Dictionary from Job object running CabsRun
         """
-        #~ import pdb; pdb.set_trace()
+
         Thread.__init__(self)
-        logger.debug(module_name=_name,msg="Loading structures...")
+        logger.debug(module_name=_name, msg="Loading structures...")
         fchains, seq, ids = CabsRun.load_structure(protein_complex)
         logger.debug(module_name=_name, msg="Loading restraints...")
-        restr, maxres = CabsRun.load_restraints(
-            restraints.update_id(ids), config['ca_rest_weight'], config['sc_rest_weight']
-        )
-
-        exclude = CabsRun.load_excluding(
-            protein_complex.receptor.exclude, config['excluding_distance'], ids
-        )
+        restr, maxres = CabsRun.load_restraints(restraints.update_id(ids), ca_rest_weight, sc_rest_weight)
+        exclude = CabsRun.load_excluding(protein_complex.protein.exclude, excluding_distance, ids)
 
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
-        nreps = config['replicas']
-        inp = CabsRun.make_inp(config, nmols, CabsRun.FORCE_FIELD)
+        nreps = replicas
+        inp = CabsRun.make_inp(
+            nmols=nmols, force_field=CabsRun.FORCE_FIELD, replicas=replicas, replicas_dtemp=replicas_dtemp,
+            mc_annealing=mc_annealing, mc_cycles=mc_cycles, mc_steps=mc_steps, temperature=temperature
+        )
         total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-            * nreps * config['mc_cycles'] * config['mc_annealing']
+            * nreps * mc_cycles * mc_annealing
 
         cabs_dir = mkdtemp(
             prefix=strftime('.%d%b.%H:%M:%S.'),
-            dir=config['work_dir']
+            dir=work_dir
         )
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
@@ -152,8 +153,7 @@ class CabsRun(Thread):
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('CABS', 'data/data0.dat'),
             exe='cabs',
-            build_command=config['fortran_compiler'],
-            build_flags='-O2',
+            build_command=_FORTRAN_COMMAND,
             destination=cabs_dir
         )
 
@@ -238,7 +238,7 @@ class CabsRun(Thread):
         )
 
     @staticmethod
-    def build_exe(params, src, exe='cabs', build_command='gfortran', build_flags='', destination='.'):
+    def build_exe(params, src, exe='cabs', build_command=_FORTRAN_COMMAND, destination='.'):
         with open(src) as f:
             lines = f.read()
 
@@ -247,26 +247,26 @@ class CabsRun(Thread):
             lines = re.sub(name + '=\d+', name + '=%i' % value, lines)
 
         run_cmd = join(destination, exe)
-        cmd = [build_command, '-o', run_cmd, build_flags, '-x', 'f77', '-']
+        cmd = build_command.split() + ['-o', run_cmd, '-x', 'f77', '-']
         out, err = Popen(cmd, stdin=PIPE, stderr=PIPE).communicate(lines)
         if err:
             raise Exception(err)
         return run_cmd
 
     @staticmethod
-    def make_inp(config, nmols, force_field):
+    def make_inp(nmols, force_field, temperature, mc_annealing, mc_cycles, mc_steps, replicas, replicas_dtemp):
         return '%i\n%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
             randint(999, 10000),
-            config['mc_annealing'],
-            config['mc_cycles'],
-            config['mc_steps'],
-            config['replicas'],
+            mc_annealing,
+            mc_cycles,
+            mc_steps,
+            replicas,
             nmols,
-            config['t_init'],
-            config['t_final'],
+            temperature[0],
+            temperature[1],
             force_field[0],
             force_field[1],
-            config['replicas_dtemp'],
+            replicas_dtemp,
             force_field[2],
             force_field[3],
             force_field[4],
@@ -275,10 +275,11 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        monitor = logger.cabs_observer(interval=0.2,traj = join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
-        CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'],stderr=PIPE,stdin=PIPE)
+        monitor = logger.cabs_observer(interval=0.2, traj=join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
+        CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'], stderr=PIPE, stdin=PIPE)
         (stdout, stderr) = CABS.communicate()
-        if stderr: logger.warning(module_name=_name, msg=stderr)
+        if stderr:
+            logger.warning(module_name=_name, msg=stderr)
         monitor.exit()
 
     def get_trajectory(self):
