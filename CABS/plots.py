@@ -119,7 +119,7 @@ def drop_csv_file(fname, columns, fmts="%s"):
             f.write("\t".join([fmt % val for fmt, val in zip(fmts, vals)]))
             f.write('\n')
 
-def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
+def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg', interaction=True):
     """
     Creates energy(RMSD) plots.
 
@@ -128,6 +128,7 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
     rmsds -- nested sequence of RMDSs.
     fname -- file name to be created.
     fmt -- format of file to be created; 'svg' byt default.
+    interaction -- bool; if True plots both, total and interaction plots, otherwise plots only total energy.
     See matplotlib.pyplot.savefig for more formats.
 
     Plots figure with three subplots: total and internal energy vs RMSD
@@ -136,7 +137,11 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg'):
     to file of given name.
     """
     max_data = 5
-    for ind, etp in zip((0, 1), ('total','interaction')):
+    if interaction:
+        sets, labels = (0, 1), ('total','interaction')
+    else:
+        sets, labels = (0,), ('total',)
+    for ind, etp in zip(sets, labels):
         fig = matplotlib.pyplot.figure(figsize=(9, 12))
         grid = matplotlib.pyplot.GridSpec(2, 1)
         plot = matplotlib.pyplot.subplot(grid[0, 0])

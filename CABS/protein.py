@@ -1,5 +1,5 @@
 """
-Classes Receptor, Ligand, Protein - prepares initial complex.
+Classes Protein, Peptide, ProteinComplex - prepares initial complex.
 """
 
 import re
@@ -17,54 +17,49 @@ from CABS.vector3d import Vector3d
 _name = 'Protein'
 
 
-class Receptor(Atoms):
+class Protein(Atoms):
     """
-    Class for the protein receptor molecule. Initialized with job's config dictionary.
+    Class for the protein molecule.
     """
 
-    def __init__(self, config):
+    def __init__(self, source, flexibility=None, exclude=None, work_dir='.'):
 
         Atoms.__init__(self)
 
-        name = config['receptor']
-        selection = 'name CA and not HETERO'
-
-        pdb = Pdb(name, selection=selection)
+        pdb = Pdb(source=source, selection='name CA')
         self.atoms = pdb.atoms.models()[0]
-        logger.info(module_name=_name, msg="Loading %s as receptor" % name)
-        token = config.get('receptor_flexibility')
-        if token:
+        logger.info(module_name=_name, msg="Loading %s as input protein" % source)
+        if flexibility:
             try:
-                bfac = float(token)
+                bfac = float(flexibility)
                 self.atoms.set_bfac(bfac)
             except ValueError:
-                if token.lower() == 'bf':
+                if flexibility.lower() == 'bf':
                     pass
-                elif token.lower() == 'bfi':
+                elif flexibility.lower() == 'bfi':
                     for a in self.atoms:
                         if a.bfac > 1.:
                             a.bfac = 0.
                         else:
                             a.bfac = 1. - a.bfac
-                elif exists(token):
-                    d, de = self.read_flexibility(token)
+                elif exists(flexibility):
+                    d, de = self.read_flexibility(flexibility)
                     self.atoms.update_bfac(d, de)
-                elif exists(join(config['work_dir'], token)):
-                    d, de = self.read_flexibility(join(config['work_dir'], token))
+                elif exists(join(work_dir, flexibility)):
+                    d, de = self.read_flexibility(join(work_dir, flexibility))
                     self.atoms.update_bfac(d, de)
                 else:
                     logger.warning(
                         module_name=_name,
-                        msg='Invalid receptor_flexibility setting in \'%s\'. ' % token
+                        msg='Invalid protein_flexibility setting: \'%s\'. ' % flexibility
                     )
                     self.atoms.set_bfac(1.0)
         else:
             self.atoms.set_bfac(1.0)
 
         self.exclude = {}
-        token = config.get('exclude')
-        if token:
-            for s in token:
+        if exclude:
+            for s in exclude:
                 words = s.split('@')
                 if len(words) == 1:
                     key = 'ALL'
@@ -88,7 +83,7 @@ class Receptor(Atoms):
                         chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
-        ss = pdb.dssp(dssp_command=config['dssp_command'], output=config['work_dir'])
+        ss = pdb.dssp(output=work_dir)
         self.old_ids = self.atoms.update_sec(ss).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
@@ -152,14 +147,14 @@ class Receptor(Atoms):
         min_d = float(min_d)
         max_d = float(max_d)
         restr = []
-        l = len(self.atoms)
+        _len = len(self.atoms)
 
-        for i in range(l):
+        for i in range(_len):
             a1 = self.atoms[i]
             ssi = int(a1.occ) % 2
             if mode == 'ss2' and ssi:
                 continue
-            for j in range(i + gap, l):
+            for j in range(i + gap, _len):
                 a2 = self.atoms[j]
                 ssj = int(a2.occ) % 2
                 if (mode == 'ss2' and ssj) or (mode == 'ss1' and ssi * ssj):
@@ -175,36 +170,28 @@ class Receptor(Atoms):
         return restr
 
 
-class Ligand(Atoms):
+class Peptide(Atoms):
     """
     Class for the peptides.
     """
 
-    def __init__(self, config, num):
-        print(config['ligand'])
-        #self.name, self.conformation, self.location = config['ligand'][num]
-        self.name, self.conformation, self.location = config['ligand']
-        self.selection = 'name CA and not HETERO'
+    def __init__(self, source, conformation, location, work_dir='.'):
         logger.info(
             module_name=_name,
-            msg='Loading ligand: name - {}, conformation - {}, location - {}'.format(
-                self.name, self.conformation, self.location
+            msg='Loading ligand: {}, conformation - {}, location - {}'.format(
+                source, conformation, location
             )
         )
         try:
-            pdb = Pdb(self.name, selection=self.selection, no_exit=True)
+            pdb = Pdb(source=source, selection='name CA', no_exit=True)
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp(output=config['work_dir']))
-        except Pdb.InvalidPdbInput as e:
-            seq = self.name.split(':')[0]
-            utils.check_peptide_sequence(seq)
-            atoms = Atoms(self.name)
+            atoms.update_sec(pdb.dssp(output=work_dir))
+        except Pdb.InvalidPdbInput:
+            atoms = Atoms(source)
         atoms.set_bfac(0.0)
+        self.conformation = conformation
+        self.location = location
         Atoms.__init__(self, atoms)
-
-        # checks the input peptide sequence for non-standard amino acids.
-        rev_dct = {v: k for k, v in utils.AA_NAMES.items()}
-        [utils.check_peptide_sequence(rev_dct[peptide.resname]) for peptide in atoms.atoms]
 
     def random_conformation(self, lib=utils.RANDOM_LIGAND_LIBRARY):
         length = len(self)
@@ -223,74 +210,73 @@ class ProteinComplex(Atoms):
     Class that assembles the initial complex.
     """
 
-    def __init__(self, config):
+    def __init__(self, protein, flexibility, exclude, peptides, replicas,
+                 separation, insertion_attempts, insertion_clash, work_dir):
         logger.debug(module_name=_name, msg = "Preparing the complex")
         Atoms.__init__(self)
-        self.separation = config['initial_separation']
 
-        receptor = Receptor(config)
-        self.chain_list = receptor.list_chains()
-        self.receptor_chains = ''.join(self.chain_list.keys())
-        self.old_ids = deepcopy(receptor.old_ids)
+        self.protein = Protein(protein, flexibility=flexibility, exclude=exclude, work_dir=work_dir)
+        self.chain_list = self.protein.list_chains()
+        self.protein_chains = ''.join(self.chain_list.keys())
+        self.old_ids = deepcopy(self.protein.old_ids)
 
-        ligands = []
-        self.ligand_chains = ''
-        if 'ligand' in config:
-            taken_chains = self.receptor_chains + 'X'
-            for num, ligand in enumerate(config['ligand']):
-                l = Ligand(config, num)
-                if l[0].chid in taken_chains:
-                    l.change_chid(l[0].chid, utils.next_letter(taken_chains))
-                taken_chains += l[0].chid
-                self.ligand_chains += l[0].chid
-                ligands.append(l)
-                self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(l)})
-                self.chain_list.update(l.list_chains())
+        self.peptides = []
+        self.peptide_chains = ''
+        if peptides:
+            taken_chains = self.protein_chains + 'X'
+            for num, p in enumerate(peptides):
+                peptide = Peptide(*p, work_dir=work_dir)
+                if peptide[0].chid in taken_chains:
+                    peptide.change_chid(peptide[0].chid, utils.next_letter(taken_chains))
+                taken_chains += peptide[0].chid
+                self.peptide_chains += peptide[0].chid
+                self.peptides.append(peptide)
+                self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(peptide)})
+                self.chain_list.update(peptide.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
         exclude = []
-        for key, value in receptor.exclude.items():
+        for key, value in self.protein.exclude.items():
             if key == 'ALL':
                 kword = 'PEP'
             else:
                 kword = key
             keys = [v for k, v in self.new_ids.items() if re.search(kword, k)]
             exclude.extend((r1, r2) for r1 in keys for r2 in value)
-        receptor.exclude = list(set(exclude))
+        self.protein.exclude = list(set(exclude))
 
-        for i in range(config['replicas']):
-            model = deepcopy(receptor)
+        for i in range(replicas):
+            model = deepcopy(self.protein)
             model.set_model_number(i + 1)
-            for ligand in ligands:
-                for attempt in range(config['ligand_insertion_attempts']):
-                    self.insert_ligand(receptor, ligand)
-                    if model.min_distance(ligand) > config['ligand_insertion_clash']:
-                        ligand = deepcopy(ligand)
-                        ligand.set_model_number(i + 1)
-                        model.atoms.extend(ligand)
+            for peptide in self.peptides:
+                for attempt in range(insertion_attempts):
+                    self.insert_peptide(self.protein, peptide, separation)
+                    if model.min_distance(peptide) > insertion_clash:
+                        peptide = deepcopy(peptide)
+                        peptide.set_model_number(i + 1)
+                        model.atoms.extend(peptide)
                         break
                 else:
-                    raise Exception('Maximum number of attempts to insert ligand %s reached!!!' % ligand.name)
+                    raise Exception('Maximum number of attempts to insert peptide %s reached!!!' % peptide.name)
             self.atoms.extend(model)
-            self.receptor = receptor
-            self.ligands = ligands
         logger.debug(module_name=_name, msg="Complex successfully created")
 
-    def insert_ligand(self, receptor, ligand):
+    @staticmethod
+    def insert_peptide(protein, peptide, separation):
 
-        radius = 0.5 * receptor.dimension + self.separation
+        radius = 0.5 * protein.dimension + separation
 
-        if ligand.location == 'keep':
-            location = ligand.cent_of_mass()
-        elif ligand.location == 'random':
-            location = Vector3d().random() * radius + receptor.center
+        if peptide.location == 'keep':
+            location = peptide.cent_of_mass()
+        elif peptide.location == 'random':
+            location = Vector3d().random() * radius + protein.center
         else:
-            location = receptor.convert_patch(ligand.location) * radius + receptor.center
+            location = protein.convert_patch(peptide.location) * radius + protein.center
 
-        if ligand.conformation == 'random':
-            ligand.random_conformation()
+        if peptide.conformation == 'random':
+            peptide.random_conformation()
 
-        ligand.move_to(location)
+        peptide.move_to(location)
 
 
 if __name__ == '__main__':
