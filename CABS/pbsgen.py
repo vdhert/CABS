@@ -119,7 +119,7 @@ class Case(object):
         return ' '.join([str(self.receptor), str(self.ligand), str(self.work_dir), str(self.reference_pdb)])
 
     def run_command(self):
-        command = 'cabsDock -V 3 -r {} -p {} --work-dir {} --reference-pdb {}'.format(self.receptor, self.ligand, self.work_dir, self.reference_pdb)
+        command = 'cabsDock -M -S -C -v 3 -i {} -p {} --work-dir {} --reference-pdb {}'.format(self.receptor, self.ligand, self.work_dir, self.reference_pdb)
         if self.sc_rests:
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
