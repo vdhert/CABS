@@ -74,6 +74,8 @@ class CABSTask(object):
         self.temperature = kwargs.get('temperature')
         self.verbose = kwargs.get('verbose')
         self.work_dir = kwargs.get('work_dir')
+        self.weighted_fit = kwargs.get('weighted_fit')
+        self.weighted_fit_file = kwargs.get('weighted_fit_file')
         self.colors = kwargs.get('contact_map_colors')
 
         # Job attributes collected.
@@ -120,6 +122,9 @@ class CABSTask(object):
             self.pdb_output = 'RFCM'
         elif 'N' in self.pdb_output:
             self.pdb_output = ''
+
+        if self.weighted_fit_file:
+            self.weighted_fit = self.weighted_fit_file
 
         _DSSP_COMMAND = self.dssp_command
         _FORTRAN_COMMAND = self.fortran_command
@@ -270,6 +275,7 @@ class CABSTask(object):
         else:
             logger.debug(module_name=_name, msg="Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
+        self.trajectory.weights = self.initial_complex.protein.weights
         self.trajectory.template.update_ids(self.initial_complex.protein.old_ids, pedantic=False)
         chs = ''.join(self.initial_complex.protein_chains)
         tchs = ''.join(set(chs).intersection(self.trajectory.template.list_chains().keys()))
@@ -333,6 +339,7 @@ class DockTask(CABSTask):
             protein=self.input_protein,
             flexibility=self.protein_flexibility,
             exclude=self.exclude,
+            weights=self.weighted_fit,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,
@@ -503,6 +510,7 @@ class FlexTask(CABSTask):
             protein=self.input_protein,
             flexibility=self.protein_flexibility,
             exclude=self.exclude,
+            rmsd_weights=self.weighted_fit,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,

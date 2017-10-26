@@ -92,7 +92,8 @@ dock_dict = {
     'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
+        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
+                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
@@ -117,7 +118,8 @@ flex_dict = {
     'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('all', 3, 3.8, 8.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
+        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
+                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
@@ -192,8 +194,9 @@ options = {
             'Add peptide to the complex. This option can be used multiple times to add multiple peptides.\n\n'
             'PEPTIDE must be either:\n\n'
             '[1] amino acid sequence in one-letter code (optionally annotated with secondary structure: '
-            'H - helix, E - sheet, C - coil) i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with '
-            'the secondary structure assignemnt: CHHHHHHHHC\n\n'
+            'H - helix, E - sheet, C - coil)\n'
+            'i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with the secondary structure '
+            'assignment: CHHHHHHHHC\n\n'
             'HINT: If possible, it is always recommended to use secondary structure information/prediction. For '
             'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than '
             'the regular (H - helix or E - extended) type of structure.\n\n'
@@ -338,9 +341,9 @@ options = {
             '\'-e A\'                whole chain A\n'
             '\'-e A+C\'              chains A and C\n'
             '\'-e A-C\'              chains A, B and C\n\n'
-            'Adding @PEP<N> at the end of the string limits the excluding to only N-th peptide. i.e. \'-e 123:A@PEP1\' '
-            'will exclude residue 123 in chain A for binding with the first peptide only. If @PEP<N> is omitted the '
-            'exclusion list affects all peptides.\n\n'
+            'Adding @PEP<N> at the end of the string limits the excluding to only N-th peptide.\n'
+            'i.e. \'-e 123:A@PEP1\' will exclude residue 123 in chain A for binding with the first peptide only.\n'
+            'If @PEP<N> is omitted the exclusion list affects all peptides.\n\n'
             'This option can be used multiple times to add multiple sets of excluded residues.'
     },
     'excluding-distance': {
@@ -392,10 +395,9 @@ options = {
         'help':
             'Load input protein structure.\n\n'
             'INPUT can be either:\n\n'
-            '[1] PDB code (optionally with chain IDs) i.e. \'-P 1CE1:HL\' loads chains H and L of 1CE1 protein'
-            'structure downloaded from the PDB database\n'
+            '[1] PDB code (optionally with chain IDs)\n'
+            'i.e. \'-P 1CE1:HL\' loads chains H and L of 1CE1 protein structure downloaded from the PDB database\n'
             '[2] PDB file (optionally gzipped)',
-
     },
     'insertion-attempts': {
         'default': 1000,
@@ -481,14 +483,15 @@ options = {
             'Load peptide sequence and optionally peptide secondary structure in one-letter code (can be used multiple'
             ' times to add multiple peptides).\n\n'
             'PEPTIDE can be either:\n\n'
-            '[1] amino acid sequence in one-letter code (optionally annotated with secondary structure: H - helix, E - '
-            'sheet, C - coil) i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with the secondary '
-            'structure assignemnt: CHHHHHHHHC\n\n'
+            '[1] amino acid sequence in one-letter code (optionally annotated with secondary structure: '
+            'H - helix, E - sheet, C - coil)\n'
+            'i.e. \'-p HKILHRLLQD:CHHHHHHHHC\' loads HKILHRLLQD peptide sequence with the secondary structure '
+            'assignment: CHHHHHHHHC\n\n'
             'HINT: If possible, it is always recommended to use secondary structure information/prediction. For '
             'residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the'
             'regular (H - helix or E - extended) type of structure.\n\n'
-            '[2] PDB code (optionally with chain ID) i.e. \'-p 1CE1:P\' loads the sequence of the chain P from 1CE1 '
-            'protein\n'
+            '[2] PDB code (optionally with chain ID)\n'
+            'i.e. \'-p 1CE1:P\' loads the sequence of the chain P from 1CE1 protein\n'
             '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
             '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
     },
@@ -499,21 +502,21 @@ options = {
         'help':
             'Modify flexibility of selected protein\'s residues:\n\n'
             'f = 0 - fully flexible backbone\n'
-            'f = 1 - almost stiff backbone (default value)\n'
-            'f > 1 - increasing stiffnes\n\n'
+            'f = 1 - almost stiff backbone (default value)\n\n'
             'FLEXIBILITY can be either:\n\n'
             '[1] positive real number - all protein residues are assigned the same flexiblity equal that number\n'
-            '[2] \'bf\' - flexibility for each residue is read from the beta factor column of the CA atom in the pdb '
-            'input file (Note that standard beta factor in pdb file has opposite meaning to CABSdock flexibillity, '
+            '[2] \'bf\' - flexibility for each residue is read from the beta factor column of the CA atom in the '
+            'pdb input file\n'
+            '(Note that standard beta factor in pdb file has opposite meaning to CABSdock flexibillity, '
             'edit pdb accordingly or use FLEXIBILITY = \'bfi\')\n'
-            '[3] \'bfi\' - flexibility is assigned from the inverted beta factors in the input pdb file so that '
-            'bf = 0.0 -> f = 1.0 and bf >= 1.0 -> f = 0.0\n'
-            '[4] <filename> - flexibility is read from file <filename> in the format of single residue entries: '
-            'resid_ID <flexibility> i.e. 12:A 0.75, or residue ranges: resid_ID - resid_ID <flexibility> '
-            'i.e. 12:A - 15:A  0.75\n\n'
-            'Default value for residues not explicitely specified can be set by inserting at the top of the file a '
-            'following line: default <default flexibility value>, if omitted default is %(default)s. Multiple entries '
-            'can be used.',
+            '[3] \'bfi\' - flexibility is assigned from the inverted beta factors in the input pdb file so that:\n'
+            'bf <= 0.0 -> f = 1.0; bf >= 1.0 -> f = 0.0; f = 1 - bf otherwise.\n'
+            '[4] \'bfg\' - flexibility is assigned from the beta factors in the input pdb file, so that:\n'
+            'f = exp(-bf * bf / 2.) and f = 1.0 if bf < 0.0\n'
+            '[5] <filename> - flexibility is read from file <filename> in the following format:\n\n'
+            'default <default flexibility value> (if omitted default f = %(default)s)\n'
+            'resid_ID <flexibility> i.e. 12:A 0.75 OR resid_ID - resid_ID <flexibility> i.e. 12:A - 15:A  0.75\n\n'
+            'Multiple entries can be used.',
     },
     'protein-restraints': {
         'flag': '-g',
@@ -629,6 +632,25 @@ options = {
     'version': {
         'action': 'store_true',
         'help': 'print version and exit program'
+    },
+    'weighted-fit': {
+        'action': 'store_true',
+        'help':
+            'This option fixes a problem occurring when part of the protein is assigned increased flexibility, '
+            'which in default mode results in sometimes incorrect structural fit between generated models, which in '
+            'consequence affects clustering and scoring. Structural fit can be corrected by using weights assigned '
+            'to the protein residues, which modify the significance of a given residue in the structural fit process. '
+            'By default all residues are assigned uniform weight w = 1.0.\n\n'
+            'Use \'--weighted-fit\' in combination with \'--receptor-flexibility\' to use flexibility settings as '
+            'weights for structural fit\n\nOR\n\n'
+            'use \'--weighted-fit-file <path to file>\' to provide custom weights.\n'
+            'The file should follow this format:\n\n'
+            'default 1.0 (default value, if omitted w = 1.0 is assumed)\n1:A 0.5\n2:A 0.1\n...\n1:B 0.99\netc.\n\n'
+            'Weights should be numbers from [0:1] with \'0\' meaning irrelevant in fitting process.'
+    },
+    'weighted-fit-file': {
+        'metavar': 'FILE',
+        'help': 'See help entry for \'--weighted-fit\''
     },
     'work-dir': {
         'flag': '-w',

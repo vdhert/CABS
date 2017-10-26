@@ -13,6 +13,7 @@ from CABS import logger
 from CABS.PDBlib import Pdb
 from CABS.atom import Atoms
 from CABS.vector3d import Vector3d
+from CABS.utils import rmsf2wts
 
 _name = 'Protein'
 
@@ -22,13 +23,15 @@ class Protein(Atoms):
     Class for the protein molecule.
     """
 
-    def __init__(self, source, flexibility=None, exclude=None, work_dir='.'):
+    def __init__(self, source, flexibility=None, exclude=None, weights=None, work_dir='.'):
 
         Atoms.__init__(self)
 
         pdb = Pdb(source=source, selection='name CA')
         self.atoms = pdb.atoms.models()[0]
         logger.info(module_name=_name, msg="Loading %s as input protein" % source)
+
+        # setup flexibility
         if flexibility:
             try:
                 bfac = float(flexibility)
@@ -40,8 +43,16 @@ class Protein(Atoms):
                     for a in self.atoms:
                         if a.bfac > 1.:
                             a.bfac = 0.
+                        elif a.bfac < 0.:
+                            a.bfac = 1.
                         else:
                             a.bfac = 1. - a.bfac
+                elif flexibility.lower() == 'bfg':
+                    for a in self.atoms:
+                        if a.bfac < 0.:
+                            a.bfac = 1.
+                        else:
+                            a.bfac = rmsf2wts(a.bfac)
                 elif exists(flexibility):
                     d, de = self.read_flexibility(flexibility)
                     self.atoms.update_bfac(d, de)
@@ -57,6 +68,7 @@ class Protein(Atoms):
         else:
             self.atoms.set_bfac(1.0)
 
+        # setup excluding
         self.exclude = {}
         if exclude:
             for s in exclude:
@@ -89,6 +101,35 @@ class Protein(Atoms):
 
         for key, val in self.exclude.items():
             self.exclude[key] = [self.new_ids[r] for r in val]
+
+        # setup rmsd_weights
+        if weights:
+            _default = 1.0
+            self.weights = []
+            try:
+                wdict = {}
+                with open(weights, 'rb') as _file:
+                    for line in _file:
+                        k, v = line.split()[:2]
+                        wdict[k] = v
+
+                if 'default' in wdict:
+                    _default = float(wdict['default'])
+
+                for a in self.atoms:
+                    _w = wdict.get(a.resid_id())
+                    if _w:
+                        _w = float(_w)
+                    else:
+                        _w = _default
+                    self.weights.extend(_w)
+            except IOError as e:
+                if type(weights) is bool:
+                    self.weights = [a.bfac for a in self.atoms]
+                else:
+                    raise e
+        else:
+            self.weights = None
 
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
@@ -210,12 +251,12 @@ class ProteinComplex(Atoms):
     Class that assembles the initial complex.
     """
 
-    def __init__(self, protein, flexibility, exclude, peptides, replicas,
+    def __init__(self, protein, flexibility, exclude, weights, peptides, replicas,
                  separation, insertion_attempts, insertion_clash, work_dir):
         logger.debug(module_name=_name, msg = "Preparing the complex")
         Atoms.__init__(self)
 
-        self.protein = Protein(protein, flexibility=flexibility, exclude=exclude, work_dir=work_dir)
+        self.protein = Protein(protein, flexibility=flexibility, exclude=exclude, weights=weights, work_dir=work_dir)
         self.chain_list = self.protein.list_chains()
         self.protein_chains = ''.join(self.chain_list.keys())
         self.old_ids = deepcopy(self.protein.old_ids)
