@@ -160,7 +160,7 @@ class Pdb(object):
                     module_name=_name,
                     msg='Matching declared [{}] with actual [{}] chain IDs in {}.'.format(chains, actual_chains, name)
                 )
-                if chains != actual_chains:
+                if set(chains) != set(actual_chains):
                     msg = 'Mismatch in chain IDs in {}: {} differs from {}'.format(name, chains, actual_chains)
                     logger.warning(_name, msg)
                     raise Exception(msg)
