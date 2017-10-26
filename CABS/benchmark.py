@@ -103,7 +103,7 @@ class CommandGenerator(object):
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='bound'):
+    def __init__(self, benchmark_file, options={}, name='', runtype='bound'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
@@ -161,14 +161,17 @@ class BenchmarkAnalyser(object):
         with open(self.benchlog) as log:
             writecase = False
             for line in log:
-                print line
-                thisline = line.split()
-                if 'Cases' in thisline[0]:
-                    writecase = True
-                elif writecase and '#' in thisline[0]:
-                    writecase = False
-                elif writecase:
-                    self.cases.append(thisline[0].upper())
+                if not line.strip()
+                    print "Empty line"
+                else:
+                    print line
+                    thisline = line.split()
+                    if 'Cases' in thisline[0]:
+                        writecase = True
+                    elif writecase and '#' in thisline[0]:
+                        writecase = False
+                    elif writecase:
+                        self.cases.append(thisline[0].upper())
 
 
     def read_rmsds(self):
