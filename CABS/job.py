@@ -510,7 +510,7 @@ class FlexTask(CABSTask):
             protein=self.input_protein,
             flexibility=self.protein_flexibility,
             exclude=self.exclude,
-            rmsd_weights=self.weighted_fit,
+            weights=self.weighted_fit,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,

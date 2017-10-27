@@ -348,12 +348,10 @@ class Trajectory(object):
         execution_mode = {'models': (self.coordinates[0], 'model'), 'replicas': (self.coordinates, 'replica')}
         if to_dir:
             for i, m in enumerate(execution_mode[mode][0]):
-                Trajectory(self.template, m, None).to_atoms().save_to_pdb(
-                    os.path.join(
-                        to_dir, (execution_mode[mode][1] if name is None else name),
-                        ('' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i)), '.pdb'
-                    )
-                )
+                pre = execution_mode[mode][1] if name is None else name
+                post = '' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i)
+                fname = os.path.join(to_dir, '%s%s.pdb' % (pre, post))
+                Trajectory(self.template, m, None).to_atoms().save_to_pdb(fname)
             out = True
         else:
             out = [
