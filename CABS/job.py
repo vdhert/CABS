@@ -33,8 +33,8 @@ class CABSTask(object):
         self.aa_rebuild = kwargs.get('aa_rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
-        self.align_options = dict(kwargs.get('align_options'))
-        self.align_peptide_options = dict(kwargs.get('align_peptide_options'))
+        self.align_options = dict(kwargs.get('align_options', []))
+        self.align_peptide_options = dict(kwargs.get('align_peptide_options', []))
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
         self.ca_rest_weight = kwargs.get('ca_rest_weight')
@@ -93,6 +93,7 @@ class CABSTask(object):
 
         # Workdir processing: making sure work_dir is abspath
         self.work_dir = os.path.abspath(self.work_dir)
+        logger.setup_log_level(self.verbose)
         try:
             os.makedirs(self.work_dir)
         except OSError:
@@ -125,13 +126,12 @@ class CABSTask(object):
         _FORTRAN_COMMAND = self.fortran_command
 
     def run(self):
-        logger.setup_log_level(self.verbose)
         ftraf = self.file_TRAF
         fseq = self.file_SEQ
         self.setup_job()
         if self.reference_pdb:
             self.parse_reference(self.reference_pdb)
-        withcabs = True if (ftraf is None or fseq is None) else False
+        withcabs = None in (ftraf, fseq)
 
         if withcabs:
             self.setup_cabs_run()

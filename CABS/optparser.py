@@ -114,7 +114,7 @@ flex_dict = {
     'description':
         'CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('all', 3, 3.8, 8.0)},
+    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('ss2', 3, 3.8, 8.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints']),
@@ -417,6 +417,7 @@ options = {
     'load-cabs-files': {
         'flag': '-L',
         'metavar': 'FILE',
+        'nargs': 2,
         'help':
             'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectories (with new '
             'settings, for example using a reference complex structure and --reference option).'
