@@ -488,7 +488,7 @@ class Atoms(object):
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
         t = other.to_matrix()
         q = self.to_matrix()
-        return kabsch(t, q, concentric)
+        return kabsch(t, q, concentric=concentric)
 
     def str_align(self, other):
         """

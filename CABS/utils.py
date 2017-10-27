@@ -3,6 +3,7 @@ import numpy as np
 import re
 from pkg_resources import resource_filename
 import warnings
+from math import exp
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
@@ -783,15 +784,59 @@ def ranges(data):
     return result
 
 
-def kabsch(t, q, concentric=False):
+def kabsch(target, query, weights=None, concentric=False):
+    """
+    Function for the calculation of the best fit rotation.
+
+    target     - a N x 3 np.matrix with coordinates of the reference structure
+    query      - a N x 3 np.matrix with coordinates of the fitted structure
+    weights    - a N-length list with weights - floats from [0:1]
+    concentric - True/False specifying if target and query are centered at origin
+
+    IMPORTANT: If weights are not None centering at origin should account for them.
+    proper procedure: A -= np.average(A, 0, WEIGHTS)
+    """
+
+    if not weights:
+        weights = [1.0] * len(target)
+
     if not concentric:
-        t = np.subtract(t, np.average(t, 0))
-        q = np.subtract(q, np.average(q, 0))
-    v, s, w = np.linalg.svd(np.dot(t.T, q))
-    d = np.identity(3)
-    if np.linalg.det(np.dot(w.T, v.T)) < 0:
-        d[2, 2] = -1
-    return np.dot(np.dot(w.T, d), v.T)
+        _t = target - np.average(target, 0, weights)
+        _q = query - np.average(query, 0, weights)
+    else:
+        _t = target
+        _q = query
+
+    _c = _t.T * np.diagflat(weights) * _q
+
+    _v, _s, _w = np.linalg.svd(_c)
+    _d = np.identity(3)
+    if np.linalg.det(_c) < 0:
+        _d[2, 2] = -1
+
+    return _w.T * _d * _v.T
+
+
+def rmsf2wts(_rmsf):
+    """
+    Function that converts rmsf displacement to weight for rmsd fit.
+
+    From:
+    Damm KL, Carlson HA. Gaussian-Weighted RMSD Superposition of Proteins:
+    A Structural Comparison for Flexible Proteins and Predicted Protein Structures.
+    Biophysical Journal. 2006;90(12):4558-4573. doi:10.1529/biophysj.105.066654.
+    """
+
+    return exp(-0.5 * _rmsf * _rmsf)
+
+
+def rmsd(target, query, length, weights=None):
+    return np.sqrt(np.sum((query - target) ** 2) / length)
+
+
+def rmsdw(target, query, length, weights):
+    # weights - numpy diagonal matrix
+    return np.sqrt(np.sum((weights * (query - target)) ** 2) / length)
 
 
 def smart_flatten(l):
