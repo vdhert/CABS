@@ -18,7 +18,6 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
-_DSSP_COMMAND = 'dssp'
 
 
 class Pdb(object):
@@ -210,13 +209,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output=''):
+    def dssp(self, output='',command="dssp"):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([_DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,

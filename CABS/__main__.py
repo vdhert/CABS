@@ -5,7 +5,7 @@ import argparse
 import imp
 
 try:
-    from CABS import logger, __version__
+    from CABS import logger, __version__, _JUNK
 except ImportError:
     cabs_module = imp.find_module("CABS",["."])
     imp.load_module("CABS",*cabs_module)

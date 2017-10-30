@@ -343,7 +343,8 @@ class DockTask(CABSTask):
             separation=self.separation,
             insertion_attempts=self.insertion_attempts,
             insertion_clash=self.insertion_clash,
-            work_dir=self.work_dir
+            work_dir=self.work_dir,
+            dssp_command=self.dssp_command
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -519,7 +520,8 @@ class FlexTask(CABSTask):
             separation=self.separation,
             insertion_attempts=self.insertion_attempts,
             insertion_clash=self.insertion_clash,
-            work_dir=self.work_dir
+            work_dir=self.work_dir,
+            dssp_command=self.dssp_command
         )
 
         if self.reference_pdb is None:
