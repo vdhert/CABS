@@ -241,8 +241,9 @@ class Pdb(object):
             except (HTTPError, ConnectionError):
                 logger.warning(
                     module_name=_name,
-                    msg='Cannot connect to the DSSP server'
+                    msg='Cannot connect to the DSSP server. DSSP was not ran at all.'
                 )
+                return None
             finally:
                 try:
                     os.remove(tempfile)
@@ -296,7 +297,6 @@ class Pdb(object):
         r = req.post(url=url_api % 'create', files=files)
         r.raise_for_status()
         job_id = json.loads(r.content)['id']
-
         while True:
             r = req.get(url_api % 'status' + job_id)
             r.raise_for_status()
