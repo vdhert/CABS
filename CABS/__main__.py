@@ -2,12 +2,12 @@ import os
 import re
 import sys
 import argparse
-from CABS import logger, __version__
+from CABS import logger, __version__, _JUNK
+from shutil import rmtree
 
 
 def run_dock(cmd_line=sys.argv[1:]):
 
-    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
     from CABS.optparser import DockParser as parser, ConfigFileParser
 
     preparser = argparse.ArgumentParser(add_help=False)
@@ -45,12 +45,11 @@ def run_dock(cmd_line=sys.argv[1:]):
             msg="Unhandled Exception caught: %s. Raising" % e.message)
         raise
     finally:
-        map(os.removedirs, junk)
+        for _file in _JUNK:
+            rmtree(_file, ignore_errors=True)
 
 
 def run_flex(cmd_line=sys.argv[1:]):
-
-    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
     from CABS.optparser import FlexParser as parser, ConfigFileParser
 
     preparser = argparse.ArgumentParser(add_help=False)
@@ -88,7 +87,8 @@ def run_flex(cmd_line=sys.argv[1:]):
             msg="Unhandled Exception caught: %s. Raising" % e.message)
         raise
     finally:
-        map(os.removedirs, junk)
+        for _file in _JUNK:
+            rmtree(_file, ignore_errors=True)
 
 
 if __name__ == '__main__':

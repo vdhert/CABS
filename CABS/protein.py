@@ -4,7 +4,6 @@ Classes Protein, Peptide, ProteinComplex - prepares initial complex.
 
 import re
 from copy import deepcopy
-from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
 
@@ -53,18 +52,16 @@ class Protein(Atoms):
                             a.bfac = 1.
                         else:
                             a.bfac = rmsf2wts(a.bfac)
-                elif exists(flexibility):
-                    d, de = self.read_flexibility(flexibility)
-                    self.atoms.update_bfac(d, de)
-                elif exists(join(work_dir, flexibility)):
-                    d, de = self.read_flexibility(join(work_dir, flexibility))
-                    self.atoms.update_bfac(d, de)
                 else:
-                    logger.warning(
-                        module_name=_name,
-                        msg='Invalid protein_flexibility setting: \'%s\'. ' % flexibility
-                    )
-                    self.atoms.set_bfac(1.0)
+                    try:
+                        d, de = self.read_flexibility(flexibility)
+                        self.atoms.update_bfac(d, de)
+                    except IOError:
+                        logger.warning(
+                            module_name=_name,
+                            msg='Invalid protein_flexibility setting: \'%s\'. ' % flexibility
+                        )
+                        self.atoms.set_bfac(1.0)
         else:
             self.atoms.set_bfac(1.0)
 
@@ -123,7 +120,7 @@ class Protein(Atoms):
                     else:
                         _w = _default
                     self.weights.extend(_w)
-            except IOError as e:
+            except (TypeError, IOError) as e:
                 if type(weights) is bool:
                     self.weights = [a.bfac for a in self.atoms]
                 else:
