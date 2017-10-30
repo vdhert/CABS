@@ -2,6 +2,14 @@ import os
 import re
 import sys
 import argparse
+import imp
+
+try:
+    from CABS import logger, __version__
+except ImportError:
+    cabs_module = imp.find_module("CABS",["."])
+    imp.load_module("CABS",*cabs_module)
+ 
 from CABS import logger, __version__, _JUNK
 from shutil import rmtree
 
