@@ -3,9 +3,8 @@ Module for running cabsDock jobs.
 """
 import operator
 import os
-from math import ceil
-from abc import ABCMeta, abstractmethod
 
+from abc import ABCMeta, abstractmethod
 from CABS import logger
 from CABS.align import save_csv
 from CABS.cabs import CabsRun, _FORTRAN_COMMAND
@@ -289,31 +288,40 @@ class CABSTask(object):
     def save_models(self):
         # output folder
         output_folder = os.path.join(self.work_dir, 'output_pdbs')
+        logger.log_file(module_name=_name, msg="Saving pdb files to " + str(output_folder))
         try:
             os.mkdir(output_folder)
         except OSError:
-            pass
+            logger.warning(_name, "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.")
         # Saving the trajectory to PDBs:
         if 'R' in self.pdb_output:
+            logger.log_file(module_name=_name, msg='Saving replicas...')
             self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
         # Saving top1000 models to PDB:
-        #~ if 'F' in self.pdb_output:
-            #~ self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+        if 'F' in self.pdb_output:
+            logger.log_file(module_name=_name, msg='Saving filtered models...')
+            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
         # Saving clusters in CA representation
         if 'C' in self.pdb_output:
+            logger.log_file(module_name=_name, msg='Saving clusters...')
             for i, cluster in enumerate(self.clusters):
                 cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
-        # Saving top10 models:
+        # Saving final models:
         if 'M' in self.pdb_output:
             if self.aa_rebuild:
+                logger.log_file(module_name=_name, msg='Saving final models (in AA representation)')
                 pdb_medoids = self.medoids.to_pdb()
                 from CABS.ca2all import ca2all
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(
-                        fname, output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
-                        iterations=self.modeller_iterations
+                        fname,
+                        output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                        iterations=self.modeller_iterations,
+                        out_mdl=os.path.join(self.work_dir, 'output_data','modeller_output_{0}.txt'.format(i)),
+                        work_dir=self.work_dir
                     )
             else:
+                logger.log_file(module_name=_name, msg='Saving final models (in CA representation)')
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
 
 
@@ -444,49 +452,6 @@ class DockTask(CABSTask):
             self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir, colors=colors)
         logger.info(module_name=_name, msg="Plots successfully saved")
 
-    def save_models(self, replicas=True, topn=True, clusters=True, medoids='AA'):
-        output_folder = os.path.join(self.work_dir, 'output_pdbs')
-        logger.log_file(module_name=_name, msg="Saving pdb files to " + str(output_folder))
-        try:
-            os.mkdir(output_folder)
-        except OSError:
-            logger.warning(module_name=_name, msg="Possibly overwriting previous pdb files")
-
-        if replicas:
-            logger.log_file(module_name=_name, msg='Saving replicas...')
-            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
-
-        if topn:
-            logger.log_file(module_name=_name, msg='Saving top 1000 models...')
-            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
-
-        if clusters:
-            logger.log_file(module_name=_name, msg='Saving clusters...')
-            for i, cluster in enumerate(self.clusters):
-                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
-
-        logger.log_file(module_name=_name, msg='Saving medoids (in ' + medoids + ' representation)')
-        if medoids == 'CA':
-            # Saving top 10 models in CA representation:
-            self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
-        elif medoids == 'AA':
-            pdb_medoids = self.medoids.to_pdb()
-            if self.aa_rebuild:
-                # TODO - move progress bar to ca2all
-                progress = logger.ProgressBar(module_name="MODELLER", job_name="Modeller")
-                from CABS.ca2all import ca2all
-                for i, fname in enumerate(pdb_medoids):
-                    ca2all(
-                        fname, output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
-                        iterations=self.modeller_iterations,
-                        out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
-                        work_dir=self.work_dir
-                    )
-                    progress.update(ceil(100.0/len(pdb_medoids)))
-                progress.done()
-        logger.log_file(_name, "Modeller output saved to {}".format(os.path.join(self.work_dir, 'output_data')))
-        logger.debug(module_name=_name, msg='Saving models successful')
-
     def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         sc_traj_full, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
@@ -545,8 +510,12 @@ class FlexTask(CABSTask):
             insertion_clash=self.insertion_clash,
             work_dir=self.work_dir
         )
+
         if self.reference_pdb is None:
             self.reference_pdb = True
+
+        # remove filtered trajectory from pdb saving
+        self.pdb_output = self.pdb_output.replace('F', '')
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory

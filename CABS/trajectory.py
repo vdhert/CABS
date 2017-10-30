@@ -234,7 +234,7 @@ class Trajectory(object):
         return result
 
     def superimpose_to(self, reference, substructure):
-        """Superimposes trajectory substructore from self.template on given reference.
+        """Superimposes trajectory substructure from self.template on given reference.
 
         Arguments:
         reference -- structure template is to be superimposed on.
