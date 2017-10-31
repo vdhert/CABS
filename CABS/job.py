@@ -59,6 +59,7 @@ class CABSTask(object):
         self.peptide = kwargs.get('peptide')
         self.protein_flexibility = kwargs.get('protein_flexibility')
         self.protein_restraints = kwargs.get('protein_restraints')
+        self.protein_restraints_reduce = kwargs.get('protein_restraints_reduce')
         self.random_seed = kwargs.get('random_seed')
         self.reference_pdb = kwargs.get('reference_pdb')
         self.replicas = kwargs.get('replicas')
@@ -191,6 +192,10 @@ class CABSTask(object):
         protein_restraints = Restraints(
             self.initial_complex.protein.generate_restraints(*self.protein_restraints)
         )
+
+        # reduce number of restraints
+        if self.protein_restraints_reduce:
+            protein_restraints.reduce_by(self.protein_restraints_reduce)
 
         # additional restraints
         add_restraints = Restraints('')

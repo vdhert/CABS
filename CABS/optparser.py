@@ -92,8 +92,8 @@ dock_dict = {
     'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
-                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
+        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints',
+                            'protein-restraints-reduce', 'weighted-fit', 'weighted-fit-file']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
@@ -118,8 +118,8 @@ flex_dict = {
     'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('ss2', 3, 3.8, 8.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
-                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
+        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints',
+                            'protein-restraints-reduce', 'weighted-fit', 'weighted-fit-file']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
@@ -535,6 +535,14 @@ options = {
             'structure (helix, sheet)\n\n'
             'GAP specifies minimal gap along the main chain for two resiudes to be restrained.\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained.'
+    },
+    'protein-restraints-reduce':{
+        'metavar': 'FACTOR',
+        'type': float,
+        'help': 'Reduce number of protein restraints by a FACTOR, where factor is a number from [0, 1].\n'
+                'This option reduces the number of automatically generated restraints for the protein molecule in '
+                'order  to speed up computation. Restraints are randomly selected from all generated restraints, '
+                'so that the final number of restraints N_final = N_all * FACTOR.'
     },
     'random-seed': {
         'flag': '-z',

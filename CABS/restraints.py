@@ -1,6 +1,7 @@
 """Module for handling distance restraints"""
 
 from CABS.utils import PEPtoPEP1 as PP
+import random
 
 
 class Restraint:
@@ -54,6 +55,11 @@ class Restraints:
         for restr in self.data:
             restr.update_id(ids)
         return self
+
+    def reduce_by(self, factor):
+        if 0. < factor < 1.:
+            _count = int(len(self.data) * factor)
+            self.data = random.sample(self.data, _count)
 
 
 if __name__ == '__main__':
