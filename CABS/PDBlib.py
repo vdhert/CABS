@@ -18,7 +18,6 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
-_DSSP_COMMAND = 'dssp'
 
 
 class Pdb(object):
@@ -160,7 +159,7 @@ class Pdb(object):
                     module_name=_name,
                     msg='Matching declared [{}] with actual [{}] chain IDs in {}.'.format(chains, actual_chains, name)
                 )
-                if chains != actual_chains:
+                if set(chains) != set(actual_chains):
                     msg = 'Mismatch in chain IDs in {}: {} differs from {}'.format(name, chains, actual_chains)
                     logger.warning(_name, msg)
                     raise Exception(msg)
@@ -210,13 +209,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output=''):
+    def dssp(self, output='',command="dssp"):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([_DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
@@ -242,8 +241,9 @@ class Pdb(object):
             except (HTTPError, ConnectionError):
                 logger.warning(
                     module_name=_name,
-                    msg='Cannot connect to the DSSP server'
+                    msg='Cannot connect to the DSSP server. DSSP was not ran at all.'
                 )
+                return None
             finally:
                 try:
                     os.remove(tempfile)
@@ -297,7 +297,6 @@ class Pdb(object):
         r = req.post(url=url_api % 'create', files=files)
         r.raise_for_status()
         job_id = json.loads(r.content)['id']
-
         while True:
             r = req.get(url_api % 'status' + job_id)
             r.raise_for_status()

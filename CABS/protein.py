@@ -4,7 +4,6 @@ Classes Protein, Peptide, ProteinComplex - prepares initial complex.
 
 import re
 from copy import deepcopy
-from os.path import exists, join
 from random import randint
 from string import ascii_uppercase
 
@@ -13,6 +12,7 @@ from CABS import logger
 from CABS.PDBlib import Pdb
 from CABS.atom import Atoms
 from CABS.vector3d import Vector3d
+from CABS.utils import rmsf2wts
 
 _name = 'Protein'
 
@@ -22,13 +22,15 @@ class Protein(Atoms):
     Class for the protein molecule.
     """
 
-    def __init__(self, source, flexibility=None, exclude=None, work_dir='.'):
+    def __init__(self, source, flexibility=None, exclude=None, weights=None, work_dir='.',dssp_command="dssp"):
 
         Atoms.__init__(self)
 
         pdb = Pdb(source=source, selection='name CA')
         self.atoms = pdb.atoms.models()[0]
         logger.info(module_name=_name, msg="Loading %s as input protein" % source)
+
+        # setup flexibility
         if flexibility:
             try:
                 bfac = float(flexibility)
@@ -40,23 +42,30 @@ class Protein(Atoms):
                     for a in self.atoms:
                         if a.bfac > 1.:
                             a.bfac = 0.
+                        elif a.bfac < 0.:
+                            a.bfac = 1.
                         else:
                             a.bfac = 1. - a.bfac
-                elif exists(flexibility):
-                    d, de = self.read_flexibility(flexibility)
-                    self.atoms.update_bfac(d, de)
-                elif exists(join(work_dir, flexibility)):
-                    d, de = self.read_flexibility(join(work_dir, flexibility))
-                    self.atoms.update_bfac(d, de)
+                elif flexibility.lower() == 'bfg':
+                    for a in self.atoms:
+                        if a.bfac < 0.:
+                            a.bfac = 1.
+                        else:
+                            a.bfac = rmsf2wts(a.bfac)
                 else:
-                    logger.warning(
-                        module_name=_name,
-                        msg='Invalid protein_flexibility setting: \'%s\'. ' % flexibility
-                    )
-                    self.atoms.set_bfac(1.0)
+                    try:
+                        d, de = self.read_flexibility(flexibility)
+                        self.atoms.update_bfac(d, de)
+                    except IOError:
+                        logger.warning(
+                            module_name=_name,
+                            msg='Invalid protein_flexibility setting: \'%s\'. ' % flexibility
+                        )
+                        self.atoms.set_bfac(1.0)
         else:
             self.atoms.set_bfac(1.0)
 
+        # setup excluding
         self.exclude = {}
         if exclude:
             for s in exclude:
@@ -83,12 +92,41 @@ class Protein(Atoms):
                         chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
-        ss = pdb.dssp(output=work_dir)
+        ss = pdb.dssp(output=work_dir,command=dssp_command)
         self.old_ids = self.atoms.update_sec(ss).fix_broken_chains()
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
         for key, val in self.exclude.items():
             self.exclude[key] = [self.new_ids[r] for r in val]
+
+        # setup rmsd_weights
+        if weights:
+            _default = 1.0
+            self.weights = []
+            try:
+                wdict = {}
+                with open(weights, 'rb') as _file:
+                    for line in _file:
+                        k, v = line.split()[:2]
+                        wdict[k] = v
+
+                if 'default' in wdict:
+                    _default = float(wdict['default'])
+
+                for a in self.atoms:
+                    _w = wdict.get(a.resid_id())
+                    if _w:
+                        _w = float(_w)
+                    else:
+                        _w = _default
+                    self.weights.extend(_w)
+            except (TypeError, IOError) as e:
+                if type(weights) is bool:
+                    self.weights = [a.bfac for a in self.atoms]
+                else:
+                    raise e
+        else:
+            self.weights = None
 
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
@@ -175,7 +213,7 @@ class Peptide(Atoms):
     Class for the peptides.
     """
 
-    def __init__(self, source, conformation, location, work_dir='.'):
+    def __init__(self, source, conformation, location, work_dir='.',dssp_command="dssp"):
         logger.info(
             module_name=_name,
             msg='Loading ligand: {}, conformation - {}, location - {}'.format(
@@ -185,7 +223,7 @@ class Peptide(Atoms):
         try:
             pdb = Pdb(source=source, selection='name CA', no_exit=True)
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp(output=work_dir))
+            atoms.update_sec(pdb.dssp(output=work_dir,command=dssp_command))
         except Pdb.InvalidPdbInput:
             atoms = Atoms(source)
         atoms.set_bfac(0.0)
@@ -210,12 +248,13 @@ class ProteinComplex(Atoms):
     Class that assembles the initial complex.
     """
 
-    def __init__(self, protein, flexibility, exclude, peptides, replicas,
-                 separation, insertion_attempts, insertion_clash, work_dir):
+    def __init__(self, protein, flexibility, exclude, weights, peptides, replicas,
+                 separation, insertion_attempts, insertion_clash, work_dir,dssp_command):
         logger.debug(module_name=_name, msg = "Preparing the complex")
         Atoms.__init__(self)
 
-        self.protein = Protein(protein, flexibility=flexibility, exclude=exclude, work_dir=work_dir)
+        self.protein = Protein(protein, flexibility=flexibility, exclude=exclude,
+                               weights=weights, work_dir=work_dir,dssp_command=dssp_command)
         self.chain_list = self.protein.list_chains()
         self.protein_chains = ''.join(self.chain_list.keys())
         self.old_ids = deepcopy(self.protein.old_ids)
@@ -225,7 +264,7 @@ class ProteinComplex(Atoms):
         if peptides:
             taken_chains = self.protein_chains + 'X'
             for num, p in enumerate(peptides):
-                peptide = Peptide(*p, work_dir=work_dir)
+                peptide = Peptide(*p, work_dir=work_dir,dssp_command=dssp_command)
                 if peptide[0].chid in taken_chains:
                     peptide.change_chid(peptide[0].chid, utils.next_letter(taken_chains))
                 taken_chains += peptide[0].chid
