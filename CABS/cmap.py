@@ -7,6 +7,8 @@ import numpy
 import operator
 
 import matplotlib.pyplot
+matplotlib.pyplot.switch_backend('agg')
+import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.colors
 

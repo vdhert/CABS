@@ -1,4 +1,5 @@
 import matplotlib.pyplot
+matplotlib.pyplot.switch_backend('agg')
 from matplotlib.ticker import MaxNLocator
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import IndexFormatter
