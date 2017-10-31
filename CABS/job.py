@@ -5,13 +5,11 @@ import operator
 import os
 
 from abc import ABCMeta, abstractmethod
-from CABS import logger
+from CABS import logger, PDBlib, cabs
 from CABS.align import save_csv
-from CABS.cabs import CabsRun, _FORTRAN_COMMAND
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
-from CABS.PDBlib import Pdb, _DSSP_COMMAND
 from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
@@ -242,7 +240,7 @@ class CABSTask(object):
     def setup_cabs_run(self):
         logger.info(module_name="CABS", msg='Setting up CABS simulation.')
         # Initializing CabsRun instance
-        self.cabsrun = CabsRun(
+        self.cabsrun = cabs.CabsRun(
             protein_complex=self.initial_complex,
             restraints=self.prepare_restraints(),
             work_dir=self.work_dir,
@@ -345,7 +343,8 @@ class DockTask(CABSTask):
             separation=self.separation,
             insertion_attempts=self.insertion_attempts,
             insertion_clash=self.insertion_clash,
-            work_dir=self.work_dir
+            work_dir=self.work_dir,
+            dssp_command=self.dssp_command
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -456,10 +455,15 @@ class DockTask(CABSTask):
         # Contact maps
         if self.contact_maps:
             logger.log_file(module_name=_name, msg="Saving contact maps")
-            self.mk_cmaps(self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir, colors=colors)
+            self.mk_cmaps(
+                self.trajectory, self.medoids, self.clusters_dict, self.filtered_ndx, 4.5, pltdir, colors=colors
+            )
         logger.info(module_name=_name, msg="Plots successfully saved")
 
-    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
+    def mk_cmaps(
+            self, ca_traj, meds, clusts, top1k_inds, thr, plots_dir,
+            colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']
+    ):
         sc_traj_full, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
@@ -494,10 +498,10 @@ class DockTask(CABSTask):
     def parse_reference(self, ref):
         try:
             source, rec, pep = ref.split(':')
-            self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+            self.reference = (PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
-        except (ValueError, Pdb.InvalidPdbInput):
+        except (ValueError, PDBlib.Pdb.InvalidPdbInput):
             logger.warning(_name, 'Invalid reference {}'.format(ref))
             self.reference = None
 
@@ -516,7 +520,8 @@ class FlexTask(CABSTask):
             separation=self.separation,
             insertion_attempts=self.insertion_attempts,
             insertion_clash=self.insertion_clash,
-            work_dir=self.work_dir
+            work_dir=self.work_dir,
+            dssp_command=self.dssp_command
         )
 
         if self.reference_pdb is None:
@@ -599,10 +604,12 @@ class FlexTask(CABSTask):
         try:
             try:
                 dummy, trg_chids = ref.split(":")
-                self.reference = (Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids)
+                self.reference = (
+                    PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids
+                )
             except AttributeError: # if ref is None it has no split mth
                 self.reference = (self.initial_complex, self.initial_complex.protein_chains)
-        except Pdb.InvalidPdbInput:
+        except PDBlib.Pdb.InvalidPdbInput:
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
     def draw_plots(self, plots_dir=None, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):

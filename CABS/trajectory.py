@@ -66,7 +66,7 @@ class Header:
         :return: int the energy value.
         """
         if mode == 'interaction':
-            #number_of_peptides fixes energy calculations
+            # number_of_peptides fixes energy calculations
             if number_of_peptides is None:
                 print("Unknown number of peptides. Assuming 1.")
                 num_pept = 1
@@ -245,13 +245,13 @@ class Trajectory(object):
         pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
 
         t = reference.to_matrix()
-        t_com = np.average(t, 0)
+        t_com = np.average(t, 0, weights=self.weights)
         t = np.subtract(t, t_com)
 
         shape = self.coordinates.shape
         for model in self.coordinates.reshape(-1, len(self.template), 3):
             query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
-            q_com = np.average(query, 0)
+            q_com = np.average(query, 0, weights=self.weights)
             q = np.subtract(query, q_com)
             np.copyto(
                 model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(
@@ -312,14 +312,14 @@ class Trajectory(object):
 
         Both given substructure have to be the same length (and in aligned order).
         """
-        rmsd = utils.rmsdw if self.weights else utils.rmsd
+        #rmsd = utils.rmsdw if self.weights else utils.rmsd
         ref_trg = np.array(ref_sstc.to_matrix())
         aln_traj = self.select(template=self_sstc)
         length = len(aln_traj.template)
         models = aln_traj.coordinates.reshape(-1, length, 3)
         result = np.zeros(len(models))
         for i, h in zip(range(len(models)), self.headers):
-            result[i] = rmsd(models[i], ref_trg, length, self.weights)
+            result[i] = utils.rmsd(models[i], ref_trg, length)
             h.rmsd = result[i]
         return result
 

@@ -14,12 +14,12 @@ from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime
 
-from CABS import logger
+from CABS import logger, _JUNK
 from CABS.vector3d import Vector3d
 from CABS.trajectory import Trajectory
 
 _name = 'CABS'
-_FORTRAN_COMMAND = 'gfortran -O2'
+_FORTRAN_COMMAND = 'gfortran -O2' # TODO
 
 
 class CabsLattice:
@@ -140,6 +140,8 @@ class CabsRun(Thread):
             prefix=strftime('.%d%b.%H:%M:%S.'),
             dir=work_dir
         )
+
+        _JUNK.append(cabs_dir)
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)
