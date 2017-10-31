@@ -201,7 +201,7 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
         matplotlib.pyplot.close(fig)
         drop_csv_file(tfname, (map(str, nfs), rmsd_lst), fmts=("%s", "%.3f"))
 
-def graph_RMSF(trajectory, chains, fname, hist=False):
+def graph_RMSF(trajectory, chains, fname, hist=False,fmt='svg'):
     if hist:
         rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
         lbls = _chunk_lst([i.fmt() for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
@@ -209,7 +209,7 @@ def graph_RMSF(trajectory, chains, fname, hist=False):
     else:
         rmsf_vals = [trajectory.rmsf(chains)]
         lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
-        plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq')
+        plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq',fmt)
     drop_csv_file(fname, (tuple(chain(*lbls)), tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
 
 def plot_RMSF_seq(series, labels, fname, fmt='svg'):
