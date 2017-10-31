@@ -333,6 +333,8 @@ class DockTask(CABSTask):
     """Class representing single CABS job."""
 
     def setup_job(self):
+        if not self.peptide:
+            raise ValueError('No peptide given')
         self.initial_complex = ProteinComplex(
             protein=self.input_protein,
             flexibility=self.protein_flexibility,

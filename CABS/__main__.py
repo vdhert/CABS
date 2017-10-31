@@ -47,6 +47,10 @@ def run_dock(cmd_line=sys.argv[1:]):
             module_name='CABSdock',
             msg='Interrupted by user.'
         )
+    except ValueError:  #when no peptide is loaded
+        logger.critical(
+            module_name="CABSdock",
+            msg="No peptide(s) to dock.")
     except Exception as e:
         logger.critical(
             module_name="CABSdock",
