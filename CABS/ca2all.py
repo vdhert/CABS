@@ -4,12 +4,16 @@ import argparse
 from tempfile import mkstemp
 from os.path import basename
 from contextlib import closing
-from modeller import *
-from modeller.automodel import *
-
 from CABS import logger
 
+
 _name = 'MODELLER'
+
+try:
+    from modeller import *
+    from modeller.automodel import *
+except ImportError:
+    logger.warning(_name, 'MODELLER NOT FOUND')
 
 
 def ca2all(

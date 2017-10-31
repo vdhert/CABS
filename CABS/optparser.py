@@ -89,7 +89,7 @@ dock_dict = {
         'publication] provides the same modeling methodology equipped with many additional features and customizable '
         'options.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0),"aa-rebuild":True},
+    'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
         ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
@@ -115,7 +115,7 @@ flex_dict = {
     'description':
         'CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('ss2', 3, 3.8, 8.0),"aa-rebuild":True},
+    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('ss2', 3, 3.8, 8.0)},
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
