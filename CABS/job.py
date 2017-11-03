@@ -3,6 +3,7 @@ Module for running cabsDock jobs.
 """
 import operator
 import os
+from shutil import copyfile
 
 from abc import ABCMeta, abstractmethod
 from CABS import logger, PDBlib, cabs
@@ -140,6 +141,8 @@ class CABSTask(object):
         if withcabs:
             self.setup_cabs_run()
             self.execute_cabs_run()
+        if self.save_cabs_files:
+            self.save_cabs_res()
         self.load_output(ftraf, fseq)
         self.score_results(
             n_filtered=self.filtering_count,
@@ -153,6 +156,14 @@ class CABSTask(object):
         self.draw_plots(colors=self.colors)
         self.save_models()
         logger.info(module_name=_name, msg='Simulation completed successfully')
+
+    def save_cabs_res(self):
+        traf = os.path.join(self.cabsrun.cfg['cwd'], 'TRAF')
+        seq = os.path.join(self.cabsrun.cfg['cwd'], 'SEQ')
+        traf_dst = os.path.join(self.work_dir, 'TRAF')
+        seq_dst = os.path.join(self.work_dir, 'SEQ')
+        copyfile(traf, traf_dst)
+        copyfile(seq, seq_dst)
 
     @abstractmethod
     def setup_job(self):
