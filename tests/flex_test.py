@@ -6,12 +6,35 @@ import os
 import sys
 from argparse import ArgumentParser as AP
 from shutil import rmtree
+from StringIO import StringIO
 
 from CABS.job import FlexTask
 from CABS.optparser import FlexParser
 
 ap = AP()
 ap.add_argument('--fast', action='store_true', default=False)
+
+
+def add_args_and_workdir(args):
+    def decorTD(mth):
+        def wrapped(self):
+            ddir, prsr = self.mk_parser(args)
+            mth(self, ddir, prsr)
+            rmtree(ddir)
+        return wrapped
+    return decorTD
+
+class FlexParserTest(TestCase):
+
+    def test_FPinit(self):
+        #~ FlexParser.parse_args([])
+        FlexParser.parse_args(['-i', '1hpw'])
+        #~ std = StringIO()
+        #~ sys.stdout = std
+        #~ FlexParser.parse_args(['-i',])
+        #~ sys.stdout = sys.__stdout__
+        #~ self.assertTrue('error' in std.read())
+        #TODO -- przechwytywanie stdout i sprawdzanie wyjatku przy braku inputu
 
 
 class FlexTest(TestCase):
@@ -21,13 +44,12 @@ class FlexTest(TestCase):
         prsr = FlexParser.parse_args(lst + ['--work-dir', ddir])
         return ddir, prsr
 
-    def test_init(self):
-        ddir, prsr = self.mk_parser(['-i', '1hpw', '--verbose', '-1'])
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    def test_FTinit(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
-        rmtree(ddir)
 
-    def test_default(self):
-        ddir, prsr = self.mk_parser(['-i', '1hpw', '--verbose', '-1'])
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    def test_default(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         self.assertEqual(tsk.mc_steps, 50)
         self.assertEqual(tsk.replicas, 1)
@@ -37,17 +59,15 @@ class FlexTest(TestCase):
         self.assertEqual(tsk.protein_restraints, ('ss2', 3, 3.8, 8.0))
         self.assertEqual(tsk.work_dir, ddir)
         self.assertEqual(tsk.verbose, -1)
-        rmtree(ddir)
-        #TODO test no input given
 
-    def test_output_completeness(self):
-        ddir, prsr = self.mk_parser([
+    @add_args_and_workdir([
             '-i', '1hpw',
             '--mc-steps', '1',
             '--mc-cycles', '10',
             '--mc-annealing', '1',
             '--verbose', '-1',
         ])
+    def test_output_completeness(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         tsk.run()
         lst = os.listdir(ddir)
@@ -62,12 +82,11 @@ class FlexTest(TestCase):
         for i, j in outSet.items():
             lst = os.listdir(ddir + '/' + i)
             self.assertEqual(set(lst).intersection(j), set(j))
-        rmtree(ddir)
 
-    def test_run_default(self):
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    def test_run_default(self, ddir, prsr):
         if cla.fast:
             raise SkipTest
-        ddir, prsr = self.mk_parser(['-i', '1hpw', '--verbose', '-1'])
         tsk = FlexTask(**vars(prsr))
         tsk.run()
 
@@ -81,20 +100,18 @@ class FlexTest(TestCase):
 
         rmtree(ddir)
 
-    def test_run(self):
-        ddir, prsr = self.mk_parser([
+    @add_args_and_workdir([
             '-i', '1hpw',
             '--mc-steps', '1',
             '--mc-cycles', '10',
             '--mc-annealing', '1',
             '--verbose', '-1',
         ])
+    def test_run(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         tsk.run()
-        rmtree(ddir)
 
-    def test_save_CABS_files(self):
-        ddir, prsr = self.mk_parser([
+    @add_args_and_workdir([
             '-i', '1hpw',
             '--mc-steps', '1',
             '--mc-cycles', '10',
@@ -102,23 +119,27 @@ class FlexTest(TestCase):
             '--save-cabs-files',
             '--verbose', '-1',
         ])
+    def test_save_CABS_files(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         tsk.run()
         self.assertTrue('SEQ' in os.listdir(ddir))
         self.assertTrue('TRAF' in os.listdir(ddir))
-        rmtree(ddir)
 
-    def test_analysis(self):
-        ddir, prsr = self.mk_parser([
+    @add_args_and_workdir([
             '-i', '1hpw',
             '--load-cabs-files', 'tests/data/1hpw/TRAF', 'tests/data/1hpw/SEQ',
             '--verbose', '-1',
         ])
+    def test_analysis(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         tsk.run()
-        rmtree(ddir)
-        #TODO add files to data/1hpw
-        #TODO assert results are the same as in data
+        with open(os.path.join(ddir, 'output_pdbs', 'replica.pdb')) as f:
+            result = f.readlines()
+        with open('tests/data/1hpw/replica.pdb') as f:
+            template = f.readlines()
+        self.assertEqual(result, template)
+        #TODO jak bedzie seed -- dorobic klastrowanie
+        #TODO zbadac inne pliki -- jakie?
 
 
 if __name__ == '__main__':

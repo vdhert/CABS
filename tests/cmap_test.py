@@ -1,15 +1,18 @@
 from unittest import TestCase
 from unittest import main
 from unittest import SkipTest
-from cabsDock.utils import SCModeler
-from cabsDock.utils import SIDECNT
-from cabsDock.job import Job
+from CABS.utils import SCModeler
+from CABS.utils import SIDECNT
+from CABS.job import FlexTask
+from CABS.cmap import ContactMapFactory
+
 import pickle
 import numpy
 import sys
 import os
 import random
 import tempfile
+
 from argparse import ArgumentParser as AP
 
 
@@ -17,33 +20,45 @@ class CMapMakerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ddir = tempfile.gettempdir() + "/tmpCABS/"
-        try: os.mkdir(ddir)
-        except OSError: pass
-        cls.j = Job(
-            work_dir=ddir,
-            receptor='1klu:AB',
-            ligand=[['GELIGTLNAAKVPAD:CCCEEEECCEECCCC', 'random', 'random']],
-            mc_cycles=20,
-            mc_steps=50,
-            replicas=10,
-            load_cabs_files=(cla.data_path + '1klu/TRAF', cla.data_path + '1klu/SEQ'),
-            AA_rebuild=False
-            )
-        cls.j.cabsdock()
 
-    def test_contact_frequencies(self):
-        pass
+        class DummyAtom(object):
+            def __init__(self, ch):
+                self.chid = ch
+
+        class DummyAtoms(object):
+            atoms = [DummyAtom('A') for i in range(20)]
+            atoms += [DummyAtom('B') for i in range(20)]
+
+        cls.DA = DummyAtoms
+
+    def test_factory_init(self):
+        cmf = ContactMapFactory('A', 'B', self.DA)
+        self.assertEqual(cmf.inds1.__len__(), 20)
+        self.assertEqual(cmf.inds2.__len__(), 20)
+        self.assertEqual(cmf.ats1.__len__(), 20)
+        self.assertEqual(cmf.ats2.__len__(), 20)
+        cmf = ContactMapFactory('A', 'AB', self.DA)
+        self.assertEqual(cmf.inds1.__len__(), 20)
+        self.assertEqual(cmf.inds2.__len__(), 40)
+        self.assertEqual(cmf.ats1.__len__(), 20)
+        self.assertEqual(cmf.ats2.__len__(), 40)
+
+    def test_factory_mk_dmtx(self):
+        cmf1 = ContactMapFactory('A', 'B', self.DA)
+        cmf2 = ContactMapFactory('A', 'AB', self.DA)
+        cmf3 = ContactMapFactory('A', 'A', self.DA)
+        vector = numpy.arange(40 * 3).reshape(-1, 1, 3)
+        res1 = cmf1.mk_dmtx(vector)
+        res2 = cmf2.mk_dmtx(vector)
+        res3 = cmf3.mk_dmtx(vector)
+        self.assertEqual(res1.shape, (20, 20))
+        self.assertEqual(res2.shape, (20, 40))
+        #TODO check values
 
 class SCModelerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with open(cla.data_path + 'traj.pck') as f:
-            cls.traj = pickle.load(f)
-        with open(cla.data_path + 'cplx.pck') as f:
-            cls.temp = pickle.load(f)
-
         cls.aas = ['ALA', 'CYS', 'GLU', 'ASP', 'GLY', 'PHE', 'ILE', 'HIS', 'LYS', 'MET', 'LEU', 'ASN', 'GLN', 'PRO', 'SER', 'ARG', 'THR', 'TRP', 'VAL', 'TYR']
 
         class DummyAtom(object):
@@ -53,9 +68,11 @@ class SCModelerTest(TestCase):
         cls.dm = DummyAtom
 
     def test_init(self):
-        SCModeler(self.temp.atoms)
+        SCModeler([self.dm(i) for i in self.aas])
+        SCModeler([self.dm(random.choice(self.aas)) for i in range(100)])
 
-    #~ def test_rebuild_one_pickled_CB(self):
+    def test_rebuild_one_pickled_CB(self):
+        raise Exception('No test')
         #~ scm = SCModeler(self.temp.atoms)
         #~ frame = self.traj.coordinates[1, 1, ...]
         #~ rbld = scm.rebuild_one(frame, False)
