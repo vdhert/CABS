@@ -18,13 +18,17 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
+PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+try:
+    os.makedirs(PDB_CACHE)
+except OSError:
+    pass
 
 
 class Pdb(object):
     """
     Pdb parser.
     """
-    PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
 
     class InvalidPdbInput(Exception):
         pass
@@ -181,7 +185,7 @@ class Pdb(object):
             raise IOError
 
         pdb_low = pdb_code.lower()
-        path = join(Pdb.PDB_CACHE, pdb_low[1:3])
+        path = join(PDB_CACHE, pdb_low[1:3])
         try:
             os.makedirs(path)
         except OSError:
@@ -209,7 +213,7 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output='',command="dssp"):
+    def dssp(self, output='', command="dssp"):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
@@ -227,7 +231,7 @@ class Pdb(object):
                 msg='DSSP not found.'
             )
 
-            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=Pdb.PDB_CACHE)[1]
+            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=PDB_CACHE)[1]
             with open(tempfile, 'wb') as f:
                 f.write(self.body)
 
