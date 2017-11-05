@@ -3,6 +3,7 @@ Module for running cabsDock jobs.
 """
 import operator
 import os
+import re
 from shutil import copyfile
 
 from abc import ABCMeta, abstractmethod
@@ -16,7 +17,7 @@ from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
 from CABS.utils import SCModeler, CONFIG_HEADER
-
+import CABS.optparser as opt_parser
 
 _name = 'JOB'
 
@@ -233,25 +234,14 @@ class CABSTask(object):
             with open(os.path.join(self.work_dir, 'config.ini'), 'w') as configfile:
                 configfile.write(CONFIG_HEADER)
                 for k in sorted(self.config):
-                    peptide_counter = 0
                     value = self.config[k]
-                    line = str(k)+': '
-                    if k == 'ligand':
-                        for lgnd in value:
-                            if peptide_counter == 0:
-                                line = 'peptide: '
-                            else:
-                                line += '\nadd-peptide: '
-                            for element in lgnd:
-                                line += str(element)+' '
-                            peptide_counter += 1
-                    elif isinstance(value, tuple):
-                        line = str(k) + ': '
-                        for item in value:
-                            line += str(item)+' '
-                    else:
-                        line = str(k) + ': '+str(value)
-                    configfile.write('\n'+line)
+                    name = re.sub("_","-",str(k))
+                    option = opt_parser.option_formatter(name,value)
+                    try:
+                        configfile.write(option)
+                    except:
+                        logger.critical(module_name=_name,
+                                        msg="Failed to save %s option to config file" % name)
 
     def setup_cabs_run(self):
         logger.info(module_name="CABS", msg='Setting up CABS simulation.')

@@ -2,6 +2,8 @@ import argparse
 import textwrap
 import re
 from copy import deepcopy as dc
+import os
+from CABS import logger
 
 _HELPW = 100
 _wrapper = textwrap.TextWrapper(width=_HELPW, break_long_words=True, expand_tabs=False)
@@ -44,8 +46,11 @@ class ConfigFileParser:
                     self.args.append('--' + option.strip())
                     self.args.extend(value.split('#')[0].split(';')[0].split())
                 else:
-                    self.args.extend(line.split('#')[0].split(';')[0].split())
-
+                    try:
+                        test = ["--" + line.split('#')[0].split(';')[0].split()[0]]
+                        self.args.extend(test) # proba wylapania flag
+                    except Exception:
+                        pass
 
 def mk_parser(parser_dict, group_dict, option_dict):
 
@@ -672,3 +677,86 @@ options = {
 
 DockParser = mk_parser(dock_dict, dc(groups), dc(options))
 FlexParser = mk_parser(flex_dict, dc(groups), dc(options))
+
+
+
+def if_append(option_name, value):
+    """ Handles appended arguments that come as both lists of lists and lists of arguments"""
+    try:
+        if options[option_name]["action"] == "append":
+            try:
+                nargs = options[option_name]['nargs']
+                if type(value) == list:
+                    line = ""
+                    for single_value in value:
+                        line += "\n" + option_name + " : " + " ".join([str(i) for i in single_value])
+                    return line
+                else:
+                    logger.warning(module_name="OptParse",
+                                   msg="Issues while saving multiple argument option: %s" % option_name)
+                    raise KeyError
+
+            except KeyError:
+                if type(value) == list:
+                    line = ""
+                    for single_value in value:
+                        line += "\n" + option_name + " : " + str(single_value)
+                    return line
+                else:
+                    logger.warning(module_name="OptParse",
+                                   msg="Issues while saving appended argument option: %s" % option_name)
+                    raise KeyError
+            except Exception:
+                logger.warning(module_name="OptParse",
+                               msg="Issues while saving %s option" % option_name)
+                raise KeyError
+        else:
+            raise KeyError
+    except KeyError:
+        raise
+
+def if_store_true(option_name,value):
+    """ Catches flags that are not True"""
+    try:
+        if options[option_name]["action"] == "store_true":
+            if value == True:
+                return "\n"+option_name
+            else:
+                return " "
+    except KeyError:
+        raise
+
+def if_nargs(option_name,value):
+    """ Handles options that come as lists"""
+    try:
+        nargs = options[option_name]["nargs"]
+        return "\n" + option_name + " : " + " ".join([str(i).strip("#") for i in value]) # "#" for contact maps colors
+    except KeyError:
+        raise
+
+def if_wd(option_name,value):
+    if option_name == "work-dir":
+        return "\n" + option_name +" : " + os.path.abspath(value)
+    else:
+        raise KeyError
+
+special_cases = [if_append,
+                       if_store_true,
+                       if_nargs,
+                       if_wd]
+
+def option_formatter(option,value):
+    """
+     Provides a string with properly formatted option to save in config file
+     If value is False the option is ignored, this should be in line with options design
+    """
+
+    if value is None or not value:
+        return " "
+    for func in special_cases:
+        try:
+            return func(option,value)
+        except KeyError:
+            pass
+    return "\n"+option + " : " + str(value)
+
