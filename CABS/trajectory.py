@@ -72,8 +72,8 @@ class Header:
                 num_pept = 1
             else:
                 num_pept = number_of_peptides
-            int_submtrx_size = self.energy.shape[0]-num_pept
-            int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
+            int_submtrx_size = self.energy.shape[0] - num_pept
+            int_enrg = np.sum(self.energy[:int_submtrx_size, -num_pept:])
             return int_enrg
         elif mode == 'total':
             return np.sum(np.tril(self.energy))
@@ -193,7 +193,7 @@ class Trajectory(object):
         if not template:
             template = self.template.select(selection)
         inds = [self.template.atoms.index(a) for a in template]
-        return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
+        return Trajectory(template, self.coordinates[:, :, inds, :], self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -203,7 +203,7 @@ class Trajectory(object):
             atoms = deepcopy(self.template)
             num += 1
             atoms.set_model_number(num)
-            atoms.from_matrix(model)
+            atoms.from_numpy(model)
             result.extend(atoms)
         self.coordinates.reshape(shape)
         return result
@@ -214,11 +214,9 @@ class Trajectory(object):
         :return: np.array
         """
 
-        model_length = len(self.template)
-        models = self.coordinates.reshape(-1, model_length, 3)
+        models = self.coordinates.reshape(-1, len(self.template), 3)
         dim = len(models)
         result = np.zeros((dim, dim))
-        rmsd = utils.rmsdw if self.weights else utils.rmsd
 
         if msg:
             bar = logger.ProgressBar((dim * dim - dim) / 2, start_msg=msg)
@@ -228,7 +226,7 @@ class Trajectory(object):
             for j in range(i + 1, dim):
                 if bar:
                     bar.update()
-                result[i, j] = result[j, i] = rmsd(models[i], models[j], model_length, self.weights)
+                result[i, j] = result[j, i] = utils.rmsd(models[i], models[j])
         if bar:
             bar.done(True)
         return result
@@ -243,20 +241,23 @@ class Trajectory(object):
         This method modifies trajectory in place.
         """
         pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
+        target = reference.to_numpy()
 
-        t = reference.to_matrix()
-        t_com = np.average(t, 0, weights=self.weights)
-        t = np.subtract(t, t_com)
+        if self.weights:
+            t_com = np.average(target, axis=0, weights=self.weights)
+            target = target - t_com
 
-        shape = self.coordinates.shape
-        for model in self.coordinates.reshape(-1, len(self.template), 3):
-            query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
-            q_com = np.average(query, 0, weights=self.weights)
-            q = np.subtract(query, q_com)
-            np.copyto(
-                model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(
-                    t, q, weights=self.weights, concentric=True
-                )), t_com))
+            for model in self.coordinates.reshape(-1, len(self.template), 3):
+                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                query = query - np.average(query, axis=0, weights=self.weights)
+                query = np.dot(query, utils.kabsch(target, query, weights=self.weights, concentric=True)) + t_com
+                np.copyto(model, query)
+
+        else:  # dynamic weights
+            for model in self.coordinates.reshape(-1, len(self.template), 3):
+                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                rot, t_com, q_com = utils.dynamic_kabsch(target, query)
+                np.copyto(model, np.dot(model - q_com, rot) + t_com)
 
     def align_to(self, ref_stc, ref_chs, self_chs, align_mth='SW', kwargs={}):
         """Calculates alignment of template to given reference structure.
@@ -313,7 +314,7 @@ class Trajectory(object):
         Both given substructure have to be the same length (and in aligned order).
         """
         #rmsd = utils.rmsdw if self.weights else utils.rmsd
-        ref_trg = np.array(ref_sstc.to_matrix())
+        ref_trg = np.array(ref_sstc.to_numpy())
         aln_traj = self.select(template=self_sstc)
         length = len(aln_traj.template)
         models = aln_traj.coordinates.reshape(-1, length, 3)
@@ -328,7 +329,7 @@ class Trajectory(object):
         coordinates = self.coordinates.reshape(-1, len(self.template), 3)[model]
         atoms = deepcopy(self.template)
         atoms.set_model_number(model + 1)
-        m = atoms.from_matrix(coordinates)
+        m = atoms.from_numpy(coordinates)
         self.coordinates.reshape(shape)
         return m
 

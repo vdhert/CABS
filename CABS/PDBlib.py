@@ -30,6 +30,8 @@ class Pdb(object):
     Pdb parser.
     """
 
+    DSSP_COMMAND = 'dssp'
+
     class InvalidPdbInput(Exception):
         pass
 
@@ -213,13 +215,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output='', command="dssp"):
+    def dssp(self, output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
