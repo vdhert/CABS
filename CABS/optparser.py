@@ -424,10 +424,10 @@ options = {
     'load-cabs-files': {
         'flag': '-L',
         'metavar': 'FILE',
-        'nargs': 2,
         'help':
             'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectories (with new '
             'settings, for example using a reference complex structure and --reference option).'
+            'Both a path to a file or a path to a directory containing a _CABS.cls file are valid inputs. '
     },
     'mc-annealing': {
         'flag': '-a',
@@ -584,7 +584,8 @@ options = {
     'save-cabs-files': {
         'flag': '-S',
         'action': 'store_true',
-        'help': 'Save CABSdock simulation files. (default: %(default)s)'
+        'help': 'Save CABSdock simulation files. The file will have a TIMESTAMP_CABS.cls format. '
+                'For example:  06Nov.16:19:24.knWPtn_CABS.cls (default: %(default)s)'
     },
     'save-config': {
         'flag': '-C',

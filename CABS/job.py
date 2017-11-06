@@ -4,7 +4,10 @@ Module for running cabsDock jobs.
 import operator
 import os
 import re
-from shutil import copyfile
+import tarfile
+import glob
+from tempfile import mktemp
+from time import strftime
 
 from abc import ABCMeta, abstractmethod
 from CABS import logger, PDBlib, cabs
@@ -20,7 +23,7 @@ from CABS.utils import SCModeler, CONFIG_HEADER
 import CABS.optparser as opt_parser
 
 _name = 'JOB'
-
+_CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS"]
 
 class CABSTask(object):
     """Abstract CABS job instance."""
@@ -107,10 +110,18 @@ class CABSTask(object):
                     _name, '{} already exists and is not a directory. Choose different name.'.format(self.work_dir)
                 )
 
-        try:
-            self.file_TRAF, self.file_SEQ = self.load_cabs_files
-        except (ValueError, TypeError):
-            self.file_TRAF = self.file_SEQ = None
+        self.file_TRAF = self.file_SEQ = None
+        if self.load_cabs_files:
+            try:
+                self.load_cabs_results()
+                self.file_TRAF, self.file_SEQ = os.path.join(self.work_dir,"TRAF"),os.path.join(self.work_dir,"SEQ")
+            except (ValueError, TypeError,IOError) as e:
+                logger.exit_program(module_name=_name,
+                                    msg="Could not load CABS files from %s. An error occurred: %s" % (self.load_cabs_files,e),
+                                    exc=e)
+
+
+
 
         # self.peptide + self.add_peptide -> self.ligand
         self.peptides = []
@@ -156,15 +167,55 @@ class CABSTask(object):
         self.save_config_file()
         self.draw_plots(colors=self.colors)
         self.save_models()
+        if self.load_cabs_files:
+            for file in _CABS_files:
+                os.remove(os.path.join(self.work_dir,file))
         logger.info(module_name=_name, msg='Simulation completed successfully')
 
     def save_cabs_res(self):
-        traf = os.path.join(self.cabsrun.cfg['cwd'], 'TRAF')
-        seq = os.path.join(self.cabsrun.cfg['cwd'], 'SEQ')
-        traf_dst = os.path.join(self.work_dir, 'TRAF')
-        seq_dst = os.path.join(self.work_dir, 'SEQ')
-        copyfile(traf, traf_dst)
-        copyfile(seq, seq_dst)
+        tar_dir = os.path.join(self.work_dir,
+                               mktemp(prefix=strftime('.%d%b.%H:%M:%S.')[1:],
+                                      dir=self.work_dir)
+                                        +"_CABS.cls")
+        with tarfile.open(tar_dir,"w:gz") as tar:
+            logger.log_file(module_name=_name,
+                            msg="Saving CABS simulation files to: %s" % tar_dir )
+            for file_name in _CABS_files:
+                tar.add(os.path.join(self.cabsrun.cfg['cwd'], file_name),arcname=file_name)
+
+    def load_cabs_results(self):
+        if not os.path.exists(self.load_cabs_files):
+            logger.exit_program(module_name=_name,
+                                msg="Provided CABS files path does not exist (%s)" % self.load_cabs_files,
+                                traceback=False)
+        try:
+            files = glob.glob(os.path.join(self.load_cabs_files, "*_CABS.cls"))
+            if len(files) > 1:
+                logger.critical(module_name=_name,
+                                msg="More than one _CABS.cls file in provided directory %s "
+                                    % " \n".join(files))
+                logger.exit_program(module_name=_name,
+                                    msg="Please re-run with--load-cabs-files <filename> or remove the files you do not need. Quiting.",
+                                    traceback=False)
+            elif len(files) == 1:
+                logger.info(module_name=_name,
+                            msg="Loading CABS files from %s" % files[0])
+                with tarfile.open(files[0], "r:gz") as f:
+                    f.extractall(os.path.join(self.work_dir))
+
+            else:
+                raise IOError
+
+        except IOError:
+            files_loc = self.load_cabs_files
+            try:
+                with tarfile.open(files_loc,"r:gz") as f:
+                    logger.info(module_name=_name,
+                                msg="Loading CABS files from %s" % files_loc)
+                    f.extractall(os.path.join(self.work_dir))
+            except IOError:
+                raise
+        return
 
     @abstractmethod
     def setup_job(self):
