@@ -5,6 +5,7 @@ from CABS.utils import SCModeler
 from CABS.utils import SIDECNT
 from CABS.job import FlexTask
 from CABS.cmap import ContactMapFactory
+from CABS.cmap import ContactMap
 
 import pickle
 import numpy
@@ -15,21 +16,30 @@ import tempfile
 
 from argparse import ArgumentParser as AP
 
-
 class CMapMakerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
 
         class DummyAtom(object):
+            n = 0
             def __init__(self, ch):
                 self.chid = ch
+                self.n = DummyAtom.n
+                DummyAtom.n += 1
+            def fmt(self):
+                return "%s%i" % (self.chid, self.n)
 
         class DummyAtoms(object):
             atoms = [DummyAtom('A') for i in range(20)]
             atoms += [DummyAtom('B') for i in range(20)]
 
+        class DAs2(object):
+            atoms = [DummyAtom('A') for i in range(10)]
+            atoms += [DummyAtom('B') for i in range(10)]
+
         cls.DA = DummyAtoms
+        cls.DA2 = DAs2
 
     def test_factory_init(self):
         cmf = ContactMapFactory('A', 'B', self.DA)
@@ -47,13 +57,69 @@ class CMapMakerTest(TestCase):
         cmf1 = ContactMapFactory('A', 'B', self.DA)
         cmf2 = ContactMapFactory('A', 'AB', self.DA)
         cmf3 = ContactMapFactory('A', 'A', self.DA)
-        vector = numpy.arange(40 * 3).reshape(-1, 1, 3)
+        vector = numpy.ones((40, 3)) * numpy.arange(40)[:,numpy.newaxis]
         res1 = cmf1.mk_dmtx(vector)
         res2 = cmf2.mk_dmtx(vector)
         res3 = cmf3.mk_dmtx(vector)
         self.assertEqual(res1.shape, (20, 20))
         self.assertEqual(res2.shape, (20, 40))
-        #TODO check values
+        #shapes are okay
+        self.assertFalse(len(numpy.diag(res3).nonzero()[0]))
+        #zeros on diag in case 3 -- one chain comp. with itself
+        self.assertEqual(numpy.max(numpy.diag(res1)), numpy.min(numpy.diag(res1)))
+        self.assertEqual(numpy.max(numpy.diag(res1)), numpy.sqrt(20 ** 2 * 3))
+        #distance between subsequent res of different artificial "chains"
+        #should be equal for all cases and = Sqrt(20 ** 2 * 3)
+        bd = numpy.sqrt(3)  # basic distance between artif. res.
+        for n, r in enumerate(res3):
+            for m, i in enumerate(r):
+                self.assertAlmostEqual(i / bd, abs(m - n))
+        #subsequent values should be equal to certain number of Sqrt(3)
+        #which is dist between subseq. artif. res.
+
+    def test_factory_mk_cmtx(self):
+        cmf1 = ContactMapFactory('A', 'B', self.DA)
+        for i in range(3, 100):
+            arg = numpy.arange(i ** 2)
+            mtx = arg.reshape(i, i)
+            thr = random.choice(arg)
+            res = cmf1.mk_cmtx(mtx, thr)
+            self.assertEqual(len(res.nonzero()[0]), thr)
+        #TODO: assert Truths on right possitions
+
+    def test_factory_mk_cmap(self):
+        frame = numpy.ones((20, 3))
+        for i in range(10):
+            frame[i,] = frame[i,] + numpy.array([0., i, 0.])
+        for i in range(10):
+            frame[10 + i,] = frame[10 - i - 1,]
+        frame[10:,] = frame[10:,] + numpy.array([0., 0., 1.])
+        atraj = numpy.zeros((3, 10, 20, 3))
+        for rep in range(3):
+            for frm in range(10):
+                atraj[rep, frm, :, :] = frame
+        for frm, co in enumerate(numpy.linspace(1., 2., 10)):
+            atraj[2, frm, :, :] = atraj[2, frm, :, :] * co
+        cmf = ContactMapFactory('A', 'B', self.DA2)
+        for thr, ncons in ((.9, 0), (1., 0), (1.1, 10), (1.5, 8 * 3 + 2 * 2), (11., 10 ** 2)):
+            res = cmf.mk_cmap(atraj, thr)
+            self.assertEqual(len(res), 3)
+            self.assertTrue(max(map(type, res)) is ContactMap)
+            for n, i in enumerate(res[:2]):
+                self.assertEqual(i.n, 10)
+                self.assertEqual(len(i.cmtx.nonzero()[0]), ncons, "Wrong number of contacts for thr %.2f: %i instead of %i. (Replica %i)" % (thr, len(i.cmtx.nonzero()[0]), ncons, n))
+            res1 = cmf.mk_cmap(atraj, thr, replicas=(2,))
+            self.assertEqual(res1.__len__(), 1)
+            self.assertEqual(res1[0].n, 10)
+            ens = len([i for i in numpy.linspace(1., 2., 10) if i < thr])
+            # number of frames in which 1A contacts are under the threshold
+            if ens > 1:
+                self.assertGreaterEqual(len(res1[0].cmtx.nonzero()[0]), ens)
+                res2 = cmf.mk_cmap(atraj, thr, replicas=(2,), frames=range(ens))
+                self.assertTrue(numpy.array_equal(res1[0].cmtx, res2[0].cmtx))
+                res3 = cmf.mk_cmap(atraj, thr, replicas=(2,), frames=range(1, ens))
+                self.assertTrue(numpy.array_equal(numpy.clip(res2[0].cmtx - 1, 0, 10), res3[0].cmtx))
+
 
 class SCModelerTest(TestCase):
 
