@@ -141,6 +141,26 @@ class FlexTest(TestCase):
         #TODO jak bedzie seed -- dorobic klastrowanie
         #TODO zbadac inne pliki -- jakie?
 
+    @add_args_and_workdir([
+            '-i', '2gb1',
+            '--verbose', '-1',
+        ])
+    def test_rmsf(self, ddir, prsr):
+        """Plik tests/data/2gb1.rmsf zawiera znormalizowane do max rmsf z wersji serwerowej."""
+        tsk = FlexTask(**vars(prsr))
+        tsk.run()
+        with open(os.path.join(ddir, 'plots/RMSF.csv')) as f:
+            rmsf = [float(l.split()[1]) for l in f.readlines()]
+        rmsf = [i/max(rmsf) for i in rmsf]
+        with open('tests/data/2gb1.rmsf') as f:
+            ref = [float(l.split()[1]) for l in f.readlines()]
+        diffs = [i - j for i, j in zip(rmsf, ref)]
+        av = sum(map(abs, diffs)) / len(diffs)
+        self.assertLess(av, .15)    # average lower than .15
+        mavs = [sum(diffs[i: i+6])/6. for i in range(len(diffs) - 6)]
+        self.assertGreater(len([i for i in map(abs, mavs) if i < .2]), .8 * len(diffs))
+        # more than 80 % of residues 6-moving-avs is below .2
+
 
 if __name__ == '__main__':
     cla, args = ap.parse_known_args()
