@@ -11,9 +11,6 @@ from StringIO import StringIO
 from CABS.job import FlexTask
 from CABS.optparser import FlexParser
 
-ap = AP()
-ap.add_argument('--fast', action='store_true', default=False)
-
 
 def add_args_and_workdir(args):
     def decorTD(mth):
@@ -139,7 +136,7 @@ class FlexTest(TestCase):
             template = f.readlines()
         self.assertEqual(result, template)
         #TODO jak bedzie seed -- dorobic klastrowanie
-        #TODO zbadac inne pliki -- jakie?
+        #TODO zbadac inne pliki -- jakie? wiekszosc wynika wprost z replica i jest badana w innych testach
 
     @add_args_and_workdir([
             '-i', '2gb1',
@@ -163,5 +160,7 @@ class FlexTest(TestCase):
 
 
 if __name__ == '__main__':
+    ap = AP()
+    ap.add_argument('--fast', action='store_true', default=False)
     cla, args = ap.parse_known_args()
     main(argv=sys.argv[:1] + args)
