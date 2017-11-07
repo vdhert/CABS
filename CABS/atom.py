@@ -601,7 +601,7 @@ class Atoms(object):
             bar.done(False)
         return s
 
-    def save_to_pdb(self, filename, bar_msg=''):
+    def save_to_pdb(self, filename, bar_msg='', header=''):
         """
         Saves atoms to a file in the pdb format. Calls Atoms.make_pdb(). bar_msg is a string with message to show
         at ProgressBar initialization. bar_msg = '' disables the bar.
@@ -610,6 +610,7 @@ class Atoms(object):
         :return: None
         """
         with open(filename, 'w') as f:
+            f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))
 
     def select(self, sele):

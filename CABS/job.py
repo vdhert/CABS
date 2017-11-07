@@ -373,6 +373,7 @@ class CABSTask(object):
                 logger.log_file(module_name=_name, msg='Saving final models (in AA representation)')
                 pdb_medoids = self.medoids.to_pdb()
                 from CABS.ca2all import ca2all
+                from CABS.PDBlib import Pdb
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(
                         fname,
@@ -381,6 +382,11 @@ class CABSTask(object):
                         out_mdl=os.path.join(self.work_dir, 'output_data','modeller_output_{0}.txt'.format(i)),
                         work_dir=self.work_dir
                     )
+                    pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                    mod = Pdb(pth_tmp)
+                    ssh = mod.mk_ss_header()
+                    mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                    #TODO add header without loading file...
             else:
                 logger.log_file(module_name=_name, msg='Saving final models (in CA representation)')
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')

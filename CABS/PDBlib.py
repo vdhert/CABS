@@ -12,6 +12,7 @@ from requests.exceptions import HTTPError, ConnectionError
 from os.path import expanduser, isfile, join, isdir
 from subprocess import Popen, PIPE
 from collections import OrderedDict
+from StringIO import StringIO
 
 from CABS import logger
 from CABS.atom import Atom, Atoms
@@ -291,6 +292,64 @@ class Pdb(object):
                 sec[key] = val
 
         return sec
+
+    def mk_ss_header(self):
+        dct = self.dssp()
+
+        def mark(symbol):
+            def fnc((x, y, z)):
+                """Returns 1 for residues that are at the beginning or end of seq of ss elements of the same type."""
+                if y[1] != symbol: return 0
+                if x[1] != y[1] and y[1] == z[1]: return 1
+                #one-element ss are a joke
+                elif y[1] != z[1] and x[1] == y[1]: return 2
+                return 0
+            return fnc
+
+        def szip(lst):
+            lst = [None] + lst + [None]
+            return zip(lst, lst[1:], lst[2:])
+
+        sseq = szip(dct.items())
+        rngH = [i[1][0] for i in filter(mark('H'), sseq)]
+        rngS = [i[1][0] for i in filter(mark('E'), sseq)]
+
+        out = []
+
+        serNum = 0
+        helixID = ''
+        hlxClass = 1
+        comment = ''
+        cas = self.atoms.select('NAME CA')
+        recName = 'HELIX'
+        for st, en in zip(rngH[::2], rngH[1::2]):
+            serNum += 1
+            stNm, stChID = st.split(":")
+            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
+            enNm, enChID = en.split(":")
+            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
+            length = cas.atoms.index(atEn) - cas.atoms.index(atSt)
+            inp = (recName, serNum, helixID, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, hlxClass, comment, length)
+            line = "%-6s %3i %3s %3s %1s %4i%1s %3s %1s %4i%1s%2i%30s %5i\n" % inp
+            out.append(line)
+
+        recName = 'SHEET'
+        serNum = 0
+        sheetID = ''
+        numStrs = 1
+        sense = 0
+        for st, en in zip(rngS[::2], rngS[1::2]):
+            serNum += 1
+            stNm, stChID = st.split(":")
+            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
+            enNm, enChID = en.split(":")
+            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
+            length = cas.atoms.index(atEn) - cas.atoms.index(atSt)
+            inp = (recName, serNum, sheetID, numStrs, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, sense, '')
+            line = "%-6s %3i %3s%2i %3s %1s%4i%1s %3s %1s%4i%1s%2i %29s\n" % inp
+            out.append(line)
+
+        return ''.join(out)
 
     @staticmethod
     def xssp(filename, server='http://www.cmbi.umcn.nl/xssp'):
