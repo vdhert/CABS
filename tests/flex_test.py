@@ -144,6 +144,8 @@ class FlexTest(TestCase):
         ])
     def test_rmsf(self, ddir, prsr):
         """Plik tests/data/2gb1.rmsf zawiera znormalizowane do max rmsf z wersji serwerowej."""
+        if cla.fast:
+            raise SkipTest
         tsk = FlexTask(**vars(prsr))
         tsk.run()
         with open(os.path.join(ddir, 'plots/RMSF.csv')) as f:
