@@ -160,6 +160,27 @@ class FlexTest(TestCase):
         self.assertGreater(len([i for i in map(abs, mavs) if i < .2]), .8 * len(diffs))
         # more than 80 % of residues 6-moving-avs is below .2
 
+    @add_args_and_workdir([
+            '-i', '2gb1',
+            '--load-cabs-files', 'tests/data/2gb1/ref.tar.gz',
+            '--verbose', '-1',
+            '--reference-pdb', '1hpw:A',
+        ])
+    def test_raises_VE_wrong_reference(self, ddir, prsr):
+        tsk = FlexTask(**vars(prsr))
+        ftraf = tsk.file_TRAF
+        fseq = tsk.file_SEQ
+        tsk.setup_job()
+        tsk.parse_reference(tsk.reference_pdb)
+        tsk.load_output(ftraf, fseq)
+        tsk.score_results(
+            n_filtered=tsk.filtering_count,
+            number_of_medoids=tsk.clustering_medoids,
+            number_of_iterations=tsk.clustering_iterations
+        )
+        with self.assertRaises(ValueError):
+            tsk.calculate_rmsd()
+
 
 if __name__ == '__main__':
     ap = AP()

@@ -12,6 +12,7 @@ from time import strftime
 from abc import ABCMeta, abstractmethod
 from CABS import logger, PDBlib, cabs
 from CABS.align import save_csv
+from CABS.align import AlignError
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
@@ -163,7 +164,10 @@ class CABSTask(object):
         )
 
         if self.reference_pdb:
-            self.calculate_rmsd()
+            try:
+                self.calculate_rmsd()
+            except (ValueError, AlignError) as e:
+                logger.logger.critical(module_name=_name, msg=e.message)
         self.save_config_file()
         self.draw_plots(colors=self.colors)
         self.save_models()

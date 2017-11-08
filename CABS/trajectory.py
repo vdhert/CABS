@@ -296,7 +296,10 @@ class Trajectory(object):
             inds = np.nonzero(refch)
             pickups.extend(refch[inds])
             #~ mtch_mtx[n + 1:, inds] = 0
-        trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+        try:
+            trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+        except TypeError:   #empty list of alignments --> no seq identity
+            raise ValueError('No sequential similarity between input and reference according to used alignment method (%s).' % align_mth)
         ref_mrs, tmp_mrs = zip(*trg_aln)
         ref_sstc = Atoms(arg=list(ref_mrs))
         tmp_sstc = Atoms(arg=list(tmp_mrs))
