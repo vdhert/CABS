@@ -678,7 +678,7 @@ class SCModeler(object):
         cth, sth = self._calc_trig_fnc(np.array((0, 0, 1)), z, w)
         # theta angle -- rotation around nodes line to transform z on z'
 
-        rot = np.array(
+        rot = np.matrix(
             [
                 [cps * cph - sps * sph * cth, sph * cps + sps * cth * cph, sps * sth],
                 [-1 * sps * cph - sph * cps * cth, -1 * sps * sph + cps * cth * cph, cps * sth],
@@ -836,7 +836,7 @@ def dynamic_kabsch(target, query):
         raise Exception('Dynamic kabsch did not converge.')
 
 
-def rmsd(target, query, weights=None):
+def rmsd(target, query):
     return np.sqrt(np.average([np.dot(v, v) for v in query - target]))
 
 

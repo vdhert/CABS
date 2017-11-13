@@ -274,7 +274,7 @@ class Trajectory(object):
         Returns two structures: reference and template -- both cropped to aligned parts only, and alignment as list of tuples.
         """
         mth = align.AbstractAlignMethod.get_subclass_dict()[align_mth]
-        #aligning target
+        # aligning target
         mtch_mtx = np.zeros((len(ref_chs), len(self_chs)), dtype=int)
         algs = {}
         key = 1
@@ -296,7 +296,6 @@ class Trajectory(object):
         for n, refch in enumerate(mtch_mtx):
             inds = np.nonzero(refch)
             pickups.extend(refch[inds])
-            #~ mtch_mtx[n + 1:, inds] = 0
         trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
         ref_mrs, tmp_mrs = zip(*trg_aln)
         ref_sstc = Atoms(arg=list(ref_mrs))
@@ -313,14 +312,13 @@ class Trajectory(object):
 
         Both given substructure have to be the same length (and in aligned order).
         """
-        #rmsd = utils.rmsdw if self.weights else utils.rmsd
+
         ref_trg = np.array(ref_sstc.to_numpy())
         aln_traj = self.select(template=self_sstc)
-        length = len(aln_traj.template)
-        models = aln_traj.coordinates.reshape(-1, length, 3)
+        models = aln_traj.coordinates.reshape(-1, len(aln_traj.template), 3)
         result = np.zeros(len(models))
         for i, h in zip(range(len(models)), self.headers):
-            result[i] = utils.rmsd(models[i], ref_trg, length)
+            result[i] = utils.rmsd(models[i], ref_trg)
             h.rmsd = result[i]
         return result
 

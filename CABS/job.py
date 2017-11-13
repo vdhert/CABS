@@ -182,7 +182,7 @@ class CABSTask(object):
         logger.info(module_name=_name, msg='Simulation completed successfully')
 
     def save_cabs_res(self):
-        tar_dir = mktemp(prefix=strftime('%d%b.%H:%M:%S.')[1:], dir=self.work_dir, suffix='.cbs')
+        tar_dir = mktemp(prefix=strftime('%d%b.%H:%M:%S.'), dir=self.work_dir, suffix='.cbs')
         with tarfile.open(tar_dir, "w:gz") as tar:
             logger.log_file(_name, "Saving CABS simulation files to: %s" % tar_dir)
             for file_name in _CABS_files:
@@ -448,7 +448,7 @@ class DockTask(CABSTask):
                 kwargs=self.align_peptide_options
             )
             if save:
-                paln_pep = os.path.join(sfname, '_%s.csv' % pept_chain)
+                paln_pep = sfname + '_%s.csv' % pept_chain
                 save_csv(paln_pep, ('reference', 'template'), pep_aln)
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(ref_pep_stc, self_pep_stc)
             rmsds = [header.rmsd for header in self.medoids.headers]
