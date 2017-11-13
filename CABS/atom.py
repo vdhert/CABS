@@ -23,7 +23,7 @@ class Atom(object):
     """
 
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
-    RES_ID_PATT = re.compile(r'([0-9]{1,4})([^0-9]?):([A-Z])')
+    RES_ID_PATT = re.compile(r'(-?[0-9]{1,4})([^0-9]?):([A-Z])')
 
     def __init__(self, line=None, model=0, **kwargs):
         """
