@@ -3,8 +3,7 @@ import re
 import warnings
 from string import ascii_uppercase
 from pkg_resources import resource_filename
-from math import exp
-from CABS.vector3d import Vector3d
+
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
@@ -669,11 +668,9 @@ class SCModeler(object):
 
         cph, sph = self._calc_trig_fnc(np.array((1, 0, 0)), w, np.array((0, 0, 1)))
         # phi angle trig fncs -- rotation around z axis so x -> w
-        #~ sph = np.linalg.norm(cpht) * np.sign(np.dot(cpht, np.array((0, 0, 1))))
 
         cps, sps = self._calc_trig_fnc(w, x, z)
         # psi angle -- rotation around z' so x -> x'
-        #~ sps = np.linalg.norm(cwx) * np.sign(np.dot(cwx, z))
 
         cth, sth = self._calc_trig_fnc(np.array((0, 0, 1)), z, w)
         # theta angle -- rotation around nodes line to transform z on z'

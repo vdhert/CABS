@@ -171,11 +171,11 @@ class CABSTask(object):
             number_of_iterations=self.clustering_iterations
         )
 
+        self.save_models()
         if self.reference_pdb:
             self.calculate_rmsd()
         self.save_config_file()
         self.draw_plots(colors=self.colors)
-        self.save_models()
         if self.load_cabs_files:
             for _file in _CABS_files:
                 os.remove(os.path.join(self.work_dir, _file))
