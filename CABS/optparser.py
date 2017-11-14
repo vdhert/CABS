@@ -119,7 +119,7 @@ dock_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'verbose', 'version', 'help'])
+                                   'contact-map-colors', 'verbose','remote', 'version', 'help'])
     ]
 }
 
@@ -149,7 +149,7 @@ flex_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'verbose', 'version', 'help'])
+                                   'contact-map-colors', 'remote','verbose', 'version', 'help'])
     ]
 }
 
@@ -579,6 +579,13 @@ options = {
             '[1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...\n'
             '[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\n'
             'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
+    },
+    'remote': {
+      'action' : 'store_true',
+      'help':
+          'Automatically redirects output to a CABSlog file created in the working directory and stops progress bar from ' 
+          'showing on higher verbosity levels and turns off log coloring. Piping standard error will not work with this option.'
+          'If a log file already exists it will be appended to.'
     },
     'replicas': {
         'flag': '-r',

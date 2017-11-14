@@ -50,6 +50,7 @@ def run_dock(cmd_line=sys.argv[1:]):
     except Exception as e:
         logger.exit_program(module_name='CABSdock', msg='Error occured', traceback=_tr.format_exc(), exc=e)
     finally:
+        logger.close_log()
         for _file in _JUNK:
             rmtree(_file, ignore_errors=True)
 
@@ -86,6 +87,7 @@ def run_flex(cmd_line=sys.argv[1:]):
     except Exception as e:
         logger.exit_program(module_name='CABSflex', msg='Error occured', traceback=_tr.format_exc(), exc=e)
     finally:
+        logger.close_log()
         for _file in _JUNK:
             rmtree(_file, ignore_errors=True)
 

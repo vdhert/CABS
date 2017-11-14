@@ -21,11 +21,11 @@ colors = {
 }
 
 log_levels = {
-    0: "CRITICAL",
-    1: "WARNING",
-    2: "INFO",
-    3: "OUT FILES",
-    4: "DEBUG"
+    0: "[CRITICAL]",
+    1: "[WARNING]",
+    2: "[INFO]",
+    3: "[OUT FILES]",
+    4: "[DEBUG]"
 }
 
 color_prefix = {
@@ -37,47 +37,78 @@ color_prefix = {
 }
 
 _init_time = time()
-log_level = 2
-color = sys.stderr.isatty()
-stream = sys.stderr
-if color:
-    prefix = color_prefix
-else:
-    prefix = log_levels
+_log_level = 2
+_color = True
+_stream = sys.stderr
+_line_format = '%-20s %-19s%-75s %s\n'
+_first_line_format = '%-20s %-19s%-75s \n'
+_middle_line_format = '%-22s%-75s \n'
+_last_line_format = '%-22s%-75s %s\n'
+_line_break = 76
+_remote = False
+_prefix = color_prefix
 
 
-def setup_log_level(new_level):
-    global log_level
-    log_level = new_level
+
+
+def setup(log_level=2,remote=False,work_dir = ''):
+    global _log_level,_color,_stream,_remote,_line_break,_prefix
+    global _line_format,_middle_line_format,_first_line_format,_last_line_format
+    _remote = remote
+    if _remote or not sys.stderr.isatty():
+        _color = False
+        _line_format = '%-12s %-10s%-75s %s\n'
+        _first_line_format = '%-12s %-10s%-75s \n'
+        _middle_line_format = '%-22s %-75s \n'
+        _last_line_format = '%-22s %-75s %s\n'
+        _prefix = log_levels
+    if _remote:
+        _log_path = os.path.join(work_dir,"CABSlog")
+        try:
+            _stream = open(_log_path,'a+')
+        except IOError:
+            try:
+                os.makedirs(work_dir)
+                _stream = open(_log_path, 'a+')
+            except OSError:
+                warning(module_name=_name,
+                        msg="Could not open a log file at %s. Writing to standard error instead." % _log_path)
+                raise
+
+    _log_level = log_level
     info(_name, 'Verbosity set to: ' + str(log_level) + " - " + log_levels[log_level])
 
+def close_log():
+    if _stream is not sys.stderr:
+        _stream.close()
 
 def coloring(color_name="light_blue", msg=""):
-    if color:
+    if _color:
         return colors[color_name] + msg + colors["end"]
     return msg
 
 
-def log(module_name="MISC", msg="Processing ", l_level=0, out=stream):
-    if l_level <= log_level:
+def log(module_name="MISC", msg="Processing ", l_level=2, out=None):
+    if out is None: out = _stream
+    if l_level <= _log_level:
         t = gmtime(time() - _init_time)
-        if len(msg) < 76:
-            msg = '%-20s %-19s%-75s %s\n' % (
-                prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'),
+        if len(msg) < _line_break:
+            msg = _line_format % (
+                _prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'),
                 msg, strftime('(%H:%M:%S)', t)
             )
             out.write(msg)
             out.flush()
         else:
-            lines = textwrap.wrap(msg, width=75)
-            first_line = '%-20s %-19s%-75s \n' % (
-                prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'), lines[0]
+            lines = textwrap.wrap(msg, width=_line_break-1)
+            first_line = _first_line_format % (
+                _prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'), lines[0]
             )
             out.write(first_line)
             for lineNumber in xrange(1, len(lines) - 1):
-                line = '%-22s%-75s \n' % (" ", lines[lineNumber])
+                line = _middle_line_format % (" ", lines[lineNumber])
                 out.write(line)
-            final_line = '%-22s%-75s %s\n' % (" ", lines[-1], strftime('(%H:%M:%S)', t))
+            final_line = _last_line_format % (" ", lines[-1], strftime('(%H:%M:%S)', t))
             out.write(final_line)
             out.flush()
 
@@ -142,8 +173,8 @@ def exit_program(module_name=_name, msg="Shutting down", traceback=None, exc=Non
     else:
         _msg = msg
     critical(module_name=module_name, msg=_msg)
-    if log_level > 3 and traceback:
-        stream.write(traceback)
+    if _log_level > 3 and traceback:
+        _stream.write(traceback)
     sys.exit(1)
 
 
@@ -155,7 +186,7 @@ class ProgressBar:
     BAR1 = '#'
 
     def __init__(self, total=100, module_name='', job_name='', out=stderr, delay=0, start_msg=''):
-        if log_level >= 1:
+        if _log_level >= 2 and not _remote:
             self.stream = out
         else:
             self.stream = open('/dev/null', 'w')
@@ -164,7 +195,7 @@ class ProgressBar:
         self.job_name = job_name
         self.is_done = False
         self.module_name = module_name
-        self.prefix = prefix[1]
+        self.prefix = _prefix[1]
         if start_msg:
             self.stream.write(coloring(msg=start_msg) + '\n')
         if self.job_name:

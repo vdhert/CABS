@@ -70,6 +70,7 @@ class CABSTask(object):
         self.protein_restraints_reduce = kwargs.get('protein_restraints_reduce')
         self.random_seed = kwargs.get('random_seed')
         self.reference_pdb = kwargs.get('reference_pdb')
+        self.remote = kwargs.get('remote')
         self.replicas = kwargs.get('replicas')
         self.replicas_dtemp = kwargs.get('replicas_dtemp')
         self.save_cabs_files = kwargs.get('save_cabs_files')
@@ -100,8 +101,9 @@ class CABSTask(object):
 
         # Workdir processing: making sure work_dir is abspath
         self.work_dir = os.path.abspath(self.work_dir)
-        logger.setup_log_level(self.verbose)
+
         try:
+            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
