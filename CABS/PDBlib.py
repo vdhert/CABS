@@ -155,6 +155,9 @@ class Pdb(object):
                 logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name))
                 self.atoms = self.atoms.select(selection)
 
+            if ' ' in set([i.chid for i in self.atoms]):
+                raise ValueError('Atoms with empty chain ID in selected part of PDB file detected.')
+
             if not len(self.atoms):
                 raise Exception('{} contains no atoms'.format(source))
 
