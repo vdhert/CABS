@@ -31,6 +31,8 @@ class Pdb(object):
     Pdb parser.
     """
 
+    DSSP_COMMAND = 'dssp'
+
     class InvalidPdbInput(Exception):
         pass
 
@@ -125,27 +127,26 @@ class Pdb(object):
             if fix_non_standard_aa:
                 logger.debug(_name, 'Scanning {} for non-standard amino acids'.format(name))
                 aa_names = [AA_NAMES[k] for k in AA_NAMES]
-                for residue in self.atoms.residues():
-                    resname = residue[0].resname
-                    if resname not in aa_names:
-                        if resname not in AA_SUB_NAMES:
-                            logger.warning(
-                                module_name=_name,
-                                msg='Unknown residue {} at {} in {}'.format(
-                                    resname, residue[0].resid_id(), name
+                for model in self.atoms.models():
+                    for residue in model.residues():
+                        resname = residue[0].resname
+                        if resname not in aa_names:
+                            if resname not in AA_SUB_NAMES:
+                                logger.warning(
+                                    _name, 'Unknown residue {} at {} in {}'.format(
+                                        resname, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
-                        else:
-                            sub_name = AA_SUB_NAMES[resname]
-                            for atom in residue:
-                                atom.resname = sub_name
-                                atom.hetatm = False
-                            logger.warning(
-                                module_name=_name,
-                                msg='Replacing {} -> {} for {} in {}'.format(
-                                    resname, sub_name, residue[0].resid_id(), name
+                            else:
+                                sub_name = AA_SUB_NAMES[resname]
+                                for atom in residue:
+                                    atom.resname = sub_name
+                                    atom.hetatm = False
+                                logger.warning(
+                                    _name, 'Replacing {} -> {} for {} in {}'.format(
+                                        resname, sub_name, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
 
             if remove_hetero:
                 logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
@@ -217,13 +218,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output='', command="dssp"):
+    def dssp(self, output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
@@ -266,7 +267,7 @@ class Pdb(object):
             return None
         else:
             logger.debug(_name, 'DSSP successful')
-            if logger.log_level >= 2 and output:
+            if logger._log_level >= 3 and output:
                 output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):

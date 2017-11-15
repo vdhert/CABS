@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
-
 from CABS.utils import aa_to_short
 
 
@@ -166,6 +165,7 @@ class LoadCSVAlign(AbstractAlignMethod):
         if 0 in map(len, (ats1, ats2)):
             raise AlignError("Empty alignment.")
         return zip(ats1, ats2)
+
 
 class BLASTpAlign(AbstractAlignMethod):
 
