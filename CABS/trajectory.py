@@ -231,7 +231,7 @@ class Trajectory(object):
             bar.done(True)
         return result
 
-    def superimpose_to(self, reference, substructure):
+    def superimpose_to(self, reference, substructure=None):
         """Superimposes trajectory substructure from self.template on given reference.
 
         Arguments:
@@ -240,7 +240,12 @@ class Trajectory(object):
 
         This method modifies trajectory in place.
         """
-        pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
+
+        if substructure:
+            pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
+        else:
+            pieces = [(0, len(self.template))]
+
         target = reference.to_numpy()
 
         if self.weights:
@@ -256,7 +261,7 @@ class Trajectory(object):
         else:  # dynamic weights
             for model in self.coordinates.reshape(-1, len(self.template), 3):
                 query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
-                rot, t_com, q_com = utils.dynamic_kabsch(target, query)
+                rmsd, rot, t_com, q_com = utils.dynamic_kabsch(target, query)
                 np.copyto(model, np.dot(model - q_com, rot) + t_com)
 
     def align_to(self, ref_stc, ref_chs, self_chs, align_mth='SW', kwargs={}):
