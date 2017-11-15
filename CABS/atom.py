@@ -397,33 +397,21 @@ class Atoms(object):
             mdl.append(model)
         return mdl
 
-    def to_matrix(self):
+    def to_numpy(self):
         """"
-        Returns numpy.matrix(N, 3) where N is number of Atoms.
-        Matrix holds Atoms' coordinates.
-        :return: numpy.matrix(N, 3)
+        Returns numpy.array(N, 3) with coordinates, where N is the number of Atoms.
         """
-        return np.concatenate([a.coord.to_matrix() for a in self.atoms])
+        return np.concatenate([a.coord.to_numpy() for a in self.atoms])
 
-    def from_matrix(self, matrix):
+    def from_numpy(self, matrix):
         """
-        Sets Atoms' coordinates from numpy.matrix(3,N) or(N,3).
-        :param matrix: numpy.matrix(3, N or N, 3) 
+        Sets Atoms' coordinates from numpy.array(3,N) or (N,3).
         """
-        if matrix.shape == (3, len(self)):
+        if matrix.shape == (len(self), 3):
             for index, atom in enumerate(self.atoms):
-                atom.coord = Vector3d(
-                    matrix[0, index],
-                    matrix[1, index],
-                    matrix[2, index]
-                )
-        elif matrix.shape == (len(self), 3):
-            for index, atom in enumerate(self.atoms):
-                atom.coord = Vector3d(
-                    matrix[index, 0],
-                    matrix[index, 1],
-                    matrix[index, 2]
-                )
+                atom.coord = Vector3d(matrix[index])
+        elif matrix.shape == (3, len(self)):
+            self.from_numpy(matrix.T)
         else:
             raise Exception('Invalid matrix shape: ' + str(matrix.shape))
         return self
@@ -442,12 +430,12 @@ class Atoms(object):
     def rotate(self, matrix):
         """
         Rotate atoms by rotation matrix.
-        :param matrix: numpy.matrix(3, 3)
+        :param matrix: numpy.array(3, 3)
         :return: Atoms
         """
         if matrix.shape != (3, 3):
             raise Exception('Invalid matrix shape: ' + matrix.shape)
-        self.from_matrix(matrix * self.to_matrix().T)
+        self.from_numpy(matrix * self.to_numpy().T)
         return self
 
     def cent_of_mass(self):
@@ -482,12 +470,12 @@ class Atoms(object):
         Computes the rotation matrix for best fit between two sets of Atoms.
         :param other: Atoms
         :param concentric: Bool
-        :return: numpy.matrix(3, 3)
+        :return: numpy.array(3, 3)
         """
         if len(self) != len(other):
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
-        t = other.to_matrix()
-        q = self.to_matrix()
+        t = other.to_numpy()
+        q = self.to_numpy()
         return kabsch(t, q, concentric=concentric)
 
     def str_align(self, other):

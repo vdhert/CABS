@@ -10,13 +10,8 @@ from math import sin, cos, sqrt, pi
 class Vector3d:
     """
     Vector3d is a class to handle 3d vectors of floats.
+
     The coordinates are accessible by attributes x, y, z.
-    Valid initialization methods:
-    1. Vector3d(float, float, float)
-    2. Vector3d(string), where string is a list of x, y, z coordinates separated by commas or whitespaces
-    3. Vector3d(x=float/string, y=float/string, z=float/string), missing arguments are set to 0.
-    4. Vector3d(np.matrix(3, 1) or (1, 3))
-    TODO: przerobic na numpy
     """
     def __init__(self, *args, **kwargs):
         self.x = self.y = self.z = 0
@@ -33,26 +28,15 @@ class Vector3d:
                     self.z = float(words[2])
                 else:
                     raise Exception('Invalid string format to initialize Vector3d object.')
-            elif len(args) == 1 and args[0].__class__.__name__ == 'Vector3d':
-                self.x = args[0].x
-                self.y = args[0].y
-                self.z = args[0].z
-            elif len(args) == 1 and args[0].__class__.__name__ == 'matrix':
-                v = args[0]
-                if v.shape == (1, 3):
-                    self.x = v[0, 0]
-                    self.y = v[0, 1]
-                    self.z = v[0, 2]
-                elif v.shape == (3, 1):
-                    self.x = v[0, 0]
-                    self.y = v[1, 0]
-                    self.z = v[2, 0]
-                else:
-                    raise Exception('Invalid matrix shape: ' + str(v))
-            elif len(args) == 1 and type(args[0]) == tuple:
-                self.x = args[0][0]
-                self.y = args[0][1]
-                self.z = args[0][2]
+            elif len(args) == 1:
+                if isinstance(args[0], Vector3d):
+                    self.x = args[0].x
+                    self.y = args[0].y
+                    self.z = args[0].z
+                elif (isinstance(args[0], np.ndarray) and args[0].shape[0] == 3) or (type(args[0]) == tuple):
+                        self.x = args[0][0]
+                        self.y = args[0][1]
+                        self.z = args[0][2]
             else:
                 raise Exception('Invalid number or arguments passed to initialize Vector3d object.')
         elif kwargs:
@@ -169,12 +153,11 @@ class Vector3d:
         self.z /= factor
         return self
 
-    def to_matrix(self):
+    def to_numpy(self):
         """
-        Conversion to np.matrix(1, 3)
-        :return: np.matrix(1, 3)
+        Conversion to numpy
         """
-        return np.matrix([self.x, self.y, self.z])
+        return np.array([self.x, self.y, self.z]).reshape(1, 3)
 
     def random(self):
         """
@@ -196,8 +179,8 @@ if __name__ == '__main__':
     print Vector3d('4, 5, 6')
     print Vector3d(7, 8, 9)
     print Vector3d(z='3.14', x=2.71)
-    print Vector3d(np.matrix('1 2 3'))
-    print Vector3d(np.matrix('1; 2; 3'))
+    print Vector3d(np.arange(1, 4))
+    print Vector3d(np.array([1, 2, 3]))
     a = (1, 2, 7)
     print Vector3d(a)
     print Vector3d().random()

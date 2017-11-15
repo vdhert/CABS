@@ -1,49 +1,130 @@
 from unittest import TestCase
 from unittest import main
 from unittest import SkipTest
-from cabsDock.utils import SCModeler
-from cabsDock.utils import SIDECNT
-from cabsDock.job import Job
+from CABS.utils import SCModeler
+from CABS.utils import SIDECNT
+from CABS.job import FlexTask
+from CABS.cmap import ContactMapFactory
+from CABS.cmap import ContactMap
+
 import pickle
 import numpy
 import sys
 import os
 import random
 import tempfile
-from argparse import ArgumentParser as AP
 
+from argparse import ArgumentParser as AP
 
 class CMapMakerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ddir = tempfile.gettempdir() + "/tmpCABS/"
-        try: os.mkdir(ddir)
-        except OSError: pass
-        cls.j = Job(
-            work_dir=ddir,
-            receptor='1klu:AB',
-            ligand=[['GELIGTLNAAKVPAD:CCCEEEECCEECCCC', 'random', 'random']],
-            mc_cycles=20,
-            mc_steps=50,
-            replicas=10,
-            load_cabs_files=(cla.data_path + '1klu/TRAF', cla.data_path + '1klu/SEQ'),
-            AA_rebuild=False
-            )
-        cls.j.cabsdock()
 
-    def test_contact_frequencies(self):
-        pass
+        class DummyAtom(object):
+            n = 0
+            def __init__(self, ch):
+                self.chid = ch
+                self.n = DummyAtom.n
+                DummyAtom.n += 1
+            def fmt(self):
+                return "%s%i" % (self.chid, self.n)
+
+        class DummyAtoms(object):
+            atoms = [DummyAtom('A') for i in range(20)]
+            atoms += [DummyAtom('B') for i in range(20)]
+
+        class DAs2(object):
+            atoms = [DummyAtom('A') for i in range(10)]
+            atoms += [DummyAtom('B') for i in range(10)]
+
+        cls.DA = DummyAtoms
+        cls.DA2 = DAs2
+
+    def test_factory_init(self):
+        cmf = ContactMapFactory('A', 'B', self.DA)
+        self.assertEqual(cmf.inds1.__len__(), 20)
+        self.assertEqual(cmf.inds2.__len__(), 20)
+        self.assertEqual(cmf.ats1.__len__(), 20)
+        self.assertEqual(cmf.ats2.__len__(), 20)
+        cmf = ContactMapFactory('A', 'AB', self.DA)
+        self.assertEqual(cmf.inds1.__len__(), 20)
+        self.assertEqual(cmf.inds2.__len__(), 40)
+        self.assertEqual(cmf.ats1.__len__(), 20)
+        self.assertEqual(cmf.ats2.__len__(), 40)
+
+    def test_factory_mk_dmtx(self):
+        cmf1 = ContactMapFactory('A', 'B', self.DA)
+        cmf2 = ContactMapFactory('A', 'AB', self.DA)
+        cmf3 = ContactMapFactory('A', 'A', self.DA)
+        vector = numpy.ones((40, 3)) * numpy.arange(40)[:,numpy.newaxis]
+        res1 = cmf1.mk_dmtx(vector)
+        res2 = cmf2.mk_dmtx(vector)
+        res3 = cmf3.mk_dmtx(vector)
+        self.assertEqual(res1.shape, (20, 20))
+        self.assertEqual(res2.shape, (20, 40))
+        #shapes are okay
+        self.assertFalse(len(numpy.diag(res3).nonzero()[0]))
+        #zeros on diag in case 3 -- one chain comp. with itself
+        self.assertEqual(numpy.max(numpy.diag(res1)), numpy.min(numpy.diag(res1)))
+        self.assertEqual(numpy.max(numpy.diag(res1)), numpy.sqrt(20 ** 2 * 3))
+        #distance between subsequent res of different artificial "chains"
+        #should be equal for all cases and = Sqrt(20 ** 2 * 3)
+        bd = numpy.sqrt(3)  # basic distance between artif. res.
+        for n, r in enumerate(res3):
+            for m, i in enumerate(r):
+                self.assertAlmostEqual(i / bd, abs(m - n))
+        #subsequent values should be equal to certain number of Sqrt(3)
+        #which is dist between subseq. artif. res.
+
+    def test_factory_mk_cmtx(self):
+        cmf1 = ContactMapFactory('A', 'B', self.DA)
+        for i in range(3, 100):
+            arg = numpy.arange(i ** 2)
+            mtx = arg.reshape(i, i)
+            thr = random.choice(arg)
+            res = cmf1.mk_cmtx(mtx, thr)
+            self.assertEqual(len(res.nonzero()[0]), thr)
+        #TODO: assert Truths on right possitions
+
+    def test_factory_mk_cmap(self):
+        frame = numpy.ones((20, 3))
+        for i in range(10):
+            frame[i,] = frame[i,] + numpy.array([0., i, 0.])
+        for i in range(10):
+            frame[10 + i,] = frame[10 - i - 1,]
+        frame[10:,] = frame[10:,] + numpy.array([0., 0., 1.])
+        atraj = numpy.zeros((3, 10, 20, 3))
+        for rep in range(3):
+            for frm in range(10):
+                atraj[rep, frm, :, :] = frame
+        for frm, co in enumerate(numpy.linspace(1., 2., 10)):
+            atraj[2, frm, :, :] = atraj[2, frm, :, :] * co
+        cmf = ContactMapFactory('A', 'B', self.DA2)
+        for thr, ncons in ((.9, 0), (1., 0), (1.1, 10), (1.5, 8 * 3 + 2 * 2), (11., 10 ** 2)):
+            res = cmf.mk_cmap(atraj, thr)
+            self.assertEqual(len(res), 3)
+            self.assertTrue(max(map(type, res)) is ContactMap)
+            for n, i in enumerate(res[:2]):
+                self.assertEqual(i.n, 10)
+                self.assertEqual(len(i.cmtx.nonzero()[0]), ncons, "Wrong number of contacts for thr %.2f: %i instead of %i. (Replica %i)" % (thr, len(i.cmtx.nonzero()[0]), ncons, n))
+            res1 = cmf.mk_cmap(atraj, thr, replicas=(2,))
+            self.assertEqual(res1.__len__(), 1)
+            self.assertEqual(res1[0].n, 10)
+            ens = len([i for i in numpy.linspace(1., 2., 10) if i < thr])
+            # number of frames in which 1A contacts are under the threshold
+            if ens > 1:
+                self.assertGreaterEqual(len(res1[0].cmtx.nonzero()[0]), ens)
+                res2 = cmf.mk_cmap(atraj, thr, replicas=(2,), frames=range(ens))
+                self.assertTrue(numpy.array_equal(res1[0].cmtx, res2[0].cmtx))
+                res3 = cmf.mk_cmap(atraj, thr, replicas=(2,), frames=range(1, ens))
+                self.assertTrue(numpy.array_equal(numpy.clip(res2[0].cmtx - 1, 0, 10), res3[0].cmtx))
+
 
 class SCModelerTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with open(cla.data_path + 'traj.pck') as f:
-            cls.traj = pickle.load(f)
-        with open(cla.data_path + 'cplx.pck') as f:
-            cls.temp = pickle.load(f)
-
         cls.aas = ['ALA', 'CYS', 'GLU', 'ASP', 'GLY', 'PHE', 'ILE', 'HIS', 'LYS', 'MET', 'LEU', 'ASN', 'GLN', 'PRO', 'SER', 'ARG', 'THR', 'TRP', 'VAL', 'TYR']
 
         class DummyAtom(object):
@@ -53,9 +134,11 @@ class SCModelerTest(TestCase):
         cls.dm = DummyAtom
 
     def test_init(self):
-        SCModeler(self.temp.atoms)
+        SCModeler([self.dm(i) for i in self.aas])
+        SCModeler([self.dm(random.choice(self.aas)) for i in range(100)])
 
-    #~ def test_rebuild_one_pickled_CB(self):
+    def test_rebuild_one_pickled_CB(self):
+        raise Exception('No test')
         #~ scm = SCModeler(self.temp.atoms)
         #~ frame = self.traj.coordinates[1, 1, ...]
         #~ rbld = scm.rebuild_one(frame, False)

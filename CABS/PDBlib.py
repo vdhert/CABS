@@ -18,13 +18,19 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
+PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+try:
+    os.makedirs(PDB_CACHE)
+except OSError:
+    pass
 
 
 class Pdb(object):
     """
     Pdb parser.
     """
-    PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+
+    DSSP_COMMAND = 'dssp'
 
     class InvalidPdbInput(Exception):
         pass
@@ -181,7 +187,7 @@ class Pdb(object):
             raise IOError
 
         pdb_low = pdb_code.lower()
-        path = join(Pdb.PDB_CACHE, pdb_low[1:3])
+        path = join(PDB_CACHE, pdb_low[1:3])
         try:
             os.makedirs(path)
         except OSError:
@@ -209,13 +215,13 @@ class Pdb(object):
                 content = f.read()
         return content
 
-    def dssp(self, output='',command="dssp"):
+    def dssp(self, output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         out = err = None
 
         try:
-            proc = Popen([command, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
@@ -227,7 +233,7 @@ class Pdb(object):
                 msg='DSSP not found.'
             )
 
-            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=Pdb.PDB_CACHE)[1]
+            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=PDB_CACHE)[1]
             with open(tempfile, 'wb') as f:
                 f.write(self.body)
 
@@ -258,7 +264,7 @@ class Pdb(object):
             return None
         else:
             logger.debug(_name, 'DSSP successful')
-            if logger.log_level >= 2 and output:
+            if logger._log_level >= 3 and output:
                 output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):

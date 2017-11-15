@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
-
 from CABS.utils import aa_to_short
 
 

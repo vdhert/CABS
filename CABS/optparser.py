@@ -1,7 +1,11 @@
 import argparse
 import textwrap
 import re
+import os
 from copy import deepcopy as dc
+from CABS import logger
+
+# TODO: short help / long help
 
 _HELPW = 100
 _wrapper = textwrap.TextWrapper(width=_HELPW, break_long_words=True, expand_tabs=False)
@@ -44,7 +48,11 @@ class ConfigFileParser:
                     self.args.append('--' + option.strip())
                     self.args.extend(value.split('#')[0].split(';')[0].split())
                 else:
-                    self.args.extend(line.split('#')[0].split(';')[0].split())
+                    try:
+                        test = ["--" + line.split('#')[0].split(';')[0].split()[0]]
+                        self.args.extend(test)  # proba wylapania flag
+                    except ValueError:
+                        pass
 
 
 def mk_parser(parser_dict, group_dict, option_dict):
@@ -52,19 +60,20 @@ def mk_parser(parser_dict, group_dict, option_dict):
     parser_dict['description'] = _wrap(parser_dict['description'])
     parser_dict['epilog'] = _wrap(parser_dict['epilog'])
 
-    groups = parser_dict.pop('groups')
+    _groups = parser_dict.pop('groups')
     defaults = parser_dict.pop('defaults', {})
     parser = argparse.ArgumentParser(
         formatter_class=CABSFormatter,
         add_help=False,
+        # usage=
         **parser_dict
     )
-    for group_name, options in groups:
+    for group_name, _options in _groups:
         group = group_dict[group_name]
         group['description'] = _wrap(group['description'])
         group = parser.add_argument_group(title=group_name, **group)
-        for opt_name in options:
-            option = next(v for k, v in option_dict.items() if k == opt_name)
+        for opt_name in _options:
+            option = option_dict[opt_name]
             name = ['--' + opt_name]
             flag = option.pop('flag', None)
             if flag:
@@ -89,14 +98,19 @@ dock_dict = {
         'publication] provides the same modeling methodology equipped with many additional features and customizable '
         'options.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'defaults': {'temperature': (2.0, 1.0), 'replicas': 10, 'protein-restraints': ('all', 5, 5.0, 15.0)},
+    'defaults': {
+        'temperature': (2.0, 1.0),
+        'replicas': 10,
+        'protein-restraints': ('all', 5, 5.0, 15.0),
+        'weighted-fit': 'off'
+    },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
-                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
+        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints',
+                             'protein-restraints-reduce', 'weighted-fit']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
-                                'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
+                                'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
                                 'replicas-dtemp', 'temperature', 'random-seed']),
         ('ALL_ATOM RECONSTRUCTION OPTIONS', ['modeller-iterations', 'aa-rebuild']),
@@ -105,7 +119,7 @@ dock_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'verbose', 'version', 'help'])
+                                   'contact-map-colors', 'verbose','remote', 'version', 'help'])
     ]
 }
 
@@ -115,13 +129,18 @@ flex_dict = {
     'description':
         'CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.',
     'epilog': 'CABSdock repository: https://bitbucket.org/lcbio/cabsdock',
-    'defaults': {'temperature': (1.4, 1.4), 'replicas': 1, 'protein-restraints': ('ss2', 3, 3.8, 8.0)},
+    'defaults': {
+        'temperature': (1.4, 1.4),
+        'replicas': 1,
+        'protein-restraints': ('ss2', 3, 3.8, 8.0),
+        'weighted-fit': 'gauss'
+    },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
-        ('PROTEIN OPTIONS',['exclude', 'excluding-distance', 'protein-flexibility',
-                            'protein-restraints', 'weighted-fit', 'weighted-fit-file']),
+        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints',
+                             'protein-restraints-reduce', 'weighted-fit']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
-                                'sc-rest-weight', 'ca-rest-file','sc-rest-file']),
+                                'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
                                 'replicas-dtemp', 'temperature', 'random-seed']),
         ('ALL_ATOM RECONSTRUCTION OPTIONS', ['modeller-iterations', 'aa-rebuild']),
@@ -130,7 +149,7 @@ flex_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'verbose', 'version', 'help'])
+                                   'contact-map-colors', 'remote','verbose', 'version', 'help'])
     ]
 }
 
@@ -209,7 +228,7 @@ options = {
             '[1] \'random\' - peptide is placed in a random location on the surface of a sphere centered at the '
             'protein\'s geometrical center at distance defined by the \'--separation\' option from the surface of '
             'the protein.\n'
-            '[2] keep - preserve location from file. This has no effect if PEPTIDE=SEQUENCE\n'
+            '[2] \'keep\' - preserve location from file. This has no effect if PEPTIDE=SEQUENCE\n'
             '[3] PATCH - list of protein\'s residues (i.e 123:A+125:A+17:B). Peptide will be placed above the '
             'geometrical center of listed residues at distance defined by the \'--separation\' option from the '
             'surface of the protein.\n'
@@ -304,7 +323,7 @@ options = {
         'type': str,
         'nargs': 6,
         'default': ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000'],
-        'metavar': 'HEX',
+        'metavar': ('CLR1', 'CLR2', '', '...', '', 'CLR6'),
         'help':
             'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.\n'
             '(default: %(default)s)'
@@ -349,7 +368,7 @@ options = {
     'excluding-distance': {
         'default': 5.0,
         'type': float,
-        'metavar': 'DISTANCE',
+        'metavar': 'DIST',
         'help':
             'Set minimum distance between side chain atoms of peptide(s) and proteins residues marked as \'excluded\''
             '(default: %(default)s)'
@@ -374,7 +393,7 @@ options = {
             'replicas combined'
     },
     'fortran-command': {
-        'default': 'gfortran',
+        'default': 'gfortran -O2',
         'metavar': 'PATH',
         'help': 'Provide path to fortran compiler binary (default is \'%(default)s\')'
     },
@@ -419,10 +438,10 @@ options = {
     'load-cabs-files': {
         'flag': '-L',
         'metavar': 'FILE',
-        'nargs': 2,
         'help':
             'Load CABSdock simulation data file for repeated scoring and analysis of CABSdock trajectories (with new '
             'settings, for example using a reference complex structure and --reference option).'
+            'Both a path to a file or a path to a directory containing a _CABS.cls file are valid inputs. '
     },
     'mc-annealing': {
         'flag': '-a',
@@ -536,6 +555,14 @@ options = {
             'GAP specifies minimal gap along the main chain for two resiudes to be restrained.\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained.'
     },
+    'protein-restraints-reduce': {
+        'metavar': 'FACTOR',
+        'type': float,
+        'help': 'Reduce number of protein restraints by a FACTOR, where factor is a number from [0, 1].\n'
+                'This option reduces the number of automatically generated restraints for the protein molecule in '
+                'order to speed up computation. Restraints are randomly selected from all generated restraints, '
+                'so that the final number of restraints N_final = N_all * FACTOR.'
+    },
     'random-seed': {
         'flag': '-z',
         'type': int,
@@ -552,6 +579,13 @@ options = {
             '[1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...\n'
             '[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\n'
             'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
+    },
+    'remote': {
+      'action' : 'store_true',
+      'help':
+          'Automatically redirects output to a CABSlog file created in the working directory and stops progress bar from ' 
+          'showing on higher verbosity levels and turns off log coloring. Piping standard error will not work with this option.'
+          'If a log file already exists it will be appended to.'
     },
     'replicas': {
         'flag': '-r',
@@ -571,14 +605,15 @@ options = {
     'save-cabs-files': {
         'flag': '-S',
         'action': 'store_true',
-        'help': 'Save CABSdock simulation files. (default: %(default)s)'
+        'help': 'Save CABSdock simulation files. The file will have a TIMESTAMP_CABS.cls format. '
+                'For example:  06Nov.16:19:24.knWPtn_CABS.cls (default: %(default)s)'
     },
     'save-config': {
         'flag': '-C',
         'action': 'store_true',
         'help': 'Save simulation parameters in config file. (default: %(default)s)'
     },
-    'sc-rest-add':{
+    'sc-rest-add': {
         'action': 'append',
         'nargs': 4,
         'metavar': ('RESI', 'RESJ', 'DIST', 'WEIGHT'),
@@ -601,7 +636,7 @@ options = {
         'flag': '-d',
         'default': 20.0,
         'type': float,
-        'metavar': 'SEP',
+        'metavar': 'DISTANCE',
         'help':
             'This option enables advanced settings of building starting conformations of modelled complexes (to be '
             'used only in specific protocols). The option sets separation distance in Angstroms between the peptide '
@@ -622,36 +657,49 @@ options = {
     },
     'verbose': {
         'flag': '-v',
-        'choices': [-1, 0, 1, 2, 3],
-        'default': 1,
+        'choices': [0, 1, 2, 3, 4],
+        'default': 2,
         'type': int,
         'metavar': 'LEVEL',
         'help': 'Set verbosity LEVEL: (default: %(default)s)\n'
-                '-1 - silent mode (only critical messages)\n'
-                ' 3 - maximum verbosity'
+                '0 - silent mode      (only CRITICAL messages)\n'
+                '1 - WARNINGS\n'
+                '2 - INFO\n'
+                '3 - LOG FILES        (log files are generated)\n'
+                '4 - DEBUG            (all messages)'
     },
     'version': {
         'action': 'store_true',
         'help': 'print version and exit program'
     },
     'weighted-fit': {
-        'action': 'store_true',
+        'metavar': 'ARG',
         'help':
-            'This option fixes a problem occurring when part of the protein is assigned increased flexibility, '
-            'which in default mode results in sometimes incorrect structural fit between generated models, which in '
-            'consequence affects clustering and scoring. Structural fit can be corrected by using weights assigned '
-            'to the protein residues, which modify the significance of a given residue in the structural fit process. '
-            'By default all residues are assigned uniform weight w = 1.0.\n\n'
-            'Use \'--weighted-fit\' in combination with \'--receptor-flexibility\' to use flexibility settings as '
-            'weights for structural fit\n\nOR\n\n'
-            'use \'--weighted-fit-file <path to file>\' to provide custom weights.\n'
-            'The file should follow this format:\n\n'
-            'default 1.0 (default value, if omitted w = 1.0 is assumed)\n1:A 0.5\n2:A 0.1\n...\n1:B 0.99\netc.\n\n'
-            'Weights should be numbers from [0:1] with \'0\' meaning irrelevant in fitting process.'
-    },
-    'weighted-fit-file': {
-        'metavar': 'FILE',
-        'help': 'See help entry for \'--weighted-fit\''
+            'This option allows to set and customize the way models are structurally aligned, which affects both '
+            'calculation of the RMSD/RMSF and clustering together with the selectiom of the final models.\n'
+            'Models are aligned by the Kabsch optimal fit algorithm. This options assigns weights to all atoms, '
+            'which specify how \'important\' the atom is in the structural fit process. Weights are numbers from '
+            '[0:1] range with \'0\' meaning \'irrelevant in fitting process.\'\n\n'
+            'ARG can be either:\n\n'
+            '[1] \'gauss\' Weights are generated automatically in the iterative procedure described in [CITE]\n'
+            'The procedure consists of the following steps: (1) Set wi = 1.0 for i = [1,2 ... N], where N is the '
+            'number of atoms. (2) Align structures using weights wi. (3) Calculate di - displacement of the i-th atom. '
+            '(4) Update weights according to formula: wi = exp(-0.5 * di * di). Repeat (2) through (4) until '
+            'convergence.\n'
+            '[2] \'flex\' Weights are taken from the flexibility settings. (See help entry for '
+            '\'--protein-flexibility\')\n'
+            '[3] \'ss\' Weights are taken from the secondary structure assignment. Atoms in helices and sheets are '
+            'given w = 1.0, while those in loops and coil get w = 0.0\n'
+            '[4] <filename> Weights are read from a file <filename>. The file should follow this format:\n\n'
+            '# Example file\n'
+            '# default 1.0 (default value, if omitted w = 1.0 is assumed)\n'
+            '# 1:A 0.5\n'
+            '# 5:A 0.1\n'
+            '# ...\n'
+            '# 1:B 0.99\n'
+            '# ...\n'
+            '# End of file\n\n'
+            '[5] \'off\' Turns off weighted-fit (all weights are 1.0).'
     },
     'work-dir': {
         'flag': '-w',
@@ -664,3 +712,83 @@ options = {
 
 DockParser = mk_parser(dock_dict, dc(groups), dc(options))
 FlexParser = mk_parser(flex_dict, dc(groups), dc(options))
+
+
+def if_append(option_name, value):
+    """ Handles appended arguments that come as both lists of lists and lists of arguments"""
+    try:
+        if options[option_name]["action"] == "append":
+            try:
+                nargs = options[option_name]['nargs']  # TODO: options[option_name].get('nargs')
+                if type(value) == list:
+                    line = ""
+                    for single_value in value:
+                        line += "\n" + option_name + " : " + " ".join([str(i) for i in single_value])
+                    return line
+                else:
+                    logger.warning("OptParse", "Issues while saving multiple argument option: %s" % option_name)
+                    raise KeyError
+
+            except KeyError:
+                if type(value) == list:
+                    line = ""
+                    for single_value in value:
+                        line += "\n" + option_name + " : " + str(single_value)
+                    return line
+                else:
+                    logger.warning("OptParse", "Issues while saving appended argument option: %s" % option_name)
+                    raise KeyError
+            except Exception:
+                logger.warning("OptParse", "Issues while saving %s option" % option_name)
+                raise KeyError
+        else:
+            raise KeyError
+    except KeyError:
+        raise
+
+
+def if_store_true(option_name, value):
+    """ Catches flags that are not True"""
+    try:
+        if options[option_name]["action"] == "store_true":
+            if value:
+                return "\n" + option_name
+            else:
+                return " "
+    except KeyError:
+        raise
+
+
+def if_nargs(option_name, value):
+    """ Handles options that come as lists"""
+    try:
+        nargs = options[option_name]["nargs"]
+        return "\n" + option_name + " : " + " ".join([str(i).strip("#") for i in value])  # "#" for contact maps colors
+    except KeyError:
+        raise
+
+
+def if_wd(option_name, value):
+    if option_name == "work-dir":
+        return "\n" + option_name + " : " + os.path.abspath(value)
+    else:
+        raise KeyError
+
+
+special_cases = [if_append, if_store_true, if_nargs, if_wd]
+
+
+def option_formatter(option, value):
+    """
+     Provides a string with properly formatted option to save in config file
+     If value is False the option is ignored, this should be in line with options design
+    """
+
+    if value is None or not value:
+        return " "
+    for func in special_cases:
+        try:
+            return func(option, value)
+        except KeyError:
+            pass
+    return "\n" + option + " : " + str(value)
