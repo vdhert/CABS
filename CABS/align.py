@@ -166,6 +166,7 @@ class LoadCSVAlign(AbstractAlignMethod):
             raise AlignError("Empty alignment.")
         return zip(ats1, ats2)
 
+
 class BLASTpAlign(AbstractAlignMethod):
 
     methodname = 'blastp'

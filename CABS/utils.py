@@ -810,11 +810,19 @@ def kabsch(target, query, weights=None, concentric=False):
     return np.dot(np.dot(w.T, d), v.T)
 
 
+_LARGE = 1000.  # sort of ...
+_TINY = 0.001   # useful only for rmsd/rmsf calc
+
+
+def rmsd(target, query=None, weights=None):
+    _diff = target if query is None else query - target
+    _rmsd = np.sqrt(np.average(np.sum(_diff ** 2, axis=1), axis=0, weights=weights))
+    return _rmsd if _rmsd > _TINY else 0.
+
+
 def dynamic_kabsch(target, query):
-    _LARGE = 1e6
-    _TINY = 1e-6
     _MAX_ITER = 100
-    previous = _LARGE
+    _rmsd = _LARGE
     w = [1.0] * len(target)
     for i in range(_MAX_ITER):
         t_com = np.average(target, 0, w)
@@ -823,18 +831,14 @@ def dynamic_kabsch(target, query):
         q = query - q_com
         r = kabsch(target=t, query=q, weights=w, concentric=True)
         q = np.dot(q, r)
-        d2 = [np.dot(v, v) for v in (q - t)]
-        current = np.average(d2)
-        if np.abs(current - previous) < _TINY:
-            return r, t_com, q_com
-        previous = current
-        w = [np.exp(-0.5 * d) for d in d2]
+        _diff = q - t
+        _current = rmsd(_diff, weights=w)
+        if np.abs(_current - _rmsd) < _TINY:
+            return _rmsd, r, t_com, q_com
+        _rmsd = _current
+        w = np.exp(-np.sum(_diff ** 2, axis=1) / max(_rmsd, 2.)).tolist()
     else:
-        raise Exception('Dynamic kabsch did not converge.')
-
-
-def rmsd(target, query):
-    return np.sqrt(np.average([np.dot(v, v) for v in query - target]))
+        raise Exception('Dynamic Kabsch did not converge in %i steps.' % _MAX_ITER)
 
 
 def smart_flatten(l):

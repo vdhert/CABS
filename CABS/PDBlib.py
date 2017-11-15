@@ -12,6 +12,7 @@ from requests.exceptions import HTTPError, ConnectionError
 from os.path import expanduser, isfile, join, isdir
 from subprocess import Popen, PIPE
 from collections import OrderedDict
+from StringIO import StringIO
 
 from CABS import logger
 from CABS.atom import Atom, Atoms
@@ -126,27 +127,26 @@ class Pdb(object):
             if fix_non_standard_aa:
                 logger.debug(_name, 'Scanning {} for non-standard amino acids'.format(name))
                 aa_names = [AA_NAMES[k] for k in AA_NAMES]
-                for residue in self.atoms.residues():
-                    resname = residue[0].resname
-                    if resname not in aa_names:
-                        if resname not in AA_SUB_NAMES:
-                            logger.warning(
-                                module_name=_name,
-                                msg='Unknown residue {} at {} in {}'.format(
-                                    resname, residue[0].resid_id(), name
+                for model in self.atoms.models():
+                    for residue in model.residues():
+                        resname = residue[0].resname
+                        if resname not in aa_names:
+                            if resname not in AA_SUB_NAMES:
+                                logger.warning(
+                                    _name, 'Unknown residue {} at {} in {}'.format(
+                                        resname, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
-                        else:
-                            sub_name = AA_SUB_NAMES[resname]
-                            for atom in residue:
-                                atom.resname = sub_name
-                                atom.hetatm = False
-                            logger.warning(
-                                module_name=_name,
-                                msg='Replacing {} -> {} for {} in {}'.format(
-                                    resname, sub_name, residue[0].resid_id(), name
+                            else:
+                                sub_name = AA_SUB_NAMES[resname]
+                                for atom in residue:
+                                    atom.resname = sub_name
+                                    atom.hetatm = False
+                                logger.warning(
+                                    _name, 'Replacing {} -> {} for {} in {}'.format(
+                                        resname, sub_name, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
 
             if remove_hetero:
                 logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
@@ -155,6 +155,9 @@ class Pdb(object):
             if selection:
                 logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name))
                 self.atoms = self.atoms.select(selection)
+
+            if ' ' in set([i.chid for i in self.atoms]):
+                raise ValueError('Atoms with empty chain ID in selected part of PDB file detected.')
 
             if not len(self.atoms):
                 raise Exception('{} contains no atoms'.format(source))
@@ -264,7 +267,7 @@ class Pdb(object):
             return None
         else:
             logger.debug(_name, 'DSSP successful')
-            if logger._log_level >= 3 and output:
+            if logger.log_files() and output:
                 output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):
@@ -293,6 +296,73 @@ class Pdb(object):
                 sec[key] = val
 
         return sec
+
+    def mk_ss_header(self):
+        dct = self.dssp()
+
+        def mark(symbol):
+            def getStart((x, y, z)):
+                """Returns 1 for residues that are at the beginning of seq of ss elements of the same type."""
+                if y[1] != symbol: return 0
+                if x[1] != y[1]: return 1
+                return 0
+
+            def getEnd((x, y, z)):
+                """Returns 1 for residues that are at the end of seq of ss elements of the same type."""
+                if y[1] != symbol: return 0
+                if y[1] != z[1]: return 1
+                return 0
+
+            return getStart, getEnd
+
+        def szip(lst):
+            lst = [None] + lst + [None]
+            return zip(lst, lst[1:], lst[2:])
+
+        pickMidSS = lambda it: it[1][0]
+
+        sseq = szip(dct.items())
+        getSt, getEn = mark('H')
+        rngH = zip(map(pickMidSS, filter(getSt, sseq)), map(pickMidSS, filter(getEn, sseq)))
+        getSt, getEn = mark('E')
+        rngS = zip(map(pickMidSS, filter(getSt, sseq)), map(pickMidSS, filter(getEn, sseq)))
+
+        out = []
+
+        serNum = 0
+        helixID = ''
+        hlxClass = 1
+        comment = ''
+        cas = self.atoms.select('NAME CA')
+        recName = 'HELIX'
+        #~ for st, en in zip(rngH[::2], rngH[1::2]):
+        for st, en in rngH:
+            serNum += 1
+            stNm, stChID = st.split(":")
+            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
+            enNm, enChID = en.split(":")
+            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
+            length = cas.atoms.index(atEn) - cas.atoms.index(atSt)
+            inp = (recName, serNum, helixID, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, hlxClass, comment, length)
+            line = "%-6s %3i %3s %3s %1s %4i%1s %3s %1s %4i%1s%2i%30s %5i\n" % inp
+            out.append(line)
+
+        recName = 'SHEET'
+        serNum = 0
+        sheetID = ''
+        numStrs = 1
+        sense = 0
+        for st, en in rngS:
+            serNum += 1
+            stNm, stChID = st.split(":")
+            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
+            enNm, enChID = en.split(":")
+            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
+            inp = (recName, serNum, sheetID, numStrs, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, sense, '')
+            line = "%-6s %3i %3s%2i %3s %1s%4i%1s %3s %1s%4i%1s%2i %29s\n" % inp
+            out.append(line)
+
+        return ''.join(out)
 
     @staticmethod
     def xssp(filename, server='http://www.cmbi.umcn.nl/xssp'):
