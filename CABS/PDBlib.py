@@ -267,7 +267,7 @@ class Pdb(object):
             return None
         else:
             logger.debug(_name, 'DSSP successful')
-            if logger._log_level >= 3 and output:
+            if logger.log_files() and output:
                 output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):

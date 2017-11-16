@@ -30,7 +30,7 @@ def ca2all(
     """
 
     old_stdout = sys.stdout
-    if logger.log_level >= 2:
+    if logger.log_files():
         sys.stdout = open(out_mdl, 'w')
     else:
         sys.stdout = open('/dev/null', 'w')
