@@ -18,14 +18,19 @@ from CABS.atom import Atom, Atoms
 from CABS.utils import AA_NAMES, AA_SUB_NAMES
 
 _name = 'PDB'  # module name for logger
-_DSSP_COMMAND = 'dssp'
+PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+try:
+    os.makedirs(PDB_CACHE)
+except OSError:
+    pass
 
 
 class Pdb(object):
     """
     Pdb parser.
     """
-    PDB_CACHE = join(expanduser('~'), 'cabsPDBcache')
+
+    DSSP_COMMAND = 'dssp'
 
     class InvalidPdbInput(Exception):
         pass
@@ -121,27 +126,26 @@ class Pdb(object):
             if fix_non_standard_aa:
                 logger.debug(_name, 'Scanning {} for non-standard amino acids'.format(name))
                 aa_names = [AA_NAMES[k] for k in AA_NAMES]
-                for residue in self.atoms.residues():
-                    resname = residue[0].resname
-                    if resname not in aa_names:
-                        if resname not in AA_SUB_NAMES:
-                            logger.warning(
-                                module_name=_name,
-                                msg='Unknown residue {} at {} in {}'.format(
-                                    resname, residue[0].resid_id(), name
+                for model in self.atoms.models():
+                    for residue in model.residues():
+                        resname = residue[0].resname
+                        if resname not in aa_names:
+                            if resname not in AA_SUB_NAMES:
+                                logger.warning(
+                                    _name, 'Unknown residue {} at {} in {}'.format(
+                                        resname, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
-                        else:
-                            sub_name = AA_SUB_NAMES[resname]
-                            for atom in residue:
-                                atom.resname = sub_name
-                                atom.hetatm = False
-                            logger.warning(
-                                module_name=_name,
-                                msg='Replacing {} -> {} for {} in {}'.format(
-                                    resname, sub_name, residue[0].resid_id(), name
+                            else:
+                                sub_name = AA_SUB_NAMES[resname]
+                                for atom in residue:
+                                    atom.resname = sub_name
+                                    atom.hetatm = False
+                                logger.warning(
+                                    _name, 'Replacing {} -> {} for {} in {}'.format(
+                                        resname, sub_name, residue[0].resid_id(), name
+                                    )
                                 )
-                            )
 
             if remove_hetero:
                 logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
@@ -160,7 +164,7 @@ class Pdb(object):
                     module_name=_name,
                     msg='Matching declared [{}] with actual [{}] chain IDs in {}.'.format(chains, actual_chains, name)
                 )
-                if chains != actual_chains:
+                if set(chains) != set(actual_chains):
                     msg = 'Mismatch in chain IDs in {}: {} differs from {}'.format(name, chains, actual_chains)
                     logger.warning(_name, msg)
                     raise Exception(msg)
@@ -182,7 +186,7 @@ class Pdb(object):
             raise IOError
 
         pdb_low = pdb_code.lower()
-        path = join(Pdb.PDB_CACHE, pdb_low[1:3])
+        path = join(PDB_CACHE, pdb_low[1:3])
         try:
             os.makedirs(path)
         except OSError:
@@ -216,7 +220,7 @@ class Pdb(object):
         out = err = None
 
         try:
-            proc = Popen([_DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
             out, err = proc.communicate(input=self.body)
             logger.debug(
                 module_name=_name,
@@ -228,7 +232,7 @@ class Pdb(object):
                 msg='DSSP not found.'
             )
 
-            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=Pdb.PDB_CACHE)[1]
+            tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=PDB_CACHE)[1]
             with open(tempfile, 'wb') as f:
                 f.write(self.body)
 
@@ -242,8 +246,9 @@ class Pdb(object):
             except (HTTPError, ConnectionError):
                 logger.warning(
                     module_name=_name,
-                    msg='Cannot connect to the DSSP server'
+                    msg='Cannot connect to the DSSP server. DSSP was not ran at all.'
                 )
+                return None
             finally:
                 try:
                     os.remove(tempfile)
@@ -258,7 +263,7 @@ class Pdb(object):
             return None
         else:
             logger.debug(_name, 'DSSP successful')
-            if logger.log_level >= 2 and output:
+            if logger._log_level >= 3 and output:
                 output = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
                 d = os.path.dirname(output)
                 if not isdir(d):
@@ -297,7 +302,6 @@ class Pdb(object):
         r = req.post(url=url_api % 'create', files=files)
         r.raise_for_status()
         job_id = json.loads(r.content)['id']
-
         while True:
             r = req.get(url_api % 'status' + job_id)
             r.raise_for_status()

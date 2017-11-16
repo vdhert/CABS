@@ -1,14 +1,25 @@
-import os
 import re
 import sys
 import argparse
-from CABS import logger, __version__
+import imp
+import traceback as _tr
+
+try:
+    from CABS import logger, __version__, _JUNK
+except ImportError:
+    cabs_module = imp.find_module("CABS", ["."])
+    imp.load_module("CABS", *cabs_module)
+    from CABS import logger, __version__, _JUNK
+
+from shutil import rmtree
+
+# TODO:     run_dock and run_flex became long enough, to write run_task(command, argv) and change run_dock
+# TODO:     and run_flex to run_dock(argv): run_task('dock', argv) etc.
 
 
 def run_dock(cmd_line=sys.argv[1:]):
 
-    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
-    from CABS.optparser import DockParser as parser, ConfigFileParser
+    from CABS.optparser import DockParser as Parser, ConfigFileParser
 
     preparser = argparse.ArgumentParser(add_help=False)
     preparser.add_argument('-c', '--config')
@@ -17,7 +28,7 @@ def run_dock(cmd_line=sys.argv[1:]):
 
     preargs, remains = preparser.parse_known_args(cmd_line)
     if preargs.help:
-        _help = parser.format_help()
+        _help = Parser.format_help()
         print re.sub("\n( *)\n( *)\n", "\n\n", _help)
         sys.exit(0)
     elif preargs.version:
@@ -26,7 +37,7 @@ def run_dock(cmd_line=sys.argv[1:]):
     elif preargs.config:
         remains = ConfigFileParser(preargs.config).args + remains
 
-    config = vars(parser.parse_args(remains))
+    config = vars(Parser.parse_args(remains))
 
     from CABS.job import DockTask
     job = DockTask(**config)
@@ -35,23 +46,17 @@ def run_dock(cmd_line=sys.argv[1:]):
     try:
         job.run()
     except KeyboardInterrupt:
-        logger.info(
-            module_name='CABSdock',
-            msg='Interrupted by user.'
-        )
+        logger.info('CABSdock', 'Interrupted by user.')
     except Exception as e:
-        logger.critical(
-            module_name="CABSdock",
-            msg="Unhandled Exception caught: %s. Raising" % e.message)
-        raise
+        logger.exit_program(module_name='CABSdock', msg='Error occured', traceback=_tr.format_exc(), exc=e)
     finally:
-        map(os.removedirs, junk)
+        logger.close_log()
+        for _file in _JUNK:
+            rmtree(_file, ignore_errors=True)
 
 
 def run_flex(cmd_line=sys.argv[1:]):
-
-    junk = []  # put here filepaths to whatever should be deleted if cabs crashes
-    from CABS.optparser import FlexParser as parser, ConfigFileParser
+    from CABS.optparser import FlexParser as Parser, ConfigFileParser
 
     preparser = argparse.ArgumentParser(add_help=False)
     preparser.add_argument('-c', '--config')
@@ -60,7 +65,7 @@ def run_flex(cmd_line=sys.argv[1:]):
 
     preargs, remains = preparser.parse_known_args(cmd_line)
     if preargs.help:
-        _help = parser.format_help()
+        _help = Parser.format_help()
         print re.sub("\n( *)\n( *)\n", "\n\n", _help)
         sys.exit(0)
     elif preargs.version:
@@ -69,26 +74,22 @@ def run_flex(cmd_line=sys.argv[1:]):
     elif preargs.config:
         remains = ConfigFileParser(preargs.config).args + remains
 
-    config = vars(parser.parse_args(remains))
+    config = vars(Parser.parse_args(remains))
 
     from CABS.job import FlexTask
     job = FlexTask(**config)
 
-    # start docking
+    # start flexing
     try:
         job.run()
     except KeyboardInterrupt:
-        logger.info(
-            module_name='CABSflex',
-            msg='Interrupted by user.'
-        )
+        logger.info('CABSflex', 'Interrupted by user.')
     except Exception as e:
-        logger.critical(
-            module_name="CABSflex",
-            msg="Unhandled Exception caught: %s. Raising" % e.message)
-        raise
+        logger.exit_program(module_name='CABSflex', msg='Error occured', traceback=_tr.format_exc(), exc=e)
     finally:
-        map(os.removedirs, junk)
+        logger.close_log()
+        for _file in _JUNK:
+            rmtree(_file, ignore_errors=True)
 
 
 if __name__ == '__main__':

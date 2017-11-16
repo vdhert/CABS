@@ -7,6 +7,8 @@ import numpy
 import operator
 
 import matplotlib.pyplot
+matplotlib.pyplot.switch_backend('agg')
+import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.colors
 
@@ -40,7 +42,7 @@ class ContactMapFactory(object):
         traj -- numpy.array of propper shape, i.e. Nreplicas x Nframes x Natoms x 3.
         thr -- float; threshold for side chain distance contact.
         frames -- tuple of ints; indexes of frames to be taken. All frames are taken by default.
-        replicas -- list of replicas' indexes to be taken. All replicas are taken by default.
+        replicas -- tuple of replicas' indexes to be taken. All replicas are taken by default.
 
         Returns list of ContactMap for each replica in trajectory.
         """

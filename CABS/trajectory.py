@@ -1,12 +1,12 @@
 import StringIO
 import numpy as np
 import operator
+import os.path
 from copy import deepcopy
 
 from CABS import logger
 from CABS import align
 from CABS import utils
-from CABS.PDBlib import Pdb
 from CABS.atom import Atom, Atoms
 
 __all__ = ['Trajectory', 'Header']
@@ -66,14 +66,14 @@ class Header:
         :return: int the energy value.
         """
         if mode == 'interaction':
-            #number_of_peptides fixes energy calculations
+            # number_of_peptides fixes energy calculations
             if number_of_peptides is None:
                 print("Unknown number of peptides. Assuming 1.")
                 num_pept = 1
             else:
                 num_pept = number_of_peptides
-            int_submtrx_size = self.energy.shape[0]-num_pept
-            int_enrg = np.sum(self.energy[:int_submtrx_size,-num_pept:])
+            int_submtrx_size = self.energy.shape[0] - num_pept
+            int_enrg = np.sum(self.energy[:int_submtrx_size, -num_pept:])
             return int_enrg
         elif mode == 'total':
             return np.sum(np.tril(self.energy))
@@ -85,12 +85,13 @@ class Trajectory(object):
     """
     GRID = 0.61
 
-    def __init__(self, template, coordinates, headers, number_of_peptides=None):
+    def __init__(self, template, coordinates, headers, number_of_peptides=None, weights=None):
         self.template = template
         self.coordinates = coordinates
         self.headers = headers
         self.rmsd_native = None
         self.number_of_peptides = number_of_peptides
+        self.weights = np.diagflat(weights) if weights else None
 
     @staticmethod
     def read_seq(filename):
@@ -192,7 +193,7 @@ class Trajectory(object):
         if not template:
             template = self.template.select(selection)
         inds = [self.template.atoms.index(a) for a in template]
-        return Trajectory(template, self.coordinates[:,:,inds,:], self.headers)
+        return Trajectory(template, self.coordinates[:, :, inds, :], self.headers)
 
     def to_atoms(self):
         result = Atoms()
@@ -202,7 +203,7 @@ class Trajectory(object):
             atoms = deepcopy(self.template)
             num += 1
             atoms.set_model_number(num)
-            atoms.from_matrix(model)
+            atoms.from_numpy(model)
             result.extend(atoms)
         self.coordinates.reshape(shape)
         return result
@@ -213,27 +214,24 @@ class Trajectory(object):
         :return: np.array
         """
 
-        def rmsd(m1, m2, ml):
-            return np.sqrt(np.sum((m1 - m2) ** 2) / ml)
-
-        model_length = len(self.template)
-        models = self.coordinates.reshape(-1, model_length, 3)
+        models = self.coordinates.reshape(-1, len(self.template), 3)
         dim = len(models)
         result = np.zeros((dim, dim))
+
         if msg:
-            bar = logger.ProgressBar((dim * dim - dim) / 2, msg=msg)
+            bar = logger.ProgressBar((dim * dim - dim) / 2, start_msg=msg)
         else:
             bar = None
         for i in range(dim):
             for j in range(i + 1, dim):
                 if bar:
                     bar.update()
-                result[i, j] = result[j, i] = rmsd(models[i], models[j], model_length)
+                result[i, j] = result[j, i] = utils.rmsd(models[i], models[j])
         if bar:
             bar.done(True)
         return result
 
-    def superimpose_to(self, reference, substructure):
+    def superimpose_to(self, reference, substructure=None):
         """Superimposes trajectory substructure from self.template on given reference.
 
         Arguments:
@@ -242,18 +240,29 @@ class Trajectory(object):
 
         This method modifies trajectory in place.
         """
-        pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
 
-        t = reference.to_matrix()
-        t_com = np.average(t, 0)
-        t = np.subtract(t, t_com)
+        if substructure:
+            pieces = utils.ranges([self.template.atoms.index(a) for a in substructure])
+        else:
+            pieces = [(0, len(self.template))]
 
-        shape = self.coordinates.shape
-        for model in self.coordinates.reshape(-1, len(self.template), 3):
-            query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
-            q_com = np.average(query, 0)
-            q = np.subtract(query, q_com)
-            np.copyto(model, np.add(np.dot(np.subtract(model, q_com), utils.kabsch(t, q, concentric=True)), t_com))
+        target = reference.to_numpy()
+
+        if self.weights:
+            t_com = np.average(target, axis=0, weights=self.weights)
+            target = target - t_com
+
+            for model in self.coordinates.reshape(-1, len(self.template), 3):
+                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                query = query - np.average(query, axis=0, weights=self.weights)
+                query = np.dot(query, utils.kabsch(target, query, weights=self.weights, concentric=True)) + t_com
+                np.copyto(model, query)
+
+        else:  # dynamic weights
+            for model in self.coordinates.reshape(-1, len(self.template), 3):
+                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                rmsd, rot, t_com, q_com = utils.dynamic_kabsch(target, query)
+                np.copyto(model, np.dot(model - q_com, rot) + t_com)
 
     def align_to(self, ref_stc, ref_chs, self_chs, align_mth='SW', kwargs={}):
         """Calculates alignment of template to given reference structure.
@@ -270,7 +279,7 @@ class Trajectory(object):
         Returns two structures: reference and template -- both cropped to aligned parts only, and alignment as list of tuples.
         """
         mth = align.AbstractAlignMethod.get_subclass_dict()[align_mth]
-        #aligning target
+        # aligning target
         mtch_mtx = np.zeros((len(ref_chs), len(self_chs)), dtype=int)
         algs = {}
         key = 1
@@ -292,7 +301,6 @@ class Trajectory(object):
         for n, refch in enumerate(mtch_mtx):
             inds = np.nonzero(refch)
             pickups.extend(refch[inds])
-            #~ mtch_mtx[n + 1:, inds] = 0
         trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
         ref_mrs, tmp_mrs = zip(*trg_aln)
         ref_sstc = Atoms(arg=list(ref_mrs))
@@ -309,75 +317,67 @@ class Trajectory(object):
 
         Both given substructure have to be the same length (and in aligned order).
         """
-        #RMSD calculation
-        def rmsd(m1, m2, length):
-            return np.sqrt(np.sum((m1 - m2) ** 2) / length)
 
-        ref_trg = np.array(ref_sstc.to_matrix())
+        ref_trg = np.array(ref_sstc.to_numpy())
         aln_traj = self.select(template=self_sstc)
-        length = len(aln_traj.template)
-        models = aln_traj.coordinates.reshape(-1, length, 3)
+        models = aln_traj.coordinates.reshape(-1, len(aln_traj.template), 3)
         result = np.zeros(len(models))
         for i, h in zip(range(len(models)), self.headers):
-            result[i] = rmsd(models[i], ref_trg, length)
+            result[i] = utils.rmsd(models[i], ref_trg)
             h.rmsd = result[i]
         return result
 
     def get_model(self, model):
-        """
-        Do poprawy 
-        """
         shape = self.coordinates.shape
         coordinates = self.coordinates.reshape(-1, len(self.template), 3)[model]
         atoms = deepcopy(self.template)
         atoms.set_model_number(model + 1)
-        m = atoms.from_matrix(coordinates)
+        m = atoms.from_numpy(coordinates)
         self.coordinates.reshape(shape)
         return m
 
-    def to_pdb(self, name = None, mode='models', to_dir = None):
+    def to_pdb(self, name=None, mode='models', to_dir=None):
         """
         Method for transforming a trajectory instance into a PDB file-like object.
-        :param mode:    'models' -- the method returns a list of StringIO objects, each representing one model from the trajectory;
-                        'replicas' -- the method returns a list of StringIO objects, each representing one replica from the trajectory.
-        :param to_dir:  path to directory in which the PDB files should be saved. If None, only StringIO object is returned.
+        :param name:    'name'  -- name (name) ;)
+        :param mode:    'models' -- the method returns a list of StringIO objects,
+                                    each representing one model from the trajectory;
+                        'replicas' -- the method returns a list of StringIO objects,
+                                      each representing one replica from the trajectory.
+        :param to_dir:  path to directory in which the PDB files should be saved.
+                        If None, only StringIO object is returned.
         :return:        if to_dir is None: StringIO object
                         if to_dir is not None: saves file and returns True.
         """
         execution_mode = {'models': (self.coordinates[0], 'model'), 'replicas': (self.coordinates, 'replica')}
         if to_dir:
             for i, m in enumerate(execution_mode[mode][0]):
-                Trajectory(self.template, m, None).to_atoms().save_to_pdb(
-                    to_dir + '/'
-                    +
-                    (execution_mode[mode][1] if name is None else name)
-                    +
-                    ('' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i))
-                    +
-                    '.pdb'
-                    )
+                pre = execution_mode[mode][1] if name is None else name
+                post = '' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i)
+                fname = os.path.join(to_dir, '%s%s.pdb' % (pre, post))
+                Trajectory(self.template, m, None).to_atoms().save_to_pdb(fname)
             out = True
         else:
-            out =  [
+            out = [
                 StringIO.StringIO(
                     Trajectory(self.template, m, None).to_atoms().make_pdb()
-                    )
+                )
                 for m in execution_mode[mode][0]
-                ]
+            ]
         return out
 
-    def rmsf(self, chains = ''):
+    def rmsf(self, chains=''):
         """
         Calculates the RMSF for each residue.
         :param chains: string chains for which RMSF should be calculated.
         :return: list of RMSF values.
         """
         mdls = self.select('chain ' + ','.join(chains))
-        #~ mdls.align_to(mdls.get_model(1), 'chain ' + ','.join(chains))
         mdl_lth = len(mdls.template)
         mdls_crds = np.stack(mdls.coordinates.reshape(-1, mdl_lth, 3), axis=1)
         avg = [np.mean(rsd, axis=0) for rsd in mdls_crds]
         return [np.mean([np.linalg.norm(avg[i] - case) for case in rsd]) for i, rsd in enumerate(mdls_crds)]
+
 
 if __name__ == '__main__':
     pass
