@@ -49,10 +49,8 @@ _remote = False
 _prefix = color_prefix
 
 
-
-
-def setup(log_level=2,remote=False,work_dir = ''):
-    global _log_level,_color,_stream,_remote,_line_break,_prefix
+def setup(log_level=2, remote=False, work_dir=''):
+    global _log_level,_color,_stream,_remote, _line_break,_prefix
     global _line_format,_middle_line_format,_first_line_format,_last_line_format
     _remote = remote
     if _remote or not sys.stderr.isatty():
@@ -63,9 +61,10 @@ def setup(log_level=2,remote=False,work_dir = ''):
         _last_line_format = '%-22s %-75s %s\n'
         _prefix = log_levels
     if _remote:
-        _log_path = os.path.join(work_dir,"CABSlog")
+        _log_path = os.path.join(work_dir, "CABS.log")
         try:
-            _stream = open(_log_path,'a+')
+            _stream = open(_log_path, 'a+')
+            _stream.write('#' * 110)
         except IOError:
             try:
                 os.makedirs(work_dir)
@@ -78,9 +77,11 @@ def setup(log_level=2,remote=False,work_dir = ''):
     _log_level = log_level
     info(_name, 'Verbosity set to: ' + str(log_level) + " - " + log_levels[log_level])
 
+
 def close_log():
     if _stream is not sys.stderr:
         _stream.close()
+
 
 def coloring(color_name="light_blue", msg=""):
     if _color:
@@ -89,7 +90,8 @@ def coloring(color_name="light_blue", msg=""):
 
 
 def log(module_name="MISC", msg="Processing ", l_level=2, out=None):
-    if out is None: out = _stream
+    if out is None:
+        out = _stream
     if l_level <= _log_level:
         t = gmtime(time() - _init_time)
         if len(msg) < _line_break:

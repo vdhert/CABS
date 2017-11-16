@@ -9,7 +9,7 @@ from shutil import rmtree
 from StringIO import StringIO
 
 from CABS.job import FlexTask
-from CABS.optparser import FlexParser
+from CABS.optparser import flex_parser
 
 
 def add_args_and_workdir(args):
@@ -25,7 +25,7 @@ class FlexParserTest(TestCase):
 
     def test_FPinit(self):
         #~ FlexParser.parse_args([])
-        FlexParser.parse_args(['-i', '1hpw'])
+        flex_parser.parse_args(['-i', '1hpw'])
         #~ std = StringIO()
         #~ sys.stdout = std
         #~ FlexParser.parse_args(['-i',])
@@ -38,7 +38,7 @@ class FlexTest(TestCase):
 
     def mk_parser(self, lst):
         ddir = tempfile.gettempdir() + "/flexInitCABS"
-        prsr = FlexParser.parse_args(lst + ['--work-dir', ddir])
+        prsr = flex_parser.parse_args(lst + ['--work-dir', ddir])
         return ddir, prsr
 
     @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])

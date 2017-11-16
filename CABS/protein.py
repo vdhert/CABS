@@ -10,7 +10,7 @@ from math import exp
 
 from CABS import utils
 from CABS import logger
-from CABS.PDBlib import Pdb
+from CABS.pdblib import Pdb
 from CABS.atom import Atoms
 from CABS.vector3d import Vector3d
 

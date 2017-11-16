@@ -23,7 +23,7 @@ except ImportError:
 
 def ca2all(
         filename, output=None, iterations=1, work_dir='.',
-        out_mdl=os.getcwd()+'/output_data/modeller_output_0.txt'  # TODO: win support and progress bar (perhaps)
+        out_mdl=os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt')
 ):
     """
     Rebuilds ca to all-atom

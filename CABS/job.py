@@ -1,5 +1,5 @@
 """
-Module for running cabsDock jobs.
+Module for running CABS jobs.
 """
 import operator
 import os
@@ -10,7 +10,7 @@ from tempfile import mktemp
 from time import strftime
 
 from abc import ABCMeta, abstractmethod
-from CABS import logger, PDBlib, cabs
+from CABS import logger, pdblib, cabs
 from CABS.align import save_csv
 from CABS.align import AlignError
 from CABS.cluster import Clustering
@@ -100,7 +100,7 @@ class CABSTask(object):
         self.results = None
         self.reference = None
 
-        # Workdir processing: making sure work_dir is abspath
+        # Work_dir processing: making sure work_dir is abspath
         self.work_dir = os.path.abspath(self.work_dir)
 
         try:
@@ -115,7 +115,7 @@ class CABSTask(object):
                 )
 
         if self.dssp_command:
-            PDBlib.Pdb.DSSP_COMMAND = self.dssp_command
+            pdblib.Pdb.DSSP_COMMAND = self.dssp_command
 
         if self.fortran_command:
             cabs.CabsRun.FORTRAN_COMMAND = self.fortran_command
@@ -155,19 +155,19 @@ class CABSTask(object):
         self.gauss = self.weighted_fit == 'gauss'
 
     def run(self):
-        ftraf = self.file_TRAF
-        fseq = self.file_SEQ
+        file_traf = self.file_TRAF
+        file_seq = self.file_SEQ
         self.setup_job()
         if self.reference_pdb:
             self.parse_reference(self.reference_pdb)
-        with_cabs = None in (ftraf, fseq)
+        with_cabs = None in (file_traf, file_seq)
 
         if with_cabs:
             self.setup_cabs_run()
             self.execute_cabs_run()
         if self.save_cabs_files:
             self.save_cabs_res()
-        self.load_output(ftraf, fseq)
+        self.load_output(file_traf, file_seq)
         self.score_results(
             n_filtered=self.filtering_count,
             number_of_medoids=self.clustering_medoids,
@@ -179,7 +179,7 @@ class CABSTask(object):
             try:
                 self.calculate_rmsd()
             except (ValueError, AlignError) as e:
-                logger.logger.critical(module_name=_name, msg=e.message)
+                logger.critical(module_name=_name, msg=e.message)
         self.save_config_file()
         self.draw_plots(colors=self.colors)
         if self.load_cabs_files:
@@ -386,7 +386,7 @@ class CABSTask(object):
                 logger.log_file(module_name=_name, msg='Saving final models (in AA representation)')
                 pdb_medoids = self.medoids.to_pdb()
                 from CABS.ca2all import ca2all
-                from CABS.PDBlib import Pdb
+                from CABS.pdblib import Pdb
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(
                         fname,
@@ -399,7 +399,6 @@ class CABSTask(object):
                     mod = Pdb(pth_tmp)
                     ssh = mod.mk_ss_header()
                     mod.atoms.save_to_pdb(pth_tmp, header=ssh)
-                    #TODO add header without loading file...
             else:
                 logger.log_file(module_name=_name, msg='Saving final models (in CA representation)')
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
@@ -574,10 +573,10 @@ class DockTask(CABSTask):
     def parse_reference(self, ref):
         try:
             source, rec, pep = ref.split(':')
-            self.reference = (PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+            self.reference = (pdblib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
-        except (ValueError, PDBlib.Pdb.InvalidPdbInput):
+        except (ValueError, pdblib.Pdb.InvalidPdbInput):
             logger.warning(_name, 'Invalid reference {}'.format(ref))
             self.reference = None
 
@@ -684,11 +683,11 @@ class FlexTask(CABSTask):
             try:
                 dummy, trg_chids = ref.split(":")
                 self.reference = (
-                    PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids
+                    pdblib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids
                 )
             except AttributeError:  # if ref is None it has no split mth
                 self.reference = (self.initial_complex, self.initial_complex.protein_chains)
-        except PDBlib.Pdb.InvalidPdbInput:
+        except pdblib.Pdb.InvalidPdbInput:
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
