@@ -23,7 +23,7 @@ class Atom(object):
     """
 
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
-    RES_ID_PATT = re.compile(r'([0-9]{1,4})([^0-9]?):([A-Z])')
+    RES_ID_PATT = re.compile(r'(-?[0-9]{1,4})([^0-9]?):([A-Z])')
 
     def __init__(self, line=None, model=0, **kwargs):
         """
@@ -589,7 +589,7 @@ class Atoms(object):
             bar.done(False)
         return s
 
-    def save_to_pdb(self, filename, bar_msg=''):
+    def save_to_pdb(self, filename, bar_msg='', header=''):
         """
         Saves atoms to a file in the pdb format. Calls Atoms.make_pdb(). bar_msg is a string with message to show
         at ProgressBar initialization. bar_msg = '' disables the bar.
@@ -598,6 +598,7 @@ class Atoms(object):
         :return: None
         """
         with open(filename, 'w') as f:
+            f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))
 
     def select(self, sele):
