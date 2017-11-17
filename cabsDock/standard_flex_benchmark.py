@@ -1,4 +1,5 @@
 from benchmark import StandardRunner
 
-sr = StandardRunner(rundir_prefix='.')
-sr.run_standard_flex()
+for version in ['multi','one']:
+    sr = StandardRunner()
+    sr.run_standard_flex(version=version, name_prefix='flex'+version+'chain_')

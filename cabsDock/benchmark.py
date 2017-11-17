@@ -29,9 +29,9 @@ class StandardRunner(object):
                 log.write(command)
                 log.write(';\n')
 
-    def run_standard_flex(self):
+    def run_standard_flex(self, version = 'multi', name_prefix=''):
         with open('flex_benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
-            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex_multichain.txt', mode='cabsflex', runtype='flex')
+            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex_'+version+'chain.txt', mode='cabsflex', runtype='flex', name_prefix=name_prefix)
             command = br.run_benchmark(test=True)
             log.write(command)
             log.write(';\n')
@@ -90,19 +90,20 @@ class StandardRunner(object):
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={}, name='', runtype='bound', mode='cabsdock'):
+    def __init__(self, benchmark_file, options={'-V': '4', '--remote':''}, name='', name_prefix='', runtype='bound', mode='cabsdock'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
         self.runtype = runtype
         self.mode = mode
+        self.name_prefix = name_prefix
 
     def setup(self):
         if self.name == '':
             benchdir = getcwd()
         else:
             benchdir = self.name
-        benchdir+='/benchrun_'+time.strftime("%c").replace(' ','_')+''
+        benchdir+='/'+self.name_prefix+'benchrun_'+time.strftime("%c").replace(' ','_')+''
         self.benchdir = benchdir
         try:
             mkdir(benchdir)
@@ -116,7 +117,7 @@ class BenchmarkRunner(object):
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
             logfile.write('#Run started: '+time.strftime("%c"))
-            options_as_str = '\n'.join([str(key)+' = '+str(val) for (key,val) in self.options.items()]) if self.options else ''
+            options_as_str = '\n'.join([str(key)+' = '+str(val) for (key,val) in self.options.items()])+'\n' if self.options else ''
             logfile.write('\n#Used options:\n'+options_as_str)
             cases_as_str = '\n'.join([case.work_dir for case in self.pbsgen.cases])
             logfile.write('#Cases:\n'+cases_as_str)
