@@ -127,8 +127,8 @@ class Case(object):
 
     def run_command(self, runtype='standard'):
         commands_available = {
-            'standard' : ('cabsDock -M -S -C -i {} -p {} --work-dir {} --reference-pdb {}', [self.receptor, self.ligand, self.work_dir, self.reference_pdb]),
-            'flex' : ('cabsFlex -i {} --work-dir {}', [self.receptor, self.work_dir])
+            'standard' : ('CABSdock -M -S -C -i {} -p {} --work-dir {} --reference-pdb {}', [self.receptor, self.ligand, self.work_dir, self.reference_pdb]),
+            'flex' : ('CABSflex -i {} --work-dir {}', [self.receptor, self.work_dir])
             }
 
         command = commands_available[runtype][0].format(*commands_available[runtype][1])

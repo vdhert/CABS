@@ -51,18 +51,17 @@ class StandardRunner(object):
 
     def run_standard_flex(self, version = 'multi', name_prefix=''):
         with open('flex_benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
-            br = BenchmarkRunner(name=self.rundir, benchmark_file='./benchmark_data/cabsflex_'+version+'chain.txt', mode='cabsflex', runtype='flex', name_prefix=name_prefix)
+            br = BenchmarkRunner(benchmark_file='./benchmark_data/cabsflex_'+version+'chain.txt', mode='cabsflex', runtype='flex', name_prefix=name_prefix)
             command = br.run_benchmark(test=True)
             log.write(command)
             log.write(';\n')
 
-    }
     def __init__(self):
         pass
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'-V': '4', '--remote':''}, name='', name_prefix='', runtype='bound', mode='cabsdock'):
+    def __init__(self, benchmark_file, options={'-v': '4', '--remote':''}, name='', name_prefix='', runtype='bound', mode='cabsdock'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
@@ -123,7 +122,7 @@ class BenchmarkAnalyser(object):
         with open(self.benchlog) as log:
             writecase = False
             for line in log:
-                if not line.strip()
+                if not line.strip():
                     print "Empty line"
                 else:
                     print line
