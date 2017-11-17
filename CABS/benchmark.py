@@ -10,8 +10,8 @@ from CABS.pbsgen import PbsGenerator
 
 
 class StandardRunner(object):
-    def __init__(self, rundir_prefix=''):
-        self.rundir = ''+rundir_prefix
+    def __init__(self,rundir = ''):
+        self.rundir = '/STORAGE/DATA/mciem'+'/benchrun_'
     def run_standard(self):
         with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
             print("Bound benchmarks:")
