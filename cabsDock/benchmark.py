@@ -7,8 +7,8 @@ import time
 from subprocess import call
 
 class StandardRunner(object):
-    def __init__(self, rundir=''):
-        self.rundir = rundir
+    def __init__(self, rundir_prefix=''):
+        self.rundir = ''+rundir_prefix
     def run_standard(self):
         with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
             print("Bound benchmarks:")
@@ -90,7 +90,7 @@ class StandardRunner(object):
 
 
 class BenchmarkRunner(object):
-    def __init__(self, benchmark_file, options={'--image-file-format':'png', '--contact-maps':''}, name='', runtype='bound', mode='cabsdock'):
+    def __init__(self, benchmark_file, options={}, name='', runtype='bound', mode='cabsdock'):
         self.benchmark_file = benchmark_file
         self.options = options
         self.name = name
@@ -110,18 +110,16 @@ class BenchmarkRunner(object):
             pass
         self.pbsgen = PbsGenerator(benchmark_list=self.benchmark_file, nonstandard_options_dict=self.options,
                                    rundir=self.benchdir+'/run', runtype=self.runtype)
-        if self.mode == 'cabsdock':
-            self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
-        elif self.mode == 'cabsflex':
-            self.pbsgen.py_script(scriptdir=benchdir+'/pbs')
+        self.pbsgen.pbs_script(scriptdir=benchdir+'/pbs')
+
 
     def save_log(self):
         with open(self.benchdir+'/logfile', 'w') as logfile:
             logfile.write('#Run started: '+time.strftime("%c"))
-            options_as_str = '\n'.join([str(key)+' = '+str(val) for (key,val) in self.options.items()])
+            options_as_str = '\n'.join([str(key)+' = '+str(val) for (key,val) in self.options.items()]) if self.options else ''
             logfile.write('\n#Used options:\n'+options_as_str)
             cases_as_str = '\n'.join([case.work_dir for case in self.pbsgen.cases])
-            logfile.write('\n#Cases:\n'+cases_as_str)
+            logfile.write('#Cases:\n'+cases_as_str)
 
     def run_benchmark(self, test=False, qsub_options={'-l walltime':'60:00:00'}):
         self.setup()
@@ -274,7 +272,7 @@ class BenchmarkAnalyser(object):
 #         command = br.run_benchmark(test=True)
 #         log.write(command)
 #         log.write(';\n')
-ba = BenchmarkAnalyser('/Users/maciek/PyProjects/cabsdock/cabsDock/benchrun_Sat_Sep__9_00:14:45_2017')
-ba.get_pearsons()
+#ba = BenchmarkAnalyser('/Users/maciek/PyProjects/cabsdock/cabsDock/benchrun_Sat_Sep__9_00:14:45_2017')
+#ba.get_pearsons()
 
 

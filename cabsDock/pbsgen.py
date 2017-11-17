@@ -10,6 +10,7 @@ class PbsGenerator(object):
         self.cases = []
         f = open(self.benchmark_list, 'r')
         lines = f.readlines()
+        self.runtype = runtype
 
         for line in lines:
             row = line.split()
@@ -78,42 +79,14 @@ class PbsGenerator(object):
             #print name
             with open(scriptdir+'/{}.pbs'.format(name), 'w') as scriptfile:
                 scriptfile.write(self.standard_header)
-                scriptfile.write(
-                    self.standard_err_out.format(
-                        self.rundir + '/{}'.format(name),
-                        self.rundir + '/{}'.format(name)
-                        )
-                    )
-                scriptfile.write(self.standard_cd)
-                scriptfile.write(case.run_command()+' '+additional_options+'\n')
-
-    def py_script(self, scriptdir):
-        try:
-            mkdir(scriptdir)
-        except OSError:
-            pass
-        for case in self.cases:
-            name = case.receptor.split(':')[0]
-            # print name
-            with open(scriptdir + '/{}.py'.format(name), 'w') as pyfile:
-                pyfile.write('from cabsDock.job import FlexTask\n')
-                command = 'flextask = FlexTask('
-                command += 'structure=\'{}\', temperature=(1.4, 1.4), receptor_restraints=(\'ss2\', 3, 3.8, 8.0),'.format(name)
-                command += ' mc_annealing=20, mc_cycles=50, mc_steps=50, work_dir=\'{}/flextask_{}\')'.format(self.rundir, name)
-                command += '\nflextask.run()'
-                print command
-                pyfile.write(command)
-            with open(scriptdir+'/{}.pbs'.format(name), 'w') as pbsfile:
-                pbsfile.write(self.standard_header)
-                # pbsfile.write(
+                # scriptfile.write(
                 #     self.standard_err_out.format(
                 #         self.rundir + '/{}'.format(name),
                 #         self.rundir + '/{}'.format(name)
+                #         )
                 #     )
-                # )
-                pbsfile.write(self.standard_cd)
-                pbsfile.write('python ../pbs/{}.py'.format(name))
-
+                scriptfile.write(self.standard_cd)
+                scriptfile.write(case.run_command(self.runtype)+' '+additional_options+'\n')
 
 class Case(object):
     def __init__(
@@ -133,11 +106,20 @@ class Case(object):
     def __str__(self):
         return ' '.join([str(self.receptor), str(self.ligand), str(self.work_dir), str(self.reference_pdb)])
 
-    def run_command(self):
-        command = 'cabsDock -r {} -p {} --work-dir {} --reference-pdb {}'.format(self.receptor, self.ligand, self.work_dir, self.reference_pdb)
+    def run_command(self, runtype='standard'):
+        commands_available = {
+            'standard' : ('cabsDock -r {} -p {} --work-dir {} --reference-pdb {}', [self.receptor, self.ligand, self.work_dir, self.reference_pdb]),
+            'flex' : ('cabsFlex -i {} --work-dir {}', [self.receptor, self.work_dir])
+            }
+
+        command = commands_available[runtype][0].format(*commands_available[runtype][1])
         if self.sc_rests:
             command += ' --sc-rest-add {}'.format(self.sc_rests[0]+' '+self.sc_rests[1]+' 5.0 1.0')
         return command
 #usage
 # pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/cabsflex_onechain.txt', runtype='flex', rundir='.')
-# pbsgntr.py_script('pys')
+
+#pbsgntr = PbsGenerator(benchmark_list='./benchmark_data/benchmark_bound_cases.txt')
+#pbsgntr.pbs_script('pbs')
+#mltrnr = Multirunner()
+#mltrnr.py_script(scriptdir='..', receptor='2GB1:A', peptide='(\'MACIEK\', \'keep\', \'keep\')', mutadis_mutandis=['receptor_restraints=(\'all\', 5, 5.0, 15.0)'])
