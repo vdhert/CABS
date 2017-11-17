@@ -2,9 +2,12 @@ from glob import glob
 from os import mkdir, getcwd
 from shutil import copyfile
 
-from cabsDock.pbsgen import PbsGenerator
+
 import time
 from subprocess import call
+
+from CABS.pbsgen import PbsGenerator
+
 
 class StandardRunner(object):
     def __init__(self, rundir_prefix=''):
