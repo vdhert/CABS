@@ -1,6 +1,31 @@
 from os import mkdir
 from os.path import exists, isdir
 
+class Multirunner(object):
+    def py_script(self, scriptdir, receptor, peptide, mutadis_mutandis=['']):
+        self.scriptdir = scriptdir
+        self.standard_header = '#!/bin/bash\n'
+        self.standard_cd = 'cd {}\n'.format(self.scriptdir)
+        try:
+            mkdir(scriptdir)
+        except OSError:
+            pass
+        for mutant in mutadis_mutandis:
+            name = receptor.split(':')[0]+mutant.replace(' ','_').replace('=','').replace('\'','')
+            with open(scriptdir + '/{}.py'.format(name), 'w') as pyfile:
+                pyfile.write('from CABS.job import DockTask\n')
+                command = 'cabstask = DockTask('
+                command += 'receptor=\'{}\', ligand={}, {},'.format(
+                    receptor, peptide, mutant)
+                command += ' mc_annealing=20, mc_cycles=50, mc_steps=50, work_dir=\'{}/{}\')'.format(
+                    self.scriptdir, name)
+                command += '\ncabstask.run()'
+                print command
+                pyfile.write(command)
+            with open(scriptdir + '/{}.pbs'.format(name), 'w') as pbsfile:
+                pbsfile.write(self.standard_header)
+                pbsfile.write(self.standard_cd)
+                pbsfile.write('python {}.py'.format(name))
 
 class PbsGenerator(object):
     def __init__(self, benchmark_list='', rundir='', nonstandard_options_dict={}, runtype='standard'):
@@ -20,14 +45,14 @@ class PbsGenerator(object):
                 #print row
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[4])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + ':' + str(row[4])
                 sc_rests = []
                 if len(row) > 5:
                     sc_rests = (str(row[5]), str(row[6]))
             elif runtype=='unbound':
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[2] + ':' + str(row[3]))
-                reference_pdb = str(row[4]) + ':' + str(row[5])+str(row[6])
+                reference_pdb = str(row[4]) + ':' + str(row[5]) + ':' + str(row[6])
                 sc_rests = []
                 #print row
                 if len(row) > 7:
@@ -35,7 +60,7 @@ class PbsGenerator(object):
             elif runtype=='frompdb':
                 receptor = str(row[0]) + ':' + str(row[1])
                 ligand = str(row[0]) + ':' + str(row[2])
-                reference_pdb = str(row[0]) + ':' + str(row[1]) + str(row[2])
+                reference_pdb = str(row[0]) + ':' + str(row[1]) + ':' + str(row[2])
                 sc_rests = []
                 #print row
                 if len(row) > 3:
@@ -78,15 +103,9 @@ class PbsGenerator(object):
             name = case.receptor.split(':')[0]
             #print name
             with open(scriptdir+'/{}.pbs'.format(name), 'w') as scriptfile:
-                scriptfile.write(self.standard_header)
-                # scriptfile.write(
-                #     self.standard_err_out.format(
-                #         self.rundir + '/{}'.format(name),
-                #         self.rundir + '/{}'.format(name)
-                #         )
-                #     )
                 scriptfile.write(self.standard_cd)
                 scriptfile.write(case.run_command(self.runtype)+' '+additional_options+'\n')
+
 
 class Case(object):
     def __init__(
@@ -108,7 +127,7 @@ class Case(object):
 
     def run_command(self, runtype='standard'):
         commands_available = {
-            'standard' : ('cabsDock -r {} -p {} --work-dir {} --reference-pdb {}', [self.receptor, self.ligand, self.work_dir, self.reference_pdb]),
+            'standard' : ('cabsDock -M -S -C -i {} -p {} --work-dir {} --reference-pdb {}', [self.receptor, self.ligand, self.work_dir, self.reference_pdb]),
             'flex' : ('cabsFlex -i {} --work-dir {}', [self.receptor, self.work_dir])
             }
 

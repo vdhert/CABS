@@ -9,22 +9,39 @@ from subprocess import call
 from CABS.pbsgen import PbsGenerator
 
 
-class StandardRunner(object):
-    def __init__(self,rundir = ''):
-        self.rundir = '/STORAGE/DATA/mciem'+'/benchrun_'
+class MBRunner(object):
     def run_standard(self):
         with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
             print("Bound benchmarks:")
-            log.write("Bound benchmarks:\n")
+            log.write("MB Bound benchmarks:\n")
+            for i in range(1,4):
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_bound_{}.txt'.format(i), runtype='bound')
+                time.sleep(1)
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+            print("Unbound benchmarks:")
+            log.write("MB Unbound benchmarks:\n")
+            for i in range(1,4):
+                br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench_unbound_{}.txt'.format(i), runtype='unbound')
+                time.sleep(1)
+                command = br.run_benchmark(test=True)
+                log.write(command)
+                log.write(';\n')
+
+class StandardRunner(object):
+    def run_standard(self):
+        with open('benchmarking_logfile_{}.txt'.format(time.strftime('%x').replace('/', '')), 'a+b') as log:
+            print("Bound benchmarks:")
+            log.write("Standard Bound benchmarks:\n")
             for i in xrange(3):
-                print('... Run {}'.format(i))
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_bound_cases.txt', runtype='bound')
                 time.sleep(1)
                 command = br.run_benchmark(test=True)
                 log.write(command)
                 log.write(';\n')
             print("Unbound benchmarks:")
-            log.write("Unbound benchmarks:\n")
+            log.write("Standard Unbound benchmarks:\n")
             for i in xrange(3):
                 br = BenchmarkRunner(benchmark_file='./benchmark_data/benchmark_unbound_cases.txt', runtype='unbound')
                 time.sleep(1)
@@ -39,57 +56,9 @@ class StandardRunner(object):
             log.write(command)
             log.write(';\n')
 
-# class CommandGenerator(object):
-#     option_dictionary = {
-#         '-r': ('2gb1', 'aaaa'),
-#         '-p': None,
-#         '-e': None,
-#         '--excluding': None,
-#         '-f': None,
-#         '-R': None,
-#         '-P': None,
-#         '--separation': None,
-#         '--insertion-clash': None,
-#         '--insertion-attempts': None,
-#         '--ca-rest-add': None,
-#         '--sc-rest-add': None,
-#         '--ca-rest-weight': None,
-#         '-sc-rest-weight': None,
-#         '--ca-rest-file': None,
-#         '--sc-rest-file': None,
-#         '--mc-annealing': None,
-#         '--mc-cycles': None,
-#         '--mc-steps': None,
-#         '--replicas': None,
-#         '--replicas-dtemp': None,
-#         '--temperature': None,
-#         '-s': None,
-#         '--no-aa-rebuild': None,
-#         '--modeller-iterations': None,
-#         '--reference-pdb': None,
-#         '--clustering-iterations': None,
-#         '--filtering-number': None,
-#         '--clustering-medoids': None,
-#         '--load-cabs-files': None,
-#         '--contact-maps': None,
-#         '--align': None,
-#         '--reference-alignment': None,
-#         '--output-models': None,
-#         '--output-clusters': None,
-#         '--output-trajectories': None,
-#         '-c': None,
-#         '--image-file-format': None,
-#         '--work-dir': None,
-#         '--dssp-command': None,
-#         '--stride-command': None,
-#         '--fortran-command': None,
-#         '--save-config-file': None,
-#         '--save-cabs-files': None,
-#         '-V': None,
-#
-#     }
-#     def __init__(self):
-#         pass
+    }
+    def __init__(self):
+        pass
 
 
 class BenchmarkRunner(object):
@@ -103,10 +72,10 @@ class BenchmarkRunner(object):
 
     def setup(self):
         if self.name == '':
-            benchdir = getcwd()
+            benchdir = '/STORAGE/DATA/mciem'+'/'+self.name_prefix+'benchrun_'
         else:
             benchdir = self.name
-        benchdir+='/'+self.name_prefix+'benchrun_'+time.strftime("%c").replace(' ','_')+''
+        benchdir+=time.strftime("%c").replace(' ','_')+''
         self.benchdir = benchdir
         try:
             mkdir(benchdir)
@@ -154,14 +123,17 @@ class BenchmarkAnalyser(object):
         with open(self.benchlog) as log:
             writecase = False
             for line in log:
-                print line
-                thisline = line.split()
-                if 'Cases' in thisline[0]:
-                    writecase = True
-                elif writecase and '#' in thisline[0]:
-                    writecase = False
-                elif writecase:
-                    self.cases.append(thisline[0].upper())
+                if not line.strip()
+                    print "Empty line"
+                else:
+                    print line
+                    thisline = line.split()
+                    if 'Cases' in thisline[0]:
+                        writecase = True
+                    elif writecase and '#' in thisline[0]:
+                        writecase = False
+                    elif writecase:
+                        self.cases.append(thisline[0].upper())
 
     def get_pearsons(self):
         for case in self.cases:
@@ -245,10 +217,8 @@ class BenchmarkAnalyser(object):
                 for org, nw in zip(rmsd_medoids_original_paths, rmsd_medoids_new_paths):
                     copyfile(org, nw)
 
-# sr = StandardRunner()
-# sr.run_standard_flex()
-# br = BenchmarkRunner(benchmark_file='./benchmark_data/cabsflex_onechain.txt', mode='cabsflex', runtype='flex')
-# br.run_benchmark()
+
+#br = BenchmarkRunner(benchmark_file='./benchmark_data/2.txt')
 #br = BenchmarkRunner(benchmark_file='./benchmark_data/MB_bench__bound_1.txt')
 #br = BenchmarkRunner(benchmark_file='./kihara_peptides/kihara_bound.txt', runtype='frompdb')
 #br.run_benchmark(test=True)
