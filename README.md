@@ -1,20 +1,66 @@
 # README #
-This is a repository for CABSdock standalone application for protein-peptide molecular docking. CABSdock method is also available as a web server at [http://biocomp.chem.uw.edu.pl/CABSdock/](http://biocomp.chem.uw.edu.pl/CABSdock/).
+This is a repository for CABSdock standalone application for molecular docking of peptides to proteins. The CABSdock allows for flexible docking (also with large-scale conformational changes) without knowledge about the binding site. The CABSdock enables peptide docking using only information about the peptide sequence and the protein receptor structure. In addition to this input data, many advanced options are available that allow for manipulation of a simulation setup, a degree of protein flexibility or guiding the peptide binding etc.
+
 ## Detailed instructions and tutorials are provided on [CABSdock WIKI PAGE](https://bitbucket.org/lcbio/cabsdock/wiki/) ##
 
 -------------------------------------------
 
 # INSTALLATION #
-CABSdock standalone package ... full functionality requires installation of the following software packages:
 
-* 
-* [MODELLER](https://salilab.org/modeller/) - a program for comparative modeling of protein structure using spatial restraints. CABSdock uses MODELLER for reconstruction of predicted complexes from C-alpha to all-atom representation. 
-* [Matplotlib](https://matplotlib.org/) - a Python 2D plotting library which produces publication quality figures. CABSdock uses Matplotlib for automated analysis of simulation results - several kinds of plots are being made. 
-* ...
+
+To install CABSdock:
+
+* download latest version of CABSdock
+* extract CABSdock-version.tar.gz
+
+```
+#!bash
+
+tar xzf CABSdock-version.tar.gz
+```
+
+* change into CABSdock-version directory
+
+```
+#!bash
+
+cd CABSdock-version
+```
+
+* if you have root privileges and want to install CABSdock systemwide run:
+
+```
+#!bash
+
+python setup.py install
+```
+
+* to install CABSdock locally run:
+
+```
+#!bash
+python setup.py install --prefix=<PATH>
+```
+Make sure you can write to <PATH> and that <PATH> is in $PYTHONPATH
+
+* to run CABSdock simply type:
+
+```
+#!bash
+CABSdock
+```
+
+Additionally, CABSdock requires installation of the following packages: gfortran, numpy, matplotlib, dssp and modeller. To install them run:
+```
+#!bash
+sudo apt install gfortran python-numpy python-matplotlib dssp modeller
+```
 
 --------------------------------------------
 
-# ABOUT THE METHOD ###
+# ABOUT THE METHOD #
+
+CABSdock method has been first made available as a web server [at: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application version [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.
 
 The following papers describe the CABS-dock method/ web server/ and its example applications:
 
@@ -26,11 +72,16 @@ The following papers describe the CABS-dock method/ web server/ and its example 
 CABS-dock pipeline consist of the three following modules:
 
 * Simulation module – performs docking simulations using peptide sequence, protein structure and set of parameters as an input. With default settings the module outputs a set of 10’000 of models (10 trajectories consisting of 1000 models) in C-alpha representation.
-
 * Scoring module – selects representative and best-scored models from the simulation module output. Scoring module outputs sets of 10, 100 and 1000 top-scored models in C-alpha representation.
-
 * Reconstruction to all-atom representation module – uses a Modeller package to reconstruct a set of 10 top-scored models from C-alpha to all-atom representation.
 
+CABS-dock application uses some external software packages for the following tasks:
 
---------------------
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* [Gfortran](https://gcc.gnu.org/wiki/GFortran) - complier for the compilation of CABS simulation model code
+* [dssp](http://www.cmbi.ru.nl/dssp.html) - program for secondary structure assignment of protein receptors from PDB files
+* [MODELLER](https://salilab.org/modeller/) - program for modeling of protein structure using spatial restraints. CABSdock uses MODELLER for reconstruction of predicted complexes from C-alpha to all-atom representation. 
+* [Matplotlib](https://matplotlib.org/) - Python 2D plotting library which produces publication quality figures. CABSdock uses Matplotlib for automated analysis of simulation results - several kinds of plots are being made. 
+* [numpy](http://www.cmbi.ru.nl/dssp.html) - package for scientific computing with Python
+
+------------------------------------------
+Laboratory of Computational Biology, 2017
