@@ -6,6 +6,7 @@ import os
 import re
 import tarfile
 import glob
+import numpy
 from tempfile import mktemp
 from time import strftime
 
@@ -13,6 +14,7 @@ from abc import ABCMeta, abstractmethod
 from CABS import logger, PDBlib, cabs
 from CABS.align import save_csv
 from CABS.align import AlignError
+from CABS.align import align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
@@ -20,7 +22,9 @@ from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
-from CABS.utils import SCModeler, CONFIG_HEADER
+from CABS.utils import SCModeler
+from CABS.utils import CONFIG_HEADER
+from CABS.utils import dynamic_kabsch
 import CABS.optparser as opt_parser
 
 _name = 'JOB'
@@ -179,7 +183,7 @@ class CABSTask(object):
             try:
                 self.calculate_rmsd()
             except (ValueError, AlignError) as e:
-                logger.logger.critical(module_name=_name, msg=e.message)
+                logger.critical(module_name=_name, msg=e.message)
         self.save_config_file()
         self.draw_plots(colors=self.colors)
         if self.load_cabs_files:
@@ -241,7 +245,11 @@ class CABSTask(object):
 
     @abstractmethod
     def parse_reference(self, ref):
-        pass
+        mtxQ, tmxP, dummy_aln = align_to(self.reference[0], self.reference[1], self.initial_complex.protein, self.initial_complex.protein_chains, self.align, self.align_options)
+        mtxP = mtxP.to_numpy()
+        mtxQ = mtxQ.to_numpy()
+        dummy_rmsd, rot, t_com, q_com = dynamic_kabsch(mtxP, mtxQ)
+        self.reference.atoms.from_numpy(numpy.dot(mtxQ - q_com, rot) + t_com)
 
     @abstractmethod
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
@@ -348,9 +356,9 @@ class CABSTask(object):
         self.trajectory.weights = self.initial_complex.protein.weights
         self.trajectory.template.update_ids(self.initial_complex.protein.old_ids, pedantic=False)
         chs = ''.join(self.initial_complex.protein_chains)
-        tchs = ''.join(set(chs).intersection(self.trajectory.template.list_chains().keys()))
+        tchs = ''.join(sorted(set(chs).intersection(self.trajectory.template.list_chains())))
         self.trajectory.tmp_target_chs = tchs
-        ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(self.initial_complex.protein, chs, tchs, align_mth='SW')
+        ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(self.initial_complex.protein, chs, tchs, align_mth='trivial')
         self.trajectory.superimpose_to(ic_stc, tt_stc)
         logger.info(module_name=_name, msg="Trajectories loaded successfully")
         return self.trajectory
@@ -449,7 +457,7 @@ class DockTask(CABSTask):
             self.reference[0], self.reference[1], self.trajectory.tmp_target_chs,
             align_mth=self.align, kwargs=self.align_options
         )
-        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
             sfname = os.path.join(self.work_dir, 'output_data', 'reference_alignment')
             paln_trg = sfname + '_target.csv'
@@ -575,6 +583,7 @@ class DockTask(CABSTask):
         try:
             source, rec, pep = ref.split(':')
             self.reference = (PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+            super(DockTask, self).parse_reference()
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
         except (ValueError, PDBlib.Pdb.InvalidPdbInput):
@@ -635,7 +644,7 @@ class FlexTask(CABSTask):
             self.reference[0], self.reference[1], chs_ids,
             align_mth=self.align, kwargs=self.align_options
         )
-        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
             sfname = os.path.join(self.work_dir, 'output_data', 'reference_alignment')
             paln_trg = sfname + '_target.csv'
@@ -686,9 +695,10 @@ class FlexTask(CABSTask):
                 self.reference = (
                     PDBlib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids
                 )
+                super(FlexTask, self).parse_reference(ref)
             except AttributeError:  # if ref is None it has no split mth
                 self.reference = (self.initial_complex, self.initial_complex.protein_chains)
-        except PDBlib.Pdb.InvalidPdbInput:
+        except (PDBlib.Pdb.InvalidPdbInput, ValueError):    #VE raised by CABSTask.parse_reference when shapes of input and reference are different
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):

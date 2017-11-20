@@ -4,6 +4,7 @@ from unittest import SkipTest
 import tempfile
 import os
 import sys
+import numpy
 from argparse import ArgumentParser as AP
 from shutil import rmtree
 from StringIO import StringIO
@@ -37,15 +38,15 @@ class FlexParserTest(TestCase):
 class FlexTest(TestCase):
 
     def mk_parser(self, lst):
-        ddir = tempfile.gettempdir() + "/flexInitCABS"
+        ddir = tempfile.mkdtemp()
         prsr = FlexParser.parse_args(lst + ['--work-dir', ddir])
         return ddir, prsr
 
-    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '0'])
     def test_FTinit(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
 
-    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '0'])
     def test_default(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         self.assertEqual(tsk.mc_steps, 50)
@@ -55,14 +56,14 @@ class FlexTest(TestCase):
         self.assertEqual(tsk.input_protein, '1hpw')
         self.assertEqual(tsk.protein_restraints, ('ss2', 3, 3.8, 8.0))
         self.assertEqual(tsk.work_dir, ddir)
-        self.assertEqual(tsk.verbose, -1)
+        self.assertEqual(tsk.verbose, 0)
 
     @add_args_and_workdir([
             '-i', '1hpw',
             '--mc-steps', '1',
             '--mc-cycles', '10',
             '--mc-annealing', '1',
-            '--verbose', '-1',
+            '--verbose', '0',
         ])
     def test_output_completeness(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
@@ -80,7 +81,7 @@ class FlexTest(TestCase):
             lst = os.listdir(ddir + '/' + i)
             self.assertEqual(set(lst).intersection(j), set(j))
 
-    @add_args_and_workdir(['-i', '1hpw', '--verbose', '-1'])
+    @add_args_and_workdir(['-i', '1hpw', '--verbose', '0'])
     def test_run_default(self, ddir, prsr):
         if cla.fast:
             raise SkipTest
@@ -102,7 +103,7 @@ class FlexTest(TestCase):
             '--mc-steps', '1',
             '--mc-cycles', '10',
             '--mc-annealing', '1',
-            '--verbose', '-1',
+            '--verbose', '0',
         ])
     def test_run(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
@@ -114,18 +115,17 @@ class FlexTest(TestCase):
             '--mc-cycles', '10',
             '--mc-annealing', '1',
             '--save-cabs-files',
-            '--verbose', '-1',
+            '--verbose', '0',
         ])
     def test_save_CABS_files(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
         tsk.run()
-        self.assertTrue('SEQ' in os.listdir(ddir))
-        self.assertTrue('TRAF' in os.listdir(ddir))
+        self.assertTrue(any('.cbs' in i for i in os.listdir(ddir)))
 
     @add_args_and_workdir([
             '-i', '1hpw',
-            '--load-cabs-files', 'tests/data/1hpw/TRAF', 'tests/data/1hpw/SEQ',
-            '--verbose', '-1',
+            '--load-cabs-files', 'tests/data/1hpw/1hpw.cbs',
+            '--verbose', '0',
         ])
     def test_analysis(self, ddir, prsr):
         tsk = FlexTask(**vars(prsr))
@@ -134,13 +134,16 @@ class FlexTest(TestCase):
             result = f.readlines()
         with open('tests/data/1hpw/replica.pdb') as f:
             template = f.readlines()
+        inds = numpy.random.choice(range(len(result)), 50)
+        result = list(numpy.array(result)[inds])
+        template = list(numpy.array(template)[inds])
         self.assertEqual(result, template)
         #TODO jak bedzie seed -- dorobic klastrowanie
         #TODO zbadac inne pliki -- jakie? wiekszosc wynika wprost z replica i jest badana w innych testach
 
     @add_args_and_workdir([
             '-i', '2gb1',
-            '--verbose', '-1',
+            '--verbose', '0',
         ])
     def test_rmsf(self, ddir, prsr):
         """Plik tests/data/2gb1.rmsf zawiera znormalizowane do max rmsf z wersji serwerowej."""
@@ -163,7 +166,7 @@ class FlexTest(TestCase):
     @add_args_and_workdir([
             '-i', '2gb1',
             '--load-cabs-files', 'tests/data/2gb1/ref.tar.gz',
-            '--verbose', '-1',
+            '--verbose', '0',
             '--reference-pdb', '1hpw:A',
         ])
     def test_raises_VE_wrong_reference(self, ddir, prsr):
@@ -180,6 +183,22 @@ class FlexTest(TestCase):
         )
         with self.assertRaises(ValueError):
             tsk.calculate_rmsd()
+
+    @add_args_and_workdir([
+            '-i', '3sak',
+            '--mc-steps', '1',
+            '--mc-cycles', '10',
+            '--mc-annealing', '1',
+            '--verbose', '0',
+        ])
+    def test_align_multi(self, ddir, prsr):
+        tsk = FlexTask(**vars(prsr))
+        tsk.run()
+        with open(os.path.join(ddir, 'output_data', 'reference_alignment_target.csv')) as f:
+            result = f.readlines()
+        with open('tests/data/3sak/3sak_self.csv') as f:
+            template = f.readlines()
+        self.assertEqual(result, template)
 
 
 if __name__ == '__main__':
