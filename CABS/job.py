@@ -7,7 +7,7 @@ import re
 import tarfile
 import glob
 import numpy
-from tempfile import mktemp
+from tempfile import mkstemp
 from time import strftime
 
 from abc import ABCMeta, abstractmethod
@@ -29,8 +29,7 @@ import CABS.optparser as opt_parser
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS"]
-DEFAULT_COLORS = ['#ffffff', '#f2d600',
-                  '#4b8f24', '#666666', '#e80915', '#000000']
+DEFAULT_COLORS = ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']
 
 
 class CABSTask(object):
@@ -193,8 +192,11 @@ class CABSTask(object):
         logger.info(module_name=_name, msg='Simulation completed successfully')
 
     def save_cabs_res(self):
-        tar_dir = mktemp(prefix=strftime('%d%b.%H:%M:%S.'),
-                         dir=self.work_dir, suffix='.cbs')
+        tar_dir = mkstemp(
+            prefix=strftime(cabs.CabsRun.CABS_DIR_FMT),
+            dir=self.work_dir,
+            suffix='.cbs'
+        )[1]
         with tarfile.open(tar_dir, "w:gz") as tar:
             logger.log_file(
                 _name, "Saving CABS simulation files to: %s" % tar_dir)
@@ -249,14 +251,14 @@ class CABSTask(object):
 
     @abstractmethod
     def parse_reference(self, ref):
-        mtxQ, mtxP, dummy_aln = align_to(
+        mtx_q, mtx_p, dummy_aln = align_to(
             self.reference[0], self.reference[1], self.initial_complex.protein,
             self.initial_complex.protein_chains, self.align, self.align_options
         )
-        mtxP = mtxP.to_numpy()
-        mtxQ = mtxQ.to_numpy()
-        dummy_rmsd, rot, t_com, q_com = dynamic_kabsch(mtxP, mtxQ)
-        self.reference.atoms.from_numpy(numpy.dot(mtxQ - q_com, rot) + t_com)
+        mtx_p = mtx_p.to_numpy()
+        mtx_q = mtx_q.to_numpy()
+        dummy_rmsd, rot, t_com, q_com = dynamic_kabsch(mtx_p, mtx_q)
+        self.reference.atoms.from_numpy(numpy.dot(mtx_q - q_com, rot) + t_com)
 
     @abstractmethod
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
@@ -481,7 +483,7 @@ class DockTask(CABSTask):
             self.reference[0], self.reference[1], self.trajectory.tmp_target_chs,
             align_mth=self.align, kwargs=self.align_options
         )
-        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        # self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
             sfname = os.path.join(
                 self.work_dir, 'output_data', 'reference_alignment')
@@ -618,9 +620,9 @@ class DockTask(CABSTask):
     def parse_reference(self, ref):
         try:
             source, rec, pep = ref.split(':')
-            self.reference = (PDBlib.Pdb(
+            self.reference = (pdblib.Pdb(
                 ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
-            super(DockTask, self).parse_reference()
+            super(DockTask, self).parse_reference(ref)
             self.reference = (pdblib.Pdb(
                 ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
@@ -685,7 +687,7 @@ class FlexTask(CABSTask):
             self.reference[0], self.reference[1], chs_ids,
             align_mth=self.align, kwargs=self.align_options
         )
-        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        # self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
             sfname = os.path.join(
                 self.work_dir, 'output_data', 'reference_alignment')

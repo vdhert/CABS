@@ -8,11 +8,11 @@ from os.path import exists
 from time import time, strftime, gmtime, sleep
 import textwrap
 
-_name = "Logger"
+_name = 'Logger'
 
 colors = {
-    "blue": '\033[94m',
-    "yellow": '\033[93m',
+    'blue': '\033[94m',
+    'yellow': '\033[93m',
     'green': '\033[92m',
     'red': '\033[91m',
     'light_blue': '\033[96m',
@@ -21,19 +21,19 @@ colors = {
 }
 
 log_levels = {
-    0: "[CRITICAL]",
-    1: "[WARNING]",
-    2: "[INFO]",
-    3: "[OUT FILES]",
-    4: "[DEBUG]"
+    0: '[CRITICAL]',
+    1: '[WARNING]',
+    2: '[INFO]',
+    3: '[OUT FILES]',
+    4: '[DEBUG]'
 }
 
 color_prefix = {
-    0: colors["red"] + "[CRITICAL]" + colors["end"],
-    1: colors["yellow"] + "[WARNING]" + colors["end"],
-    2: colors["blue"] + "[INFO]" + colors["end"],
-    3: colors["purple"] + "[OUT FILES]" + colors["end"],
-    4: colors["green"] + "[DEBUG]" + colors["end"],
+    0: colors['red'] + '[CRITICAL]' + colors['end'],
+    1: colors['yellow'] + '[WARNING]' + colors['end'],
+    2: colors['blue'] + '[INFO]' + colors['end'],
+    3: colors['purple'] + '[OUT FILES]' + colors['end'],
+    4: colors['green'] + '[DEBUG]' + colors['end'],
 }
 
 _init_time = time()
@@ -50,8 +50,8 @@ _prefix = color_prefix
 
 
 def setup(log_level=2, remote=False, work_dir=''):
-    global _log_level,_color,_stream,_remote, _line_break,_prefix
-    global _line_format,_middle_line_format,_first_line_format,_last_line_format
+    global _log_level, _color, _stream, _remote, _line_break, _prefix
+    global _line_format, _middle_line_format, _first_line_format, _last_line_format
     _remote = remote
     if _remote or not sys.stderr.isatty():
         _color = False
@@ -61,7 +61,7 @@ def setup(log_level=2, remote=False, work_dir=''):
         _last_line_format = '%-22s %-75s %s\n'
         _prefix = log_levels
     if _remote:
-        _log_path = os.path.join(work_dir, "CABS.log")
+        _log_path = os.path.join(work_dir, 'CABS.log')
         try:
             _stream = open(_log_path, 'a+')
             _stream.write('#' * 110)
@@ -70,12 +70,14 @@ def setup(log_level=2, remote=False, work_dir=''):
                 os.makedirs(work_dir)
                 _stream = open(_log_path, 'a+')
             except OSError:
-                warning(module_name=_name,
-                        msg="Could not open a log file at %s. Writing to standard error instead." % _log_path)
+                warning(
+                    module_name=_name,
+                    msg='Could not open a log file at %s. Writing to standard error instead.' % _log_path
+                )
                 raise
 
     _log_level = log_level
-    info(_name, 'Verbosity set to: ' + str(log_level) + " - " + log_levels[log_level])
+    info(_name, 'Verbosity set to: ' + str(log_level) + ' - ' + log_levels[log_level])
 
 
 def close_log():
@@ -85,66 +87,69 @@ def close_log():
 
 def log_files():
     """
-
     :return: True if verbosity is high enough to save extra output (LOG FILE level)
     """
     return _log_level >= 3
 
-def coloring(color_name="light_blue", msg=""):
+
+def coloring(color_name='light_blue', msg=''):
     if _color:
-        return colors[color_name] + msg + colors["end"]
+        return colors[color_name] + msg + colors['end']
     return msg
 
 
-def log(module_name="MISC", msg="Processing ", l_level=2, out=None):
+def log(module_name='MISC', msg='Processing ', l_level=2, out=None):
     if out is None:
         out = _stream
     if l_level <= _log_level:
         t = gmtime(time() - _init_time)
         if len(msg) < _line_break:
             msg = _line_format % (
-                _prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'),
-                msg, strftime('(%H:%M:%S)', t)
+                _prefix[l_level],
+                coloring(msg=module_name + ':', color_name='light_blue'),
+                msg,
+                strftime('(%H:%M:%S)', t)
             )
             out.write(msg)
             out.flush()
         else:
-            lines = textwrap.wrap(msg, width=_line_break-1)
+            lines = textwrap.wrap(msg, width=_line_break - 1)
             first_line = _first_line_format % (
-                _prefix[l_level], coloring(msg=module_name + ":", color_name='light_blue'), lines[0]
+                _prefix[l_level],
+                coloring(msg=module_name + ':', color_name='light_blue'),
+                lines[0]
             )
             out.write(first_line)
             for lineNumber in xrange(1, len(lines) - 1):
-                line = _middle_line_format % (" ", lines[lineNumber])
+                line = _middle_line_format % (' ', lines[lineNumber])
                 out.write(line)
-            final_line = _last_line_format % (" ", lines[-1], strftime('(%H:%M:%S)', t))
+            final_line = _last_line_format % (' ', lines[-1], strftime('(%H:%M:%S)', t))
             out.write(final_line)
             out.flush()
 
 
-def critical(module_name="_name", msg=""):
+def critical(module_name='_name', msg=''):
     log(module_name=module_name, msg=msg, l_level=0)
 
 
-def warning(module_name="_name", msg=""):
+def warning(module_name='_name', msg=''):
     log(module_name=module_name, msg=msg, l_level=1)
 
 
-def info(module_name="_name", msg=""):
+def info(module_name='_name', msg=''):
     log(module_name=module_name, msg=msg, l_level=2)
 
 
-def log_file(module_name="_name", msg=""):
+def log_file(module_name='_name', msg=''):
     log(module_name=module_name, msg=msg, l_level=3)
 
 
-def debug(module_name="_name", msg=""):
+def debug(module_name='_name', msg=''):
     log(module_name=module_name, msg=msg, l_level=4)
 
 
 def to_file(filename='', content='', msg='', allow_err=True, traceback=True):
     """
-
     :param filename: path for the file to be saved
     :param content: a string to be saved (be careful not to pass a string that is too long
     :param msg: optional: a message to be logged
@@ -155,21 +160,22 @@ def to_file(filename='', content='', msg='', allow_err=True, traceback=True):
     if filename and content:
         try:
             if os.path.isfile(filename):
-                log_file(module_name=_name, msg="Overwriting %s" % filename)
+                log_file(module_name=_name, msg='Overwriting %s' % filename)
             with open(filename, 'w') as f:
                 f.write(content)
         except IOError:
             if allow_err:
-                warning(module_name=_name, msg="IOError while writing to: %s" % filename)
+                warning(module_name=_name, msg='IOError while writing to: %s' % filename)
             else:
-                exit_program(module_name=_name, msg="IOError while writing to: %s" % filename, traceback=traceback)
+                exit_program(module_name=_name, msg='IOError while writing to: %s' % filename, traceback=traceback)
     if msg:
         log_file(module_name=_name, msg=msg)
 
 
-def exit_program(module_name=_name, msg="Shutting down", traceback=None, exc=None):
+def exit_program(module_name=_name, msg='Shutting down', traceback=None, exc=None):
     """
-    Exits the program, depending on options might do it quietly, raise, or print traceback
+    Exits the program, depending on options might do it quietly, raise, or print traceback.
+
     :param module_name: string with  the calling module's name
     :param msg: string, message to be printed when the program exits
     :param traceback: bool, if log level is high traceback will be printed
@@ -208,7 +214,7 @@ class ProgressBar:
         if start_msg:
             self.stream.write(coloring(msg=start_msg) + '\n')
         if self.job_name:
-            log(module_name=self.module_name, msg=self.job_name + " running...", out=self.stream)
+            log(module_name=self.module_name, msg=self.job_name + ' running...', out=self.stream)
         self.start_time = time()
         self.update()
         sleep(delay)
@@ -218,7 +224,7 @@ class ProgressBar:
         num = int(self.WIDTH * percent)
         percent = round(100. * percent, 1)
         bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
-        self.stream.write(self.FORMAT % (self.prefix, coloring(msg=self.module_name + ":"), bar, percent))
+        self.stream.write(self.FORMAT % (self.prefix, coloring(msg=self.module_name + ':'), bar, percent))
         self.stream.flush()
 
     def update(self, state=-1.):
@@ -240,7 +246,7 @@ class ProgressBar:
     def done(self, show_time=True):
         if not self.is_done:
             self.finish()
-            self.stream.write(" " * 80 + "\r")
+            self.stream.write(' ' * 80 + '\r')
             if show_time:
                 t = gmtime(time() - self.start_time)
                 log(

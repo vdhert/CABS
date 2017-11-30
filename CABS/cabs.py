@@ -106,6 +106,7 @@ class CabsRun(Thread):
     LATTICE = CabsLattice()  # static object CabsLattice used to convert structures to CABS representation
     FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)  # parameters of the CABS force field
     FORTRAN_COMMAND = 'gfortran -O2'
+    CABS_DIR_FMT = '%y%m%d%H%M%S'
 
     def __init__(
             self, protein_complex, restraints, work_dir, replicas, replicas_dtemp, mc_annealing, mc_cycles, mc_steps,
@@ -135,7 +136,7 @@ class CabsRun(Thread):
             * nreps * mc_cycles * mc_annealing
 
         cabs_dir = mkdtemp(
-            prefix=strftime('.%d%b.%H:%M:%S.'),
+            prefix='.' + strftime(self.CABS_DIR_FMT),
             dir=work_dir
         )
 
