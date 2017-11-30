@@ -83,6 +83,13 @@ def close_log():
         _stream.close()
 
 
+def log_files():
+    """
+
+    :return: True if verbosity is high enough to save extra output (LOG FILE level)
+    """
+    return _log_level >= 3
+
 def coloring(color_name="light_blue", msg=""):
     if _color:
         return colors[color_name] + msg + colors["end"]

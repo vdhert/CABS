@@ -6,6 +6,7 @@ import os
 import re
 import tarfile
 import glob
+import numpy
 from tempfile import mktemp
 from time import strftime
 
@@ -13,6 +14,7 @@ from abc import ABCMeta, abstractmethod
 from CABS import logger, pdblib, cabs
 from CABS.align import save_csv
 from CABS.align import AlignError
+from CABS.align import align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
@@ -20,12 +22,15 @@ from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
-from CABS.utils import SCModeler, CONFIG_HEADER
+from CABS.utils import SCModeler
+from CABS.utils import CONFIG_HEADER
+from CABS.utils import dynamic_kabsch
 import CABS.optparser as opt_parser
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS"]
-DEFAULT_COLORS = ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']
+DEFAULT_COLORS = ['#ffffff', '#f2d600',
+                  '#4b8f24', '#666666', '#e80915', '#000000']
 
 
 class CABSTask(object):
@@ -188,11 +193,14 @@ class CABSTask(object):
         logger.info(module_name=_name, msg='Simulation completed successfully')
 
     def save_cabs_res(self):
-        tar_dir = mktemp(prefix=strftime('%d%b.%H:%M:%S.'), dir=self.work_dir, suffix='.cbs')
+        tar_dir = mktemp(prefix=strftime('%d%b.%H:%M:%S.'),
+                         dir=self.work_dir, suffix='.cbs')
         with tarfile.open(tar_dir, "w:gz") as tar:
-            logger.log_file(_name, "Saving CABS simulation files to: %s" % tar_dir)
+            logger.log_file(
+                _name, "Saving CABS simulation files to: %s" % tar_dir)
             for file_name in _CABS_files:
-                tar.add(os.path.join(self.cabsrun.cfg['cwd'], file_name), arcname=file_name)
+                tar.add(os.path.join(
+                    self.cabsrun.cfg['cwd'], file_name), arcname=file_name)
 
     def load_cabs_results(self):
         if not os.path.exists(self.load_cabs_files):
@@ -241,7 +249,14 @@ class CABSTask(object):
 
     @abstractmethod
     def parse_reference(self, ref):
-        pass
+        mtxQ, mtxP, dummy_aln = align_to(
+            self.reference[0], self.reference[1], self.initial_complex.protein,
+            self.initial_complex.protein_chains, self.align, self.align_options
+        )
+        mtxP = mtxP.to_numpy()
+        mtxQ = mtxQ.to_numpy()
+        dummy_rmsd, rot, t_com, q_com = dynamic_kabsch(mtxP, mtxQ)
+        self.reference.atoms.from_numpy(numpy.dot(mtxQ - q_com, rot) + t_com)
 
     @abstractmethod
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
@@ -267,7 +282,8 @@ class CABSTask(object):
 
         # generate protein restraints
         protein_restraints = Restraints(
-            self.initial_complex.protein.generate_restraints(*self.protein_restraints)
+            self.initial_complex.protein.generate_restraints(
+                *self.protein_restraints)
         )
 
         # reduce number of restraints
@@ -291,7 +307,8 @@ class CABSTask(object):
             for filename in self.sc_rest_file:
                 add_restraints += Restraints.from_file(filename, sg=True)
 
-        protein_restraints += add_restraints.update_id(self.initial_complex.new_ids)
+        protein_restraints += add_restraints.update_id(
+            self.initial_complex.new_ids)
         return protein_restraints
 
     def save_config_file(self):
@@ -306,7 +323,8 @@ class CABSTask(object):
                         configfile.write(option)
                     except Exception as e:
                         logger.warning(
-                            _name, "Failed to save %s option to config file. Reason: %s." % (name, e.message)
+                            _name, "Failed to save %s option to config file. Reason: %s." % (
+                                name, e.message)
                         )
 
     def setup_cabs_run(self):
@@ -340,17 +358,22 @@ class CABSTask(object):
         :return: returns trajectory.Trajectory instance
         """
         if ftraf is not None and fseq is not None:
-            logger.debug(module_name=_name, msg="Loading trajectories from: %s, %s" % (ftraf, fseq))
+            logger.debug(
+                module_name=_name, msg="Loading trajectories from: %s, %s" % (ftraf, fseq))
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
-            logger.debug(module_name=_name, msg="Loading trajectories from the CABS run")
+            logger.debug(module_name=_name,
+                         msg="Loading trajectories from the CABS run")
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.weights = self.initial_complex.protein.weights
-        self.trajectory.template.update_ids(self.initial_complex.protein.old_ids, pedantic=False)
+        self.trajectory.template.update_ids(
+            self.initial_complex.protein.old_ids, pedantic=False)
         chs = ''.join(self.initial_complex.protein_chains)
-        tchs = ''.join(set(chs).intersection(self.trajectory.template.list_chains().keys()))
+        tchs = ''.join(sorted(set(chs).intersection(
+            self.trajectory.template.list_chains())))
         self.trajectory.tmp_target_chs = tchs
-        ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(self.initial_complex.protein, chs, tchs, align_mth='SW')
+        ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(
+            self.initial_complex.protein, chs, tchs, align_mth='trivial')
         self.trajectory.superimpose_to(ic_stc, tt_stc)
         logger.info(module_name=_name, msg="Trajectories loaded successfully")
         return self.trajectory
@@ -362,11 +385,13 @@ class CABSTask(object):
     def save_models(self):
         # output folder
         output_folder = os.path.join(self.work_dir, 'output_pdbs')
-        logger.log_file(module_name=_name, msg="Saving pdb files to " + str(output_folder))
+        logger.log_file(module_name=_name,
+                        msg="Saving pdb files to " + str(output_folder))
         try:
             os.mkdir(output_folder)
         except OSError:
-            logger.warning(_name, "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.")
+            logger.warning(
+                _name, "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.")
         # Saving the trajectory to PDBs:
         if 'R' in self.pdb_output:
             logger.log_file(module_name=_name, msg='Saving replicas...')
@@ -374,34 +399,42 @@ class CABSTask(object):
         # Saving top1000 models to PDB:
         if 'F' in self.pdb_output:
             logger.log_file(module_name=_name, msg='Saving filtered models...')
-            self.filtered_trajectory.to_pdb(mode='replicas', to_dir=output_folder, name='top1000')
+            self.filtered_trajectory.to_pdb(
+                mode='replicas', to_dir=output_folder, name='top1000')
         # Saving clusters in CA representation
         if 'C' in self.pdb_output:
             logger.log_file(module_name=_name, msg='Saving clusters...')
             for i, cluster in enumerate(self.clusters):
-                cluster.to_pdb(mode='replicas', to_dir=output_folder, name='cluster_{0}'.format(i))
+                cluster.to_pdb(mode='replicas', to_dir=output_folder,
+                               name='cluster_{0}'.format(i))
         # Saving final models:
         if 'M' in self.pdb_output:
             if self.aa_rebuild:
-                logger.log_file(module_name=_name, msg='Saving final models (in AA representation)')
+                logger.log_file(
+                    module_name=_name, msg='Saving final models (in AA representation)')
                 pdb_medoids = self.medoids.to_pdb()
                 from CABS.ca2all import ca2all
                 from CABS.pdblib import Pdb
                 for i, fname in enumerate(pdb_medoids):
                     ca2all(
                         fname,
-                        output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                        output=os.path.join(
+                            output_folder, 'model_{0}.pdb'.format(i)),
                         iterations=self.modeller_iterations,
-                        out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                        out_mdl=os.path.join(
+                            self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
                         work_dir=self.work_dir
                     )
-                    pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                    pth_tmp = os.path.join(
+                        self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
                     mod = Pdb(pth_tmp)
                     ssh = mod.mk_ss_header()
                     mod.atoms.save_to_pdb(pth_tmp, header=ssh)
             else:
-                logger.log_file(module_name=_name, msg='Saving final models (in CA representation)')
-                self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
+                logger.log_file(
+                    module_name=_name, msg='Saving final models (in CA representation)')
+                self.medoids.to_pdb(
+                    mode='models', to_dir=output_folder, name='model')
 
 
 class DockTask(CABSTask):
@@ -448,9 +481,10 @@ class DockTask(CABSTask):
             self.reference[0], self.reference[1], self.trajectory.tmp_target_chs,
             align_mth=self.align, kwargs=self.align_options
         )
-        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
-            sfname = os.path.join(self.work_dir, 'output_data', 'reference_alignment')
+            sfname = os.path.join(
+                self.work_dir, 'output_data', 'reference_alignment')
             paln_trg = sfname + '_target.csv'
             save_csv(paln_trg, ('reference', 'template'), trg_aln)
         for pept_chain, ref_pept_chain in zip(self.initial_complex.peptide_chains, self.reference[2]):
@@ -461,7 +495,8 @@ class DockTask(CABSTask):
             if save:
                 paln_pep = sfname + '_%s.csv' % pept_chain
                 save_csv(paln_pep, ('reference', 'template'), pep_aln)
-            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(ref_pep_stc, self_pep_stc)
+            self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
+                ref_pep_stc, self_pep_stc)
             rmsds = [header.rmsd for header in self.medoids.headers]
             results = {
                 'rmsds_all': [header.rmsd for header in self.trajectory.headers],
@@ -490,7 +525,8 @@ class DockTask(CABSTask):
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         logger.debug(module_name=_name, msg="Scoring results")
         # Filtering the trajectory
-        self.filtered_trajectory, self.filtered_ndx = Filter(self.trajectory, n_filtered).cabs_filter()
+        self.filtered_trajectory, self.filtered_ndx = Filter(
+            self.trajectory, n_filtered).cabs_filter()
         # Clustering the trajectory
         self.medoids, self.clusters_dict, self.clusters = Clustering(
             self.filtered_trajectory,
@@ -513,7 +549,8 @@ class DockTask(CABSTask):
             pltdir = plots_dir
         logger.log_file(module_name=_name, msg="Saving plots to %s" % pltdir)
 
-        graph_RMSF(self.trajectory, self.initial_complex.protein_chains, os.path.join(pltdir, 'RMSF'))
+        graph_RMSF(self.trajectory, self.initial_complex.protein_chains,
+                   os.path.join(pltdir, 'RMSF'))
 
         # RMSD-based graphs
         if self.reference_pdb:
@@ -543,37 +580,49 @@ class DockTask(CABSTask):
             ca_traj, meds, clusts, top1k_inds, thr, plots_dir
         )
 
-        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
+        sc_traj_1k = sc_traj_full.reshape(
+            1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
 
         rchs = self.initial_complex.protein_chains
         lchs = self.initial_complex.peptide_chains
 
         targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
-        cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        cmfs = {lig: ContactMapFactory(
+            rchs, lig, ca_traj.template) for lig in lchs}
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all', break_long_x=0, norm_n=True, colors=colors)
+        cmap10ktarg.save_all(cmapdir + '/target_all',
+                             break_long_x=0, norm_n=True, colors=colors)
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
-                cmap.save_all(cmapdir + '/replica_%i_ch_%s' % (n + 1, lig), norm_n=True, colors=colors)
+                cmap.save_all(cmapdir + '/replica_%i_ch_%s' %
+                              (n + 1, lig), norm_n=True, colors=colors)
             cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_all(cmapdir + '/all_ch_%s' % lig, norm_n=True, colors=colors)
+            cmap10k.save_all(cmapdir + '/all_ch_%s' %
+                             lig, norm_n=True, colors=colors)
             cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
-            cmap1k.save_all(cmapdir + '/top1000_ch_%s' % lig, norm_n=True, colors=colors)
+            cmap1k.save_all(cmapdir + '/top1000_ch_%s' %
+                            lig, norm_n=True, colors=colors)
             cmaps_top = cmf.mk_cmap(sc_med, thr)
             for n, cmap in enumerate(cmaps_top):
-                cmap.save_all(cmapdir + '/top_%i_ch_%s' % (n + 1, lig), norm_n=True, colors=colors)
+                cmap.save_all(cmapdir + '/top_%i_ch_%s' %
+                              (n + 1, lig), norm_n=True, colors=colors)
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
-                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' % (cn, lig), norm_n=True, colors=colors)
+                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' %
+                               (cn, lig), norm_n=True, colors=colors)
 
     def parse_reference(self, ref):
         try:
             source, rec, pep = ref.split(':')
-            self.reference = (pdblib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+            self.reference = (PDBlib.Pdb(
+                ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
+            super(DockTask, self).parse_reference()
+            self.reference = (pdblib.Pdb(
+                ref, selection='name CA', no_exit=True, verify=True).atoms, rec, pep)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
         except (ValueError, pdblib.Pdb.InvalidPdbInput):
@@ -606,12 +655,14 @@ class FlexTask(CABSTask):
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
-        clst = Clustering(self.trajectory, 'chain ' + ','.join(self.initial_complex.protein_chains))
+        clst = Clustering(self.trajectory, 'chain ' +
+                          ','.join(self.initial_complex.protein_chains))
         self.medoids, self.clusters_dict, self.clusters = clst.cabs_clustering(
             number_of_medoids=number_of_medoids,
             number_of_iterations=number_of_iterations
         )
-        self.rmslst = {self.initial_complex.protein_chains: clst.distance_matrix[0]}
+        self.rmslst = {
+            self.initial_complex.protein_chains: clst.distance_matrix[0]}
 
     def load_output(self, *args, **kwargs):
         ret = super(FlexTask, self).load_output(*args, **kwargs)
@@ -634,12 +685,14 @@ class FlexTask(CABSTask):
             self.reference[0], self.reference[1], chs_ids,
             align_mth=self.align, kwargs=self.align_options
         )
-        self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
+        #~ self.trajectory.superimpose_to(ref_trg_stc, self_trg_stc)
         if save:
-            sfname = os.path.join(self.work_dir, 'output_data', 'reference_alignment')
+            sfname = os.path.join(
+                self.work_dir, 'output_data', 'reference_alignment')
             paln_trg = sfname + '_target.csv'
             save_csv(paln_trg, ('reference', 'template'), trg_aln)
-        self.rmslst[chs_ids] = self.trajectory.rmsd_to_reference(ref_trg_stc, self_trg_stc)
+        self.rmslst[chs_ids] = self.trajectory.rmsd_to_reference(
+            ref_trg_stc, self_trg_stc)
         rmsds = [header.rmsd for header in self.medoids.headers]
         results = {
             'rmsds_all': [header.rmsd for header in self.trajectory.headers],
@@ -676,18 +729,22 @@ class FlexTask(CABSTask):
 
         for cmap, fname in zip((cmap_all, cmaptop), ('all', 'top10')):
             cmap.zero_diagonal()
-            cmap.save_all(cmapdir + '/' + fname, break_long_x=0, norm_n=True, colors=colors)
+            cmap.save_all(cmapdir + '/' + fname, break_long_x=0,
+                          norm_n=True, colors=colors)
 
     def parse_reference(self, ref):
         try:
             try:
                 dummy, trg_chids = ref.split(":")
                 self.reference = (
-                    pdblib.Pdb(ref, selection='name CA', no_exit=True, verify=True).atoms, trg_chids
+                    pdblib.Pdb(ref, selection='name CA',
+                               no_exit=True, verify=True).atoms, trg_chids
                 )
+                super(FlexTask, self).parse_reference(ref)
             except AttributeError:  # if ref is None it has no split mth
-                self.reference = (self.initial_complex, self.initial_complex.protein_chains)
-        except pdblib.Pdb.InvalidPdbInput:
+                self.reference = (self.initial_complex,
+                                  self.initial_complex.protein_chains)
+        except (pdblib.Pdb.InvalidPdbInput, ValueError):
             logger.warning(_name, 'Invalid reference {}'.format(ref))
 
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
