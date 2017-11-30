@@ -761,8 +761,7 @@ class FlexTask(CABSTask):
         graph_RMSF(self.trajectory,
                    self.initial_complex.protein_chains,
                    os.path.join(pltdir, 'RMSF'),
-                   False,
-                   self.image_file_format)
+                   fmt=self.image_file_format)
 
         # RMSD-based graphs
         if self.reference_pdb:

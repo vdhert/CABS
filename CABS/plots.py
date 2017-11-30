@@ -201,16 +201,15 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
         matplotlib.pyplot.close(fig)
         drop_csv_file(tfname, (map(str, nfs), rmsd_lst), fmts=("%s", "%.3f"))
 
-def graph_RMSF(trajectory, chains, fname, hist=False,fmt='svg'):
-    if hist:
-        rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        lbls = _chunk_lst([i.fmt() for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
-        mk_histos_series(rmsf_vals, lbls, fname + '_hist')
-    else:
-        rmsf_vals = [trajectory.rmsf(chains)]
-        lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
-        plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq',fmt)
-    drop_csv_file(fname, (tuple(chain(*lbls)), tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
+def graph_RMSF(trajectory, chains, fname, fmt='svg'):
+    #~ if hist: # old version producting histo instead of plot; self is class from CABS.job
+        #~ rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
+        #~ lbls = _chunk_lst([i.fmt() for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
+        #~ mk_histos_series(rmsf_vals, lbls, fname + '_hist')
+    rmsf_vals = [trajectory.rmsf(chains)]
+    lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
+    plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq',fmt)
+    drop_csv_file(fname, (lbls, tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
 
 def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     """
