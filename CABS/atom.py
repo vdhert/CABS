@@ -1,6 +1,6 @@
 """
 Module contains two classes: Atom and Atoms. Atom represents single atom/line from the pdb file.
-Atoms is a container for Atom objects, without actually specyfing if they are in the same molecule/chain/residue etc.
+Atoms is a container for Atom objects, without actually specifying if they are in the same molecule/chain/residue etc.
 """
 
 import re
@@ -23,7 +23,7 @@ class Atom(object):
     """
 
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
-    RES_ID_PATT = re.compile(r'([0-9]{1,4})([^0-9]?):([A-Z])')
+    RES_ID_PATT = re.compile(r'(-?[0-9]{1,4})([^0-9]?):([A-Z])')
 
     def __init__(self, line=None, model=0, **kwargs):
         """
@@ -165,37 +165,37 @@ class Atom(object):
         words = token.split()
         if len(words) == 1:
             # Test here "no argument" selection keywords.
-            kword = token.upper()
-            if kword == "HETERO":
+            keyword = token.upper()
+            if keyword == "HETERO":
                 return self.hetatm
             else:
-                raise Exception('Invalid selection keyword: ' + kword)
+                raise Exception('Invalid selection keyword: ' + keyword)
         elif len(words) > 1:
             # Here test selection keywords with arguments.
-            kword = words[0].upper()
+            keyword = words[0].upper()
             args = ''.join(words[1:]).split(',')
-            if kword == "MODEL":
+            if keyword == "MODEL":
                 return self.model in smart_flatten(args)
-            elif kword == "CHAIN":
+            elif keyword == "CHAIN":
                 return self.chid in args
-            elif kword == "RESNUM":
+            elif keyword == "RESNUM":
                 return self.resnum in smart_flatten(args)
-            elif kword == "RESNAME":
+            elif keyword == "RESNAME":
                 return any([re.match("^%s$" % a, self.resname) for a in args])
-            elif kword == "NAME":
+            elif keyword == "NAME":
                 return any([re.match("^%s$" % a, self.name) for a in args])
             else:
-                raise Exception('Invalid selection keyword: ' + kword)
+                raise Exception('Invalid selection keyword: ' + keyword)
         else:
             raise Exception('Invalid selection syntax: ' + token)
 
-    def match(self, sele):
+    def match(self, selection):
         """
          Returns True if Atom matches selection pattern. False otherwise.
-        :param sele: str
+        :param selection: str
         :return: Bool
         """
-        pattern = deepcopy(sele.tokens)
+        pattern = deepcopy(selection.tokens)
         for i, t in enumerate(pattern):
             if t.upper() not in Selection.JOINTS:
                 pattern[i] = str(self.match_token(t))
@@ -240,12 +240,11 @@ class Atoms(object):
             - list[Atom]
             - any object that has attribute named atoms, which is a list of objects named 'Atom'
             - string 'SEQUENCE' or 'SEQUENCE:SECONDARY' [SECONDARY is H/E/C/T for helix/sheet/turn/coil]
-            - int for polyalanine
+            - int for poly-alanine
         """
-        if type(arg) is list and len(arg) > 0 and arg[0].__class__.__name__ is 'Atom':
+        if type(arg) is list:
             self.atoms = arg
-        elif hasattr(arg, 'atoms') and type(arg.atoms) is list \
-                and len(arg.atoms) > 0 and arg.atoms[0].__class__.__name__ is 'Atom':
+        elif hasattr(arg, 'atoms'):
             self.atoms = arg.atoms
         elif type(arg) is str:
             self.atoms = []
@@ -397,33 +396,21 @@ class Atoms(object):
             mdl.append(model)
         return mdl
 
-    def to_matrix(self):
+    def to_numpy(self):
         """"
-        Returns numpy.matrix(N, 3) where N is number of Atoms.
-        Matrix holds Atoms' coordinates.
-        :return: numpy.matrix(N, 3)
+        Returns numpy.array(N, 3) with coordinates, where N is the number of Atoms.
         """
-        return np.concatenate([a.coord.to_matrix() for a in self.atoms])
+        return np.concatenate([a.coord.to_numpy() for a in self.atoms])
 
-    def from_matrix(self, matrix):
+    def from_numpy(self, matrix):
         """
-        Sets Atoms' coordinates from numpy.matrix(3,N) or(N,3).
-        :param matrix: numpy.matrix(3, N or N, 3) 
+        Sets Atoms' coordinates from numpy.array(3,N) or (N,3).
         """
-        if matrix.shape == (3, len(self)):
+        if matrix.shape == (len(self), 3):
             for index, atom in enumerate(self.atoms):
-                atom.coord = Vector3d(
-                    matrix[0, index],
-                    matrix[1, index],
-                    matrix[2, index]
-                )
-        elif matrix.shape == (len(self), 3):
-            for index, atom in enumerate(self.atoms):
-                atom.coord = Vector3d(
-                    matrix[index, 0],
-                    matrix[index, 1],
-                    matrix[index, 2]
-                )
+                atom.coord = Vector3d(matrix[index])
+        elif matrix.shape == (3, len(self)):
+            self.from_numpy(matrix.T)
         else:
             raise Exception('Invalid matrix shape: ' + str(matrix.shape))
         return self
@@ -442,12 +429,12 @@ class Atoms(object):
     def rotate(self, matrix):
         """
         Rotate atoms by rotation matrix.
-        :param matrix: numpy.matrix(3, 3)
+        :param matrix: numpy.array(3, 3)
         :return: Atoms
         """
         if matrix.shape != (3, 3):
             raise Exception('Invalid matrix shape: ' + matrix.shape)
-        self.from_matrix(matrix * self.to_matrix().T)
+        self.from_numpy(np.dot(matrix, self.to_numpy().T))
         return self
 
     def cent_of_mass(self):
@@ -482,13 +469,13 @@ class Atoms(object):
         Computes the rotation matrix for best fit between two sets of Atoms.
         :param other: Atoms
         :param concentric: Bool
-        :return: numpy.matrix(3, 3)
+        :return: numpy.array(3, 3)
         """
         if len(self) != len(other):
             raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
-        t = other.to_matrix()
-        q = self.to_matrix()
-        return kabsch(t, q, concentric)
+        t = other.to_numpy()
+        q = self.to_numpy()
+        return kabsch(t, q, concentric=concentric)
 
     def str_align(self, other):
         """
@@ -601,39 +588,42 @@ class Atoms(object):
             bar.done(False)
         return s
 
-    def save_to_pdb(self, filename, bar_msg=''):
+    def save_to_pdb(self, filename, bar_msg='', header=''):
         """
         Saves atoms to a file in the pdb format. Calls Atoms.make_pdb(). bar_msg is a string with message to show
         at ProgressBar initialization. bar_msg = '' disables the bar.
         :param filename: str
         :param bar_msg: str
+        :param header: str
         :return: None
         """
         with open(filename, 'w') as f:
+            f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))
 
-    def select(self, sele):
+    def select(self, selection):
         """
         Selects subset of atoms defined by selection sentence.
-        :param sele: str or Selection
+        :param selection: str or Selection
         :return: Atoms
         """
-        if type(sele) is str:
-            s = Selection(sele)
+        if type(selection) is str:
+            s = Selection(selection)
         else:
-            s = sele
-        return Atoms([a for a in self.atoms if a.match(s)])
+            s = selection
 
-    def drop(self, sele):
+        return Atoms([a for a in self if a.match(s)])
+
+    def drop(self, selection):
         """
         Removes subset of atoms defined by selection sentence.
-        :param sele: str or Selection
+        :param selection: str or Selection
         :return: Atoms
         """
-        if type(sele) is str:
-            s = Selection(sele)
+        if type(selection) is str:
+            s = Selection(selection)
         else:
-            s = sele
+            s = selection
         return self.select(~s)
 
     def update_sec(self, sec):

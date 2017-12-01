@@ -1,14 +1,15 @@
 """Module for handling distance restraints"""
 
-from CABS.utils import PEPtoPEP1 as PP
+from CABS.utils import pep2pep1
+import random
 
 
 class Restraint:
     """Class represents single distance restraint"""
     def __init__(self, line, is_side_chain=False):
         i1, i2, d, w = line.split()
-        self.id1 = PP(i1)
-        self.id2 = PP(i2)
+        self.id1 = pep2pep1(i1)
+        self.id2 = pep2pep1(i2)
         self.distance = float(d)
         self.weight = float(w)
         self.sg = is_side_chain
@@ -54,6 +55,11 @@ class Restraints:
         for restr in self.data:
             restr.update_id(ids)
         return self
+
+    def reduce_by(self, factor):
+        if 0. < factor < 1.:
+            _count = int(len(self.data) * factor)
+            self.data = random.sample(self.data, _count)
 
 
 if __name__ == '__main__':

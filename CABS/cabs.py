@@ -14,12 +14,11 @@ from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime
 
-from CABS import logger
+from CABS import logger, _JUNK
 from CABS.vector3d import Vector3d
 from CABS.trajectory import Trajectory
 
 _name = 'CABS'
-_FORTRAN_COMMAND = 'gfortran -O2'
 
 
 class CabsLattice:
@@ -103,11 +102,11 @@ class CabsLattice:
 class CabsRun(Thread):
     """
     Class representing single cabs run.
-    TODO: add state() = initializing/running/done/error/interrupted
-    Generalnie to cala klase warto przepisac.
     """
     LATTICE = CabsLattice()  # static object CabsLattice used to convert structures to CABS representation
     FORCE_FIELD = (4.0, 1.0, 1.0, 2.0, 0.125, -2.0, 0.375)  # parameters of the CABS force field
+    FORTRAN_COMMAND = 'gfortran -O2'
+    CABS_DIR_FMT = '%y%m%d%H%M%S'
 
     def __init__(
             self, protein_complex, restraints, work_dir, replicas, replicas_dtemp, mc_annealing, mc_cycles, mc_steps,
@@ -133,13 +132,13 @@ class CabsRun(Thread):
             nmols=nmols, force_field=CabsRun.FORCE_FIELD, replicas=replicas, replicas_dtemp=replicas_dtemp,
             mc_annealing=mc_annealing, mc_cycles=mc_cycles, mc_steps=mc_steps, temperature=temperature
         )
-        total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-            * nreps * mc_cycles * mc_annealing
 
         cabs_dir = mkdtemp(
-            prefix=strftime('.%d%b.%H:%M:%S.'),
+            prefix='.' + strftime(self.CABS_DIR_FMT),
             dir=work_dir
         )
+
+        _JUNK.append(cabs_dir)
 
         with open(join(cabs_dir, 'FCHAINS'), 'w') as f:
             f.write(fchains)
@@ -153,7 +152,7 @@ class CabsRun(Thread):
             params=(ndim, nreps, nmols, maxres),
             src=resource_filename('CABS', 'data/data0.dat'),
             exe='cabs',
-            build_command=_FORTRAN_COMMAND,
+            build_command=self.FORTRAN_COMMAND,
             destination=cabs_dir
         )
 
@@ -162,8 +161,7 @@ class CabsRun(Thread):
 
         self.cfg = {
             'cwd': cabs_dir,
-            'exe': run_cmd,
-            'tra': total_lines
+            'exe': run_cmd
         }
 
     @staticmethod
@@ -209,24 +207,28 @@ class CabsRun(Thread):
 
         rest = [r for r in restraints.data if not r.sg]
         restr = '%i %.2f\n' % (len(rest), ca_weight)
-        if ca_weight:
+        if ca_weight and len(rest):
             rest.sort(key=attrgetter('id2'))
             rest.sort(key=attrgetter('id1'))
             all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
             rest_count = {i: all_ids.count(i) for i in all_ids}
-            max_r = max(rest_count.values() + [1])
-            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+            max_r = max(1, *rest_count.values())
+            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (
+                r.id1[0], r.id1[1], r.id2[0], r.id2[1], r.distance, r.weight
+            ) for r in rest]
             restr += ''.join(rest)
-            #  DO POPRAWY
+
         rest = [r for r in restraints.data if r.sg]
         restr += '%i %.2f\n' % (len(rest), sg_weight)
-        if sg_weight:
+        if sg_weight and len(rest):
             rest.sort(key=attrgetter('id2'))
             rest.sort(key=attrgetter('id1'))
             all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
             rest_count = {i: all_ids.count(i) for i in all_ids}
-            max_r = max(rest_count.values() + [max_r, ])
-            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (r.id1 + r.id2 + (r.distance, r.weight)) for r in rest]
+            max_r = max(max_r, *rest_count.values())
+            rest = ['%2i %3i %2i %3i %6.2f %6.2f\n' % (
+                r.id1[0], r.id1[1], r.id2[0], r.id2[1], r.distance, r.weight
+            ) for r in rest]
             restr += ''.join(rest)
 
         return restr, max_r
@@ -234,11 +236,11 @@ class CabsRun(Thread):
     @staticmethod
     def load_excluding(excl, dist, cabs_ids):
         return '%i %f\n' % (len(excl), dist) + '\n'.join(
-            '%i %i %i %i' % (cabs_ids[i] + cabs_ids[j]) for i, j in excl
+            '%i %i %i %i' % (cabs_ids[i][0], cabs_ids[i][1], cabs_ids[j][0], cabs_ids[j][1]) for i, j in excl
         )
 
     @staticmethod
-    def build_exe(params, src, exe='cabs', build_command=_FORTRAN_COMMAND, destination='.'):
+    def build_exe(params, src, exe='cabs', build_command=FORTRAN_COMMAND, destination='.'):
         with open(src) as f:
             lines = f.read()
 
@@ -248,9 +250,12 @@ class CabsRun(Thread):
 
         run_cmd = join(destination, exe)
         cmd = build_command.split() + ['-o', run_cmd, '-x', 'f77', '-']
-        out, err = Popen(cmd, stdin=PIPE, stderr=PIPE).communicate(lines)
-        if err:
-            raise Exception(err)
+        try:
+            out, err = Popen(cmd, stdin=PIPE, stderr=PIPE).communicate(lines)
+            if err:
+                raise Exception(err)
+        except Exception as e:
+            logger.critical(_name, msg=e.message)
         return run_cmd
 
     @staticmethod
@@ -275,9 +280,9 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        monitor = logger.cabs_observer(interval=0.2, traj=join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
-        CABS = Popen(self.cfg['exe'], cwd=self.cfg['cwd'], stderr=PIPE, stdin=PIPE)
-        (stdout, stderr) = CABS.communicate()
+        monitor = logger.CabsObserver(interval=0.2, progress_file=join(self.cfg['cwd'], 'PROGRESS'))
+        cabs_proc = Popen(self.cfg['exe'], cwd=self.cfg['cwd'], stderr=PIPE, stdin=PIPE)
+        (stdout, stderr) = cabs_proc.communicate()
         if stderr:
             logger.warning(module_name=_name, msg=stderr)
         monitor.exit()
