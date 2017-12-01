@@ -119,7 +119,7 @@ dock_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'verbose','remote', 'version', 'help'])
+                                   'contact-map-colors', 'verbose', 'remote', 'version', 'help'])
     ]
 }
 
@@ -149,7 +149,7 @@ flex_dict = {
                               'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
-                                   'contact-map-colors', 'remote','verbose', 'version', 'help'])
+                                   'contact-map-colors', 'remote', 'verbose', 'version', 'help'])
     ]
 }
 
@@ -581,11 +581,11 @@ options = {
             'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
     },
     'remote': {
-      'action' : 'store_true',
-      'help':
-          'Automatically redirects output to a CABSlog file created in the working directory and stops progress bar from ' 
-          'showing on higher verbosity levels and turns off log coloring. Piping standard error will not work with this option.'
-          'If a log file already exists it will be appended to.'
+        'action': 'store_true',
+        'help':
+            'Automatically redirects output to a CABSlog file created in the working directory and stops progress bar '
+            'from showing on higher verbosity levels and turns off log coloring. Piping standard error will not work '
+            'with this option. If a log file already exists it will be appended to.'
     },
     'replicas': {
         'flag': '-r',
@@ -605,8 +605,8 @@ options = {
     'save-cabs-files': {
         'flag': '-S',
         'action': 'store_true',
-        'help': 'Save CABSdock simulation files. The file will have a TIMESTAMP_CABS.cls format. '
-                'For example:  06Nov.16:19:24.knWPtn_CABS.cls (default: %(default)s)'
+        'help': 'Save CABSdock simulation file. The filename will have a TIMESTAMP.RANDOMSTRING.cbs format. '
+                'For example:  06Nov.16:19:24.knWPtn.cbs'
     },
     'save-config': {
         'flag': '-C',
@@ -710,8 +710,8 @@ options = {
 }
 
 
-DockParser = mk_parser(dock_dict, dc(groups), dc(options))
-FlexParser = mk_parser(flex_dict, dc(groups), dc(options))
+dock_parser = mk_parser(dock_dict, dc(groups), dc(options))
+flex_parser = mk_parser(flex_dict, dc(groups), dc(options))
 
 
 def if_append(option_name, value):

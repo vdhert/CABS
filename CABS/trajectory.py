@@ -13,7 +13,7 @@ __all__ = ['Trajectory', 'Header']
 _name = 'Trajectory'
 
 
-class Header:
+class Header(object):
     """Trajectory header read from CABS output: energies and temperatures"""
 
     class CannotMerge(Exception):
@@ -253,14 +253,14 @@ class Trajectory(object):
             target = target - t_com
 
             for model in self.coordinates.reshape(-1, len(self.template), 3):
-                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                query = np.concatenate([model[slice(*piece)] for piece in pieces])
                 query = query - np.average(query, axis=0, weights=self.weights)
                 query = np.dot(query, utils.kabsch(target, query, weights=self.weights, concentric=True)) + t_com
                 np.copyto(model, query)
 
         else:  # dynamic weights
             for model in self.coordinates.reshape(-1, len(self.template), 3):
-                query = np.concatenate([model[piece[0]:piece[1]] for piece in pieces])
+                query = np.concatenate([model[slice(*piece)] for piece in pieces])
                 rmsd, rot, t_com, q_com = utils.dynamic_kabsch(target, query)
                 np.copyto(model, np.dot(model - q_com, rot) + t_com)
 
@@ -278,40 +278,7 @@ class Trajectory(object):
 
         Returns two structures: reference and template -- both cropped to aligned parts only, and alignment as list of tuples.
         """
-        mth = align.AbstractAlignMethod.get_subclass_dict()[align_mth]
-        # aligning target
-        mtch_mtx = np.zeros((len(ref_chs), len(self_chs)), dtype=int)
-        algs = {}
-        key = 1
-        # rch -- reference chain
-        # tch -- template chain
-        for n, rch in enumerate(ref_chs):
-            for m, tch in enumerate(self_chs):
-                ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
-                tmp = self.template.select('name CA and not HETERO and chain %s' % tch)
-                try:
-                    algs[key] = mth.execute(ref, tmp, **kwargs)
-                except align.AlignError:
-                    continue
-                mtch_mtx[n, m] = key
-                key += 1
-
-        # joining cabs chains 
-        pickups = []
-        for n, refch in enumerate(mtch_mtx):
-            inds = np.nonzero(refch)
-            pickups.extend(refch[inds])
-        trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
-            #~ mtch_mtx[n + 1:, inds] = 0
-        try:
-            trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
-        except TypeError:   #empty list of alignments --> no seq identity
-            raise ValueError('No sequential similarity between input and reference according to used alignment method (%s).' % align_mth)
-        ref_mrs, tmp_mrs = zip(*trg_aln)
-        ref_sstc = Atoms(arg=list(ref_mrs))
-        tmp_sstc = Atoms(arg=list(tmp_mrs))
-        # sstc -- selected substructure (only aligned part)
-        return ref_sstc, tmp_sstc, trg_aln
+        return align.align_to(ref_stc, ref_chs, self.template, self_chs, align_mth, kwargs)
 
     def rmsd_to_reference(self, ref_sstc, self_sstc):
         """Returns list of RMSDs of given substructure of template to given reference.

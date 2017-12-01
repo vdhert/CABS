@@ -1,10 +1,12 @@
 import numpy
+import operator
 
 from abc import ABCMeta, abstractmethod
 from tempfile import mkstemp
 from os import remove
 from subprocess import check_output
 from CABS.utils import aa_to_short
+from CABS.atom import Atoms
 
 
 BLOSUM62 = numpy.array([[ 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2, -1,  1,  0, -3, -2,  0, -2, -1,  0, -4],
@@ -33,7 +35,6 @@ BLOSUM62 = numpy.array([[ 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2,
        [-4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,  1]])
 B62h = {None: 23, 'A': 0, 'C': 4, 'B': 20, 'E': 6, 'D': 3, 'G': 7, 'F': 13, 'I': 9, 'H': 8, 'K': 11, 'M': 12, 'L': 10, 'N': 2, 'Q': 5, 'P': 14, 'S': 15, 'R': 1, 'T': 16, 'W': 17, 'V': 19, 'Y': 18, 'X': 22, 'Z': 21}
 
-
 def raise_aerror_on(*errors):
     """Method wrapper that takes list of errors raised by method to be changed into AlignError."""
     def wrapper(method):
@@ -45,10 +46,8 @@ def raise_aerror_on(*errors):
         return wrapped_mth
     return wrapper
 
-
 def fmt_csv(atm):
     return "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
-
 
 def save_csv(fname, stcs, aligned_mers):
     """Creates csv alignment file.
@@ -62,7 +61,6 @@ def save_csv(fname, stcs, aligned_mers):
         f.write("\t".join(stcs) + "\n")
         for mrs in aligned_mers:
             f.write("\t".join(map(fmt_csv, mrs)) + '\n')
-
 
 def save_fasta(fname, stcs_names, stcs, aligned_mers):
     """Saves fasta file with alignment.
@@ -95,7 +93,6 @@ def save_fasta(fname, stcs_names, stcs, aligned_mers):
         for name, seq in zip(stcs_names, (txt1, txt2)):
             f.write(">%s\n%s\n" % (name, seq))
 
-
 def load_csv(fname, *stcs):
     """Loads pairwise alignment in csv format.
 
@@ -111,6 +108,65 @@ def load_csv(fname, *stcs):
         ms = line.split('\t')
         res.append([dct[mer] for mer, dct in zip(ms, dcts)])
     return res
+
+def align_to(ref_stc, ref_chs, trg_stc, trg_chs, align_mth='SW', kwargs={}):
+    """Calculates alignment of template to given reference structure.
+
+    Arguments:
+    ref_stc -- CABS.PDBlib.PDB instance of reference structure.
+    ref_chs -- str; chain id(s) of reference selection.
+    trg_stc -- CABS.PDBlib.PDB instance of target to be aligned with reference.
+    trg_chs -- str; chain id(s) of trajectory structure selection.
+    align_mth -- str; name of aligning method to be used. See CABS.align documentation for more information.
+    kwargs -- as above, but used when aligning target protein.
+
+    One needs to specify chains to be taken into account during alignment calculation.
+
+    Returns two structures: reference and template -- both cropped to aligned parts only, and alignment as list of tuples.
+    """
+    mth = AbstractAlignMethod.get_subclass_dict()[align_mth]
+    # aligning target
+    mtch_mtx = numpy.zeros((len(ref_chs), len(trg_chs)), dtype=int)
+    algs = {}
+    key = 1
+    # rch -- reference chain
+    # tch -- template chain
+    # in mtch_mtx rows are ref chs and cols are template chs
+    for n, rch in enumerate(ref_chs):
+        for m, tch in enumerate(trg_chs):
+            ref = ref_stc.select('name CA and not HETERO and chain %s' % rch)
+            tmp = trg_stc.select('name CA and not HETERO and chain %s' % tch)
+            try:
+                algs[key] = mth.execute(ref, tmp, **kwargs)
+            except AlignError:
+                continue
+            mtch_mtx[n, m] = key
+            key += 1
+
+    # joining cabs chains
+    pickups = []
+    for n, refch in enumerate(mtch_mtx):
+        inds = numpy.nonzero(refch)[0]
+        picked_mers = set([])
+        for ind in inds:
+            #~ import pdb; pdb.set_trace()
+            trgmrs, dummy = zip(*algs[refch[ind]])
+            if len(picked_mers.intersection(trgmrs)):
+                mtch_mtx[n, ind] = 0
+                continue
+            picked_mers |= set(trgmrs)
+            pickups.append(refch[ind])
+            mtch_mtx[n + 1:, ind] = 0
+
+    try:
+        trg_aln = reduce(operator.add, [algs.get(k, ()) for k in pickups])
+    except TypeError:   #empty list of alignments --> no seq identity
+        raise ValueError('No sequential similarity between input and reference according to used alignment method (%s).' % align_mth)
+    ref_mrs, tmp_mrs = zip(*trg_aln)
+    ref_sstc = Atoms(arg=list(ref_mrs))
+    tmp_sstc = Atoms(arg=list(tmp_mrs))
+    # sstc -- selected substructure (only aligned part)
+    return ref_sstc, tmp_sstc, trg_aln
 
 
 class AlignError(Exception):
