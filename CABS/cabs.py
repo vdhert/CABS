@@ -132,8 +132,6 @@ class CabsRun(Thread):
             nmols=nmols, force_field=CabsRun.FORCE_FIELD, replicas=replicas, replicas_dtemp=replicas_dtemp,
             mc_annealing=mc_annealing, mc_cycles=mc_cycles, mc_steps=mc_steps, temperature=temperature
         )
-        total_lines = int(sum(1 + np.ceil((ch + 2) / 4.) for ch in protein_complex.chain_list.values())) \
-            * nreps * mc_cycles * mc_annealing
 
         cabs_dir = mkdtemp(
             prefix='.' + strftime(self.CABS_DIR_FMT),
@@ -163,8 +161,7 @@ class CabsRun(Thread):
 
         self.cfg = {
             'cwd': cabs_dir,
-            'exe': run_cmd,
-            'tra': total_lines
+            'exe': run_cmd
         }
 
     @staticmethod
@@ -283,7 +280,7 @@ class CabsRun(Thread):
         )
 
     def run(self):
-        monitor = logger.CabsObserver(interval=0.2, traj=join(self.cfg['cwd'], 'TRAF'), n_lines=self.cfg['tra'])
+        monitor = logger.CabsObserver(interval=0.2, progress_file=join(self.cfg['cwd'], 'PROGRESS'))
         cabs_proc = Popen(self.cfg['exe'], cwd=self.cfg['cwd'], stderr=PIPE, stdin=PIPE)
         (stdout, stderr) = cabs_proc.communicate()
         if stderr:

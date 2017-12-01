@@ -74,6 +74,8 @@ c       proteins up to 30 for N>200
      &  forceRSG(ndim, nmols, nmols, maxres),
      &  otherRSG(ndim, nmols, nmols, maxres)
 
+        common /PROGRESS/ progress, total_progress
+
 
         DIMENSION apabla(2,0:19,0:19,2,2),apablp(2,0:19,0:19,2,2)
         DIMENSION apablm(2,0:19,0:19,2,2)
@@ -144,6 +146,7 @@ c       Strenghts rescaled in this version
         OPEN(UNIT=13,FILE='R13',     STATUS='OLD')
         OPEN(UNIT=29,FILE='CENTRO',  STATUS='OLD')
         OPEN(UNIT=33,FILE='SIDECENT',STATUS='OLD')
+        OPEN(UNIT=40,FILE='PROGRESS')
 
 c       SEQ sequence   (i  ALA  SECONDARY_STRUCT_code=1,2,4)
 c       INP input file with scaling parameters and restraints
@@ -187,6 +190,9 @@ c       for larger distances energy grows in alinear fashion
         READ(5,*) ESC_0, ARLO, ENONE, EHBOND, ASRO
 
         write(log_fmt, '(a, i0, 2a)') '(', mols, 'f14.4', ')'
+        total_progress = nanneal * ncycle * replicas * mols
+        progress = 0
+        write(40, '(F6.2)') current_progress() 
 
         do ii=0,19
         do j=0,100
@@ -1793,6 +1799,10 @@ c	Move rejected - restore the initial state of the chain
          ereplica(itemp) = ereplica(itemp) 
      &   + e_internal + 0.5 * e_interaction
 
+         progress = progress + 1
+         rewind(40)
+         write(40,'(F6.2)') current_progress()
+
         enddo
 
 c	end of ITEMPs replica	
@@ -2038,7 +2048,7 @@ c     *****************************************************************
 
 
 c     *****************************************************************
-c	A random number generator by AK - tested
+c	  A random number generator by AK - tested
 
         FUNCTION arand(ise)
         common/arandom/ a, b, c, d
@@ -2050,6 +2060,15 @@ c	A random number generator by AK - tested
         arand=g
         return
         end
+c     *****************************************************************
+c     function that computes current progress
+
+        function current_progress()
+          common /progress/ p, t
+          current_progress = (100. * p) / t
+          return
+        end 
+c     *****************************************************************
         FUNCTION EHB(jjjj,kkkk)
 
         IMPLICIT INTEGER(I-Z)
@@ -2717,9 +2736,6 @@ c       geometry
 
         RETURN
         END
-
-c     *****************************************************************
-
         FUNCTION erestr(ibegin, iend)
 
         implicit integer (i - z)
@@ -2919,9 +2935,6 @@ c	SG-SG restraints between chains
 
         return
         end
-
-c     *****************************************************************
-
         FUNCTION ESHORT(iiii,jjjj)
 
         IMPLICIT INTEGER(I-Z)
@@ -3173,9 +3186,6 @@ c       bias to predicted secondary structure geometry
 
         RETURN
         END
-
-C       ***************************************************************
-
         FUNCTION LOOK(jj,kk)
 
         IMPLICIT INTEGER(I-Z)

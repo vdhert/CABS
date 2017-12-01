@@ -260,13 +260,12 @@ class ProgressBar:
 
 class CabsObserver(Thread):
 
-    def __init__(self, interval=0.5, traj='', n_lines=0, job_name='CABS simulation', msg=''):
+    def __init__(self, interval=0.5, progress_file=None, job_name='CABS simulation', msg=''):
         Thread.__init__(self)
         self.exit_event = Event()
         self.interval = interval
         self.progress_bar = ProgressBar(module_name='CABS', job_name=job_name, start_msg=msg)
-        self.traj = traj
-        self.n_lines = n_lines
+        self.progress_file = progress_file
         self.daemon = True  # In case main program ends abruptly
         self.start()
 
@@ -281,8 +280,9 @@ class CabsObserver(Thread):
             sleep(self.interval)
 
     def status(self):
-        if not exists(self.traj):
-            progress = 0.
-        else:
-            progress = 100. * int(check_output(['wc', '-l', self.traj]).split()[0]) / self.n_lines
+        try:
+            with open(self.progress_file, 'rb') as f:
+                progress = float(f.read())
+        except (IOError, ValueError):
+            progress = 0
         return progress
